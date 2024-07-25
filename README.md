@@ -43,4 +43,4 @@
 
 ----
 
-[[01_daily_diary/엣날공부한것/all_obsidian/all_obsidian_togit/만든법]]
+[](01_daily_diary/엣날공부한것/all_obsidian/all_obsidian_togit/만든법)
