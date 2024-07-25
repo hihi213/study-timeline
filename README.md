@@ -41,7 +41,6 @@
 
 - 세미나 또는 유튜브 강의를 통해서 학습한 내용을 정리합니다.
 
+----
 
-
-
-![참고](TIL하는법)
+[[01_daily_diary/엣날공부한것/all_obsidian/all_obsidian_togit/만든법]]
