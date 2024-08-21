@@ -16,4 +16,5 @@
 	 - count = 20
 	  
 - ## 반복문
-	- ![](../../../pic/Screenshot.png)
+	- 평소처럼 자연스럽게 내려가는게 yes
+	- 아닌게 no ![](../../../pic/Screenshot.png)
