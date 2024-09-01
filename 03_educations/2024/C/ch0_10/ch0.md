@@ -19,4 +19,4 @@
 	- 평소처럼 자연스럽게 내려가는게 yes
 	- 아닌게 no 
 	- no이후의 동작은 오른쪽이아닌 아래다 모든 동작단계는 수직이다.
-	- ![](../../../pic/Screenshot.png)
+	- ![](../../../../01_daily_diary/pic/Screenshot.png)
