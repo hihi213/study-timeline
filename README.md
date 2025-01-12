@@ -43,4 +43,4 @@
 
 ----
 
-[how](01_daily_diary/엣날공부한것/all_obsidian/all_obsidian_togit/how.md)
+[how](05_extra/엣날공부한것/all_obsidian/all_obsidian_togit/how.md)
