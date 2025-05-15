@@ -59,3 +59,7 @@
 		- 데이터 추가,  삭제, 수정, 검색
 	- relational database language: SQL
 		- DML+VDL+DDL이 통합된 언어
+
+
+6월 2주차까지 모든기능 정의, db완성
+- 
