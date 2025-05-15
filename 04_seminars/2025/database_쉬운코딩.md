@@ -1,0 +1,61 @@
+- ## 데이터베이스 기본개념
+	- database: 전자(electronic)적으로 저장되고 사용되는 관련있는 데이터들의 조직화된 집합
+		- 잘 찾을수있게, 데이터 중복, 불일치 막게 조직화
+	- dbms : db를 정의하고 만들고 관리하는 기능을 제공하는 소프트웨어 시스템
+		- db를 정의하다 보면 부가적인 데이터=>metadata가 발생한다
+			- metadata(data를 설명하는 data ex사진이라는 데이터가 언제 찍혔는지 설명하는 메타데이터)
+			- 데이터 유형, 구조, 제약조건, 보안, 저장, 인덱스, 사용자 등
+	- datasystem=database+dbms
+	- datamodel: db의 구조를 기술하는데 사용될수있는 개념들이 모인 집합
+		- db구조를 추상화해서 표현할수있는 수단을 제공한다
+		- datamodel은 여러종류가 있고, 추상화수준과 db구조화 방식이 조금씩 다르다
+			- db에서 읽고 쓰는 기본적인 동작도 포함된다
+	- datamodel의 종류
+		- conceptual data model : 비개발자도 쉽게 이해할수있는 개념들로 이루어진 모델
+			- 추상화수준이 제일높고, 비즈니스 요구사항을 추상화할때 많이 사용
+				- entity-relationship model
+					- er diagram으로 표현
+			- logical data model: 디테일하게 db를 구조화할수있는 개념을 제공
+				- 데이터가 컴퓨터에 저장될떄의 구조와 크게 다르지 않게 db 구조화를 가능하게 함
+				- 특정 dbms, storage에 종속되지 않는 추상화 수준
+				- relational data model
+					- 백엔드 개발자들이 많이 사용
+				- object data model
+				- object-relational data model
+			- physical data model
+				- 컴퓨터에 데이터가 어떻게 파일 형태로 저장되는지를 기술할수있는 수단을 제공
+	- schema
+		- data model를 바탕으로 database의 구조를 기술한것
+			- 스키마는 데이터베이스를 설계할때 정해지며 정해지면 자주 바뀌지 않는다
+	- database state
+		- database에 있는 실제 데이터는 자주 바뀔수 있다
+		- 특정 시점의 database에 있는 데이터를 database state 혹은 snapshot이라고 한다
+		- 혹은 database에 있는 현재 인스턴스의 집합이라고도 한다
+	- three-schema architecture
+		- database system을 구축하는 아키텍쳐 중의 하나
+		- 유저 어플리케이션으로부터 물리적인(physical) database를 분리시키는 목적
+			- database 바뀔때에도유저 어플리케이션에 영향을 안주기 위해서
+		- 세가지 level이 존재하며 각각의 level마다 스키마가 정의되어 있다
+		- 각 레벨을 독립시켜 어느 레벨에서의 변화가 상위레벨에 영향을 주지 않기 위함
+			- external schemas
+				- 사용자가 바라보는 스키마
+				- external views라고도 불림
+				- 특정유저들이 필요로하는 데이터만 표현
+					- 그외 알려줄 필요가없는 데이터는 숨김
+				- logical data model을 통해 표현
+			- conceptual schemas
+				- 전체 database에 대한 구조를 기술
+				- 물리적인 저장구조에 관한 내용은 숨김
+				- 엔티티, 데이터타입,등에 집중
+			- internal schema
+				- 물리적으로 데이터가 어떻게 저장되는지
+				- physical datamodel를 통해 표현
+				- 데이터가 존재하는 공간
+	- DDL(data definition language) conceptual schema를 정의하기 위해 사용되는 언어
+		- sdl, vdl의 역할을 ddl이 수행가능하다
+		- SDL(storage definition language): internal schema를 정의하기위해 사용되는 언어
+		- VDL: external schemas
+	- DML(data manipulation language) : database 실제로 있는 데이터를 활용하기 위한 언어
+		- 데이터 추가,  삭제, 수정, 검색
+	- relational database language: SQL
+		- DML+VDL+DDL이 통합된 언어
