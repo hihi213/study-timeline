@@ -1,4 +1,6 @@
 
+•	관리자 페이지에서 “로그” 메뉴를 만들어, 특정 사용자/관리자/기간별로 검색·조회
+	•	엑셀(csv)로 내보내기 기능 제공
 ### 1. `users` – 사용자 테이블
 
 ```sql
@@ -117,3 +119,4 @@ CREATE TABLE book_statistics (
 				FOREIGN KEY (resource_id) REFERENCES resources(id)
 				ON DELETE CASCADE;
 			- 사용자 벌점이 기기랑 연결되어있을경우엔 기기 id를 null처리
+			- 
