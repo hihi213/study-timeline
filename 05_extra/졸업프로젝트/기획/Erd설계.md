@@ -99,3 +99,13 @@ CREATE TABLE book_statistics (
 	);
 	- → 여기서 user_id가 외래키로 연결되기 때문에, **기록마다 정확히 누구인지 추적이 가능합니다**
 	- (단, 그 사용자가 퇴사하지 않고 users에 살아있는 경우)
+- 관리자가 구조/자원 추가및 삭제했을때 변경이력 기록 테이블 필요
+	- 기숙사생들의 주거는 동/층/호로 트리구조이고
+		locations (
+		  id SERIAL PRIMARY KEY,
+		  name VARCHAR(100),
+		  type ENUM('BUILDING', 'FLOOR', 'ROOM'),
+		  parent_id INT NULL REFERENCES locations(id),
+		  is_active BOOLEAN DEFAULT true
+		)
+	- 관리자가 주거공간/기능공간(냉장고, 세탁기, 도서) 자원을 추가 삭제할수있도록
