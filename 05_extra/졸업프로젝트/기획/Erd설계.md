@@ -109,3 +109,11 @@ CREATE TABLE book_statistics (
 		  is_active BOOLEAN DEFAULT true
 		)
 	- 관리자가 주거공간/기능공간(냉장고, 세탁기, 도서) 자원을 추가 삭제할수있도록
+		- 기기 삭제시 물리삭제로 관련기록도 자동삭제
+			- 그럴려면
+			- -- 예시: 세탁기 사용 기록  resources에서 삭제할 경우 관련 기록도 자동 삭제됨
+				ALTER TABLE washer_usages
+				ADD CONSTRAINT fk_resource
+				FOREIGN KEY (resource_id) REFERENCES resources(id)
+				ON DELETE CASCADE;
+			- 사용자 벌점이 기기랑 연결되어있을경우엔 기기 id를 null처리
