@@ -119,4 +119,126 @@ CREATE TABLE book_statistics (
 				FOREIGN KEY (resource_id) REFERENCES resources(id)
 				ON DELETE CASCADE;
 			- 사용자 벌점이 기기랑 연결되어있을경우엔 기기 id를 null처리
-			- 
+
+좋아, 지금까지 너가 말한 구조를 바탕으로 **냉장고 관리 기능에 필요한 DB 테이블 정의**를 아래와 같이 정리해봤어. 세탁기랑은 다르게 **칸 단위 접근 제어**와 **층 공용 냉동칸**이라는 특징을 반영했어.
+
+---
+
+## **✅ 냉장고 관련 DB 테이블 정의**
+
+  
+
+### **1.** 
+
+### **resources**
+
+###  **(자원 테이블 – 세탁기, 냉장고, 스터디룸 등 공통)**
+
+```
+CREATE TABLE resources (
+  id SERIAL PRIMARY KEY,
+  resource_type VARCHAR(50),         -- e.g., 'REFRIGERATOR'
+  location_id INT NOT NULL,          -- 위치 정보 (층/호실 등)
+  name VARCHAR(100),                 -- e.g., '3층 냉장고 A'
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT now()
+);
+```
+
+---
+
+### **2.** 
+
+### **refrigerator_compartments**
+
+###  **(냉장고 칸 정의)**
+
+```
+CREATE TABLE refrigerator_compartments (
+  id SERIAL PRIMARY KEY,
+  resource_id INT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+  compartment_index INT NOT NULL CHECK (compartment_index BETWEEN 0 AND 3),
+  compartment_type ENUM('FRIDGE', 'FREEZER') NOT NULL,
+  is_shared BOOLEAN DEFAULT FALSE         -- FREEZER는 TRUE
+);
+```
+
+- compartment_index 예시:
+    
+    - 0~2 → 냉장칸
+        
+    - 3 → 냉동칸
+        
+    
+
+---
+
+### **3.** 
+
+### **resource_access_rules**
+
+###  **(자원 접근 권한 설정)**
+
+```
+CREATE TABLE resource_access_rules (
+  id SERIAL PRIMARY KEY,
+  compartment_id INT NOT NULL REFERENCES refrigerator_compartments(id) ON DELETE CASCADE,
+  access_type ENUM('GROUP', 'FLOOR') NOT NULL,
+  group_id INT,           -- access_type = 'GROUP'일 때 사용
+  floor_code VARCHAR(10), -- access_type = 'FLOOR'일 때 사용
+  UNIQUE(compartment_id, access_type, group_id, floor_code)
+);
+```
+
+> 💡 냉장칸은 GROUP 기반으로 설정하고,
+
+> 냉동칸은 FLOOR 기반으로 설정하면 돼.
+
+---
+
+### **4.** 
+
+### **stored_items**
+
+###  **(냉장고에 등록된 사용자 물품)**
+
+```
+CREATE TABLE stored_items (
+  id SERIAL PRIMARY KEY,
+  compartment_id INT NOT NULL REFERENCES refrigerator_compartments(id) ON DELETE CASCADE,
+  user_id INT NOT NULL REFERENCES users(id),
+  item_name VARCHAR(100) NOT NULL,
+  expiration_date DATE,
+  memo TEXT,
+  created_at TIMESTAMP DEFAULT now(),
+  last_modified_at TIMESTAMP DEFAULT now()
+);
+```
+
+---
+
+## **✅ 요약 구조**
+
+```
+resources (냉장고 전체)
+  └─ refrigerator_compartments (각 칸 정의: 냉장/냉동)
+       └─ resource_access_rules (해당 칸의 접근 가능 그룹 or 층)
+       └─ stored_items (해당 칸에 저장된 유저 물품)
+```
+
+---
+
+필요한 다음 단계는?
+
+- 냉장고 등록 흐름 (관리자용)
+    
+- 사용자 냉장고 이용 흐름
+    
+- 검사자 냉장고 점검 흐름
+    
+- 알림 연동 및 유통기한 임박 처리
+    
+
+  
+
+필요한 거 말해줘, 이어서 정리해줄게.
