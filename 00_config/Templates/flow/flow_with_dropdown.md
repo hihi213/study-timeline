@@ -1,15 +1,20 @@
 ---
-title: "{{흐름명}}"
-tags: ["#흐름", "#절차", "#{{분야}}"]
-related: [[상위개념]], [[관련개념1]], [[관련개념2]]
-status: "{{status::초안|검토필요|확정|보류}}"
-sr-due: 2025-06-08
+title: "{{VALUE:흐름명}}"
+tags:
+  - "#흐름"
+  - "#절차"
+  - "#{{분야}}"
+related:
+  - "[[상위개념]]"
+  - "[[관련개념1]]"
+  - "[[관련개념2]]"
+status: 초안
+sr-due: <% tp.date.now("YYYY-MM-DD", +1 ) %>
 sr-interval: 1
 sr-ease: 250
-created: 2025-06-08
+created: <% tp.date.now("YYYY-MM-DD") %>
 ---
-
-# 🔄 {{흐름명}}
+# 🔄 {{VALUE:흐름명}}
 
 ---
 
