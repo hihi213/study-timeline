@@ -86,6 +86,6 @@ README.md             ← 전체 구조 및 사용 설명
 
 ----
 
-[how](02_Sources/Books/2024/자바의%20정석/컬렉션프레임워크/how.md)
+[how](../../02_Resources/Books/2024/자바의%20정석/컬렉션프레임워크/how.md)
 
 
