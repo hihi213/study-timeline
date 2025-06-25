@@ -1,7 +1,12 @@
 ---
 tags: moc
 ---
-# <% tp.file.title %> {MOC}
+---
+tags: moc
+---
+
+# <% tp.file.title %>
+
 > [!abstract] 이 주제의 개요
 > 이 MOC는 ...에 대한 지식들을 종합하고 연결하기 위한 허브 노트입니다.
 
@@ -16,11 +21,20 @@ tags: moc
 ## 이 주제와 관련된 모든 노트 (Dataview 자동 목록)
 
 ### 개념 노트 (Concepts)
-\```dataview 
-LIST FROM #concept AND [[<% tp.file.title %>]] AND !#"_Templates" SORT file.name ASC
-\```
+```dataview
+LIST
+FROM #concept AND #topic/주제태그 
+WHERE file.name != this.file.name
+SORT file.name ASC
+/* '#topic/주제태그' 부분을 이 MOC에 맞는 실제 태그(예: #topic/network)로 수정해주세요.
+*/
+```
 
-### 소스 노트 (Sources)
-\```dataview
-LIST FROM #source AND [[<% tp.file.title %>]] AND !#"_Templates" SORT file.name ASC
-\```
+
+```dataview
+LIST
+FROM #source AND #topic/주제태그
+SORT file.name ASC
+/* '#topic/주제태그' 부분을 이 MOC에 맞는 실제 태그(예: #topic/network)로 수정해주세요.
+*/
+```
