@@ -38,6 +38,23 @@
 3. **태그 (Tags):** 상태, 종류, 주제 등 노트의 '속성'을 부여하는 바코드.
 4. **검색 (Search & Quick Switcher):** `Ctrl+O`를 통해 원하는 노트를 즉시 소환.
 5. **Dataview:** 정해진 규칙에 따라 노트를 자동으로 목록화하는 엔진.
+
+#### **2.1 수집(Capture): 의미론적 하이라이팅**
+
+단순히 줄 긋는 것을 넘어, '생각하며 읽는' 과정입니다.
+
+- **하이라이트 4색 시스템:**
+    - 🟡 **노란색 (`yellow`):** 객관적 사실, 핵심 정의.
+    - 🟢 **초록색 (`green`):** 실용적 예시, 코드, 사용법.
+    - 🔵 **파란색 (`blue`):** 저자의 주장, 독창적 통찰.
+    - 🔴 **빨간색 (`red`):** 나의 질문, 이해되지 않는 부분, 새로운 영감.
+- **PDF++ 복사 포맷:** 아래 포맷을 사용해, 색상 정보와 출처를 옵시디언의 '콜아웃'으로 자동 변환합니다.
+    
+    ```
+    > [!quote|{{color}}] {{linktext}}
+    > — {{linkWithDisplay}}
+    ```
+
 #### **2.2. 가공 및 종합(Process & Synthesize): 2가지 핵심 모드**
 [학습 끝난 후 따로 시간내서 가공(Process)시간 가지기](99_System/학습%20끝난%20후%20따로%20시간내서%20가공(Process)시간%20가지기.md)
 매주 '지식 제련 세션' 시간을 갖고, 그날의 목표에 따라 아래 두 경로 중 하나를 선택합니다.
@@ -52,6 +69,97 @@
 
 매주 정해진 시간에 `00_Inbox/` 폴더를 검토하며, 각 노트를 **삭제, 즉시 실행, 이동, 병합, 재정의** 중 하나로 처리하여 인박스를 비웁니다. 이는 시스템을 건강하게 유지하는 가장 중요한 습관입니다.
 
+### **Part 3: 최종 자동화 설정 (`마스터 생성 마법사`)**
 
+**단 하나의 단축키(`Ctrl+Shift+N`)**로 모든 노트 생성을 시작합니다.
+
+#### **1. 최종 사용법**
+
+1. **`Ctrl+Shift+N`** 을 누릅니다.
+    
+2. 나타나는 선택창에서 만들고 싶은 노트 종류를 선택합니다.
+    
+    - **개념 노트 (지능형 생성):**
+        
+        - **실행 전:** URL, 텍스트, PDF 하이라이트 등 원하는 정보를 `Ctrl+C`로 복사합니다.
+            
+        - **결과:** 복사한 내용의 종류를 분석하여 이름과 내용이 자동으로 채워진 새 개념 노트가 생성됩니다.
+            
+    - **소스 노트 (선택한 PDF):**
+        
+        - **실행 전:** 파일 탐색기에서 대상 PDF 파일을 마우스로 클릭해 둡니다.
+            
+        - **결과:** PDF 파일명과 일치하는 `[S]...` 소스 노트가 생성되고 바로 열립니다.
+            
+    - **MOC (지식 지도):**
+        
+        - **실행 후:** MOC의 주제를 물어보는 입력창이 뜹니다.
+            
+        - **결과:** 입력한 주제로 된 `... MOC.md` 파일이 생성됩니다.
+            
+
+#### **2. 최종 설정 코드 (참고용)**
+
+아래는 이 '마법'을 가능하게 하는 최종 코드들입니다. 이미 설정이 완료되었으니, 나중에 시스템을 재구축하거나 수정할 때 참고하시면 됩니다.
+
+- **`masterWizard.js` (마법사 스크립트):**
+    
+    JavaScript
+    
+    ```
+    module.exports = async (params) => {
+        const { quickAddApi } = params;
+        const noteType = await quickAddApi.suggester(
+            ["개념 노트 (지능형 생성)", "소스 노트 (선택한 PDF)", "MOC (지식 지도)"],
+            ["concept", "source", "moc"]
+        );
+        if (!noteType) return;
+        switch (noteType) {
+            case "concept": await quickAddApi.executeChoice("스마트 개념 노트 생성"); break;
+            case "source": await quickAddApi.executeChoice("선택한 PDF로 소스노트 생성"); break;
+            case "moc": await quickAddApi.executeChoice("새 MOC 만들기"); break;
+        }
+    };
+    ```
+    
+- **`T - 개념 노트.md` (지능형 템플릿):**
+    
+    Markdown
+    
+    ```
+    <%*
+    const clipboard = await navigator.clipboard.readText();
+    let title = "새 개념 노트 - " + tp.date.now("YYYYMMDDHHmm");
+    let content = clipboard;
+    const urlRegex = /^(https?:\/\/[^\s]+)/;
+    if (urlRegex.test(clipboard)) {
+        title = await tp.web.title(clipboard) || "웹 페이지";
+        title = title.replace(/[\\/:*?"<>|]/g, '-');
+        content = `URL: ${clipboard}`;
+    } else if (clipboard.startsWith("> [!quote")) {
+        const match = clipboard.match(/> \[!quote\|.*?\] (.*?)\n/);
+        title = match ? match[1].slice(0, 50) : "PDF 하이라이트";
+    } else if (clipboard) {
+        title = clipboard.slice(0, 50);
+    }
+    await tp.file.rename(title);
+    const finalContent = `---
+    tags: concept
+    status: seedling
+    aliases: []
+    date-created: ${tp.date.now("YYYY-MM-DD")}
+    ---
+    # ${title}
+    > [!abstract] 한 줄 요약
+    > 
+    ## 핵심 내용
+    ${content}
+    ## 질문 및 추가 탐구점
+    - 
+    ## 관련 노트 (Connections)
+    - `;
+    tR += finalContent;
+    %>
+    ```
 
 

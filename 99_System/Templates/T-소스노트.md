@@ -6,14 +6,7 @@ author:
 source-link: 
 date-created: <% tp.date.now("YYYY-MM-DD") %>
 ---
----
-tags: source
-type: 
-status: unprocessed
-author: 
-source-link: 
-date-created: <% tp.date.now("YYYY-MM-DD") %>
----
+
 
 # <% tp.file.title %>
 
@@ -21,4 +14,4 @@ date-created: <% tp.date.now("YYYY-MM-DD") %>
 > - 이 자료를 통해 내가 얻고 싶은 것은 무엇인가?
 
 ## 하이라이트 및 나의 생각
--
+- 

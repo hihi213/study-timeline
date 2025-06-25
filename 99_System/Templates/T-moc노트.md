@@ -1,9 +1,6 @@
 ---
 tags: moc
 ---
----
-tags: moc
----
 
 # <% tp.file.title %>
 
