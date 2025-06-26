@@ -3,7 +3,7 @@ module.exports = async (params) => {
     // 이제 우리는 도구 상자의 정확한 이름이 'quickAddApi'인 것을 압니다.
 
     const { quickAddApi } = params;
-
+const clipboard = await navigator.clipboard.readText();
 
 
     const noteType = await quickAddApi.suggester(
@@ -34,7 +34,7 @@ module.exports = async (params) => {
 
             break;
         case "source_web":
-            await quickAddApi.executeChoice("(web/youtube)소스노트 생성");
+     		await quickAddApi.executeChoice("웹뷰열기");
             break;
 
         case "moc":
