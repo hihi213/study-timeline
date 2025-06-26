@@ -5,7 +5,7 @@ module.exports = async (params) => {
         return;
     }
     const baseName = activeFile.basename;
-    const newNoteName = `[S] ${baseName}`;
+    const newNoteName = `{S} ${baseName}`;
     const templateFile = app.vault.getAbstractFileByPath("99_System/Templates/T-소스노트.md");
     if (!templateFile) { new Notice("소스 노트 템플릿을 찾을 수 없습니다."); return; }
     const templateContent = await app.vault.read(templateFile);
