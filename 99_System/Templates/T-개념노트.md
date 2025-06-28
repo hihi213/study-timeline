@@ -1,60 +1,37 @@
 <%*
-// 1. 클립보드에서 하이라이트 내용을 읽어옵니다.
+// 1. 클립보드 내용을 읽어옵니다.
 const clipboard = await navigator.clipboard.readText();
-let title = "새 개념 노트 - " + tp.date.now("YYYYMMDDHHmm");
+let title = tp.file.title; // QuickAdd가 만든 임시 파일의 제목을 가져옴
 let content = clipboard;
-let noteType = "note"; // 기본 타입
+let noteType = "note";
 
-// 2. [✨ 새로운 기능!] 콜아웃에서 색상(RGB 또는 이름)을 추출합니다.
-const calloutRegex = /> \[!quote\|(.*?)]/;
+// 2. [수정] 정규식을 사용하여 클립보드 내용을 분석합니다.
+const calloutRegex = /> \[!(\w+)\|(.+?)\] ### \[(.+?)\]\(.*\)/s;
 const calloutMatch = clipboard.match(calloutRegex);
 
 if (calloutMatch) {
-    const colorValue = calloutMatch[1]; // 예: "74, 144, 226" 또는 "concept"
-    
-    // 3. [✨ 새로운 기능!] 색상 값을 우리가 정한 키워드로 변환합니다.
+    const colorValue = calloutMatch[2].trim();
+    title = calloutMatch[3]; 
     switch (colorValue) {
-        case "74, 144, 226": // 파란색
-        case "concept":
-            noteType = "concept";
-            break;
-        case "127, 211, 33": // 초록색
-        case "example":
-            noteType = "example";
-            break;
-        case "248, 231, 28": // 노란색
-        case "author_view":
-            noteType = "author_view";
-            break;
-        case "176, 16, 224": // 보라색
-        case "my_thought":
-            noteType = "my_thought";
-            break;
+        case "74, 144, 226": case "concept": noteType = "concept"; break;
+        case "127, 211, 33": case "example": noteType = "example"; break;
+        case "248, 231, 28": case "author_view": noteType = "author_view"; break;
+        case "176, 16, 224": case "my_thought": noteType = "my_thought"; break;
     }
-    
-    // 콜아웃에서 실제 제목 텍스트만 추출합니다.
-    const titleRegex = /### \[\[.*?\|(.*?)\]\]/;
-    const titleMatch = clipboard.match(titleRegex);
-    if (titleMatch) {
-        title = titleMatch[1];
-    }
-} else if (clipboard) { // 일반 텍스트나 URL인 경우 (기존 로직)
+} else if (clipboard) {
     const urlRegex = /^(https?:\/\/[^\s]+)/;
     if (urlRegex.test(clipboard)) {
         title = await tp.web.title(clipboard) || "웹 페이지";
-        title = title.replace(/[\\/:*?"<>|]/g, '-');
     } else {
         title = clipboard.slice(0, 50);
     }
 }
 
-// 4. 파일 이름을 최종적으로 변경합니다.
-// 중요: 개념 노트는 02_Notes에 생성되어야 하므로, 경로를 직접 지정합니다.
-const finalName = title.replace(/[\\/:*?"<>|]/g, '-'); // 파일명에 못쓰는 특수문자 최종 제거
-const finalPath = `02_Notes/${finalName}.md`;
-await tp.file.move(finalPath);
+// 3. [수정] 현재 파일의 이름만 변경합니다. (새로 만들거나 옮기지 않음)
+const finalName = title.replace(/[\\/:*?"<>|]/g, '-');
+await tp.file.rename(finalName);
 
-// 5. 노트의 최종 내용을 구성합니다.
+// 4. [수정] 노트에 채워넣을 최종 내용만 구성합니다.
 const finalContent = `---
 tags: concept
 type: ${noteType}
@@ -77,5 +54,6 @@ ${content}
 ## 관련 노트 (Connections)
 - `;
 
-tR += finalContent;
+// 5. [수정] 현재 파일의 내용을 이 내용으로 완전히 교체합니다.
+tR = finalContent;
 %>
