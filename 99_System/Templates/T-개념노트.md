@@ -1,11 +1,10 @@
 <%*
-// 1. 클립보드 내용을 읽어옵니다.
+// 1. 클립보드 내용을 읽고, 제목/타입/내용을 분석합니다. (자동화 로직)
 const clipboard = await navigator.clipboard.readText();
-let title = tp.file.title; // QuickAdd가 만든 임시 파일의 제목을 가져옴
+let title = tp.file.title;
 let content = clipboard;
 let noteType = "note";
 
-// 2. [수정] 정규식을 사용하여 클립보드 내용을 분석합니다.
 const calloutRegex = /> \[!(\w+)\|(.+?)\] ### \[(.+?)\]\(.*\)/s;
 const calloutMatch = clipboard.match(calloutRegex);
 
@@ -27,33 +26,43 @@ if (calloutMatch) {
     }
 }
 
-// 3. [수정] 현재 파일의 이름만 변경합니다. (새로 만들거나 옮기지 않음)
+// 2. 파일 이름을 최종적으로 변경합니다.
 const finalName = title.replace(/[\\/:*?"<>|]/g, '-');
 await tp.file.rename(finalName);
 
-// 4. [수정] 노트에 채워넣을 최종 내용만 구성합니다.
+// 3. 노트에 채워넣을 최종 '내용'을 '생각 발전기' 양식에 맞춰 구성합니다.
 const finalContent = `---
 tags: concept
 type: ${noteType}
 status: seedling
 aliases: []
 date-created: ${tp.date.now("YYYY-MM-DD")}
+sources: []
 ---
 
 # ${finalName}
 
-> [!abstract] 한 줄 요약
-> 
+### 1. 한 줄 정의 (Definition)
+> [!abstract] 
+> > 
 
-## 핵심 내용
+---
+
+### 2. 나만의 언어로 설명 (My Understanding)
 ${content}
 
-## 질문 및 추가 탐구점
+### 3. 왜 중요한가? (Why it Matters / So What?)
 - 
 
-## 관련 노트 (Connections)
+### 4. 구체적인 예시 또는 비유 (Examples or Analogies)
+- 
+
+### 5. 추가 질문 및 탐구점 (Open Questions)
+- 
+
+### 6. 관련 노트 (Connections)
 - `;
 
-// 5. [수정] 현재 파일의 내용을 이 내용으로 완전히 교체합니다.
+// 4. 현재 파일의 내용을 이 내용으로 완전히 교체합니다.
 tR = finalContent;
 %>
