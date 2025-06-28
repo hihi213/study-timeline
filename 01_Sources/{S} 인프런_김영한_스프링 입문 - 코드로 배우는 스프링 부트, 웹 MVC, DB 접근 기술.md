@@ -13,3 +13,9 @@ date-created: 2025-06-28
 > - 이 자료를 통해 내가 얻고 싶은 것은 무엇인가?
 
 ## 하이라이트 및 나의 생각
+
+    
+
+`- ${colorName}:: "${text}"${comment ? `\n\t- 주석: ${comment}` : ''} — ${linkWithDisplay}`
+
+`- ${colorName}:: "${text}"${comment ? `\n\t- 주석: ${comment}` : ''} — ${linkWithDisplay}`
