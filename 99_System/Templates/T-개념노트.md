@@ -1,45 +1,81 @@
 <%*
-// 1. 클립보드 내용을 읽어옵니다.
+// 1. 클립보드에서 하이라이트 내용을 읽어옵니다.
 const clipboard = await navigator.clipboard.readText();
 let title = "새 개념 노트 - " + tp.date.now("YYYYMMDDHHmm");
 let content = clipboard;
-let noteType = "note"; // 기본 타입을 'my_thought'와 유사한 'note'로 설정
+let noteType = "note"; // 기본 타입
 
-// ✨ 새로운 기능! 하이라이트 키워드를 추출하여 노트 타입으로 자동 설정합니다.
-const highlightRegex = /^(concept|example|author_view|my_thought)::/;
-const highlightMatch = clipboard.match(highlightRegex);
+// 2. [✨ 새로운 기능!] 콜아웃에서 색상(RGB 또는 이름)을 추출합니다.
+const calloutRegex = /> \[!quote\|(.*?)]/;
+const calloutMatch = clipboard.match(calloutRegex);
 
-if (highlightMatch) {
-    // "concept::", "example::" 등에서 "::"를 제외한 키워드를 추출합니다.
-    noteType = highlightMatch[1];
-}
-
-// ... (URL, 하이라이트, 텍스트를 분석하여 title과 content를 결정하는 부분 - 이전과 동일) ...
-const urlRegex = /^(https?:\/\/[^\s]+)/;
-if (urlRegex.test(clipboard)) {
-    title = await tp.web.title(clipboard) || "웹 페이지";
-    title = title.replace(/[\\/:*?"<>|]/g, '-');
-    content = `URL: ${clipboard}`;
-    noteType = 'concept'; // URL은 보통 개념으로 간주
-} else if (clipboard.startsWith("> [!quote")) { // PDF++ 콜아웃 형식
-    const match = clipboard.match(/> \[!quote\|(.*?)] (.*?)\n/);
-    if(match) {
-        title = match[2].slice(0, 50);
-        noteType = match[1]; // 콜아웃의 색상 이름(yellow, green 등)을 타입으로 사용
-    } else {
-        title = "PDF 하이라이트";
+if (calloutMatch) {
+    const colorValue = calloutMatch[1]; // 예: "74, 144, 226" 또는 "concept"
+    
+    // 3. [✨ 새로운 기능!] 색상 값을 우리가 정한 키워드로 변환합니다.
+    switch (colorValue) {
+        case "74, 144, 226": // 파란색
+        case "concept":
+            noteType = "concept";
+            break;
+        case "127, 211, 33": // 초록색
+        case "example":
+            noteType = "example";
+            break;
+        case "248, 231, 28": // 노란색
+        case "author_view":
+            noteType = "author_view";
+            break;
+        case "176, 16, 224": // 보라색
+        case "my_thought":
+            noteType = "my_thought";
+            break;
     }
-} else if (highlightMatch) { // key:: value 형식
-    title = clipboard.replace(highlightRegex, '').trim().slice(0, 50);
-} else if (clipboard) { // 일반 텍스트
-    title = clipboard.slice(0, 50);
+    
+    // 콜아웃에서 실제 제목 텍스트만 추출합니다.
+    const titleRegex = /### \[\[.*?\|(.*?)\]\]/;
+    const titleMatch = clipboard.match(titleRegex);
+    if (titleMatch) {
+        title = titleMatch[1];
+    }
+} else if (clipboard) { // 일반 텍스트나 URL인 경우 (기존 로직)
+    const urlRegex = /^(https?:\/\/[^\s]+)/;
+    if (urlRegex.test(clipboard)) {
+        title = await tp.web.title(clipboard) || "웹 페이지";
+        title = title.replace(/[\\/:*?"<>|]/g, '-');
+    } else {
+        title = clipboard.slice(0, 50);
+    }
 }
 
-// 2. 파일 이름을 최종적으로 변경합니다.
-await tp.file.rename(title);
+// 4. 파일 이름을 최종적으로 변경합니다.
+// 중요: 개념 노트는 02_Notes에 생성되어야 하므로, 경로를 직접 지정합니다.
+const finalName = title.replace(/[\\/:*?"<>|]/g, '-'); // 파일명에 못쓰는 특수문자 최종 제거
+const finalPath = `02_Notes/${finalName}.md`;
+await tp.file.move(finalPath);
 
-// 3. 노트의 최종 내용을 구성합니다. (type: noteType 이 자동으로 채워짐!)
+// 5. 노트의 최종 내용을 구성합니다.
+const finalContent = `---
+tags: concept
+type: ${noteType}
+status: seedling
+aliases: []
+date-created: ${tp.date.now("YYYY-MM-DD")}
+---
 
+# ${finalName}
+
+> [!abstract] 한 줄 요약
+> 
+
+## 핵심 내용
+${content}
+
+## 질문 및 추가 탐구점
+- 
+
+## 관련 노트 (Connections)
+- `;
 
 tR += finalContent;
 %>
