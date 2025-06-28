@@ -7,7 +7,7 @@ module.exports = async (params) => {
 
     const noteType = await quickAddApi.suggester(
 
-        [(pdf)소스노트 생성,"(web/youtube)소스노트 생성","개념노트 생성","MOC노트 생성"],
+        ["(pdf)소스노트 생성","(web/youtube)소스노트 생성","개념노트 생성","MOC노트 생성"],
 
          ["source_pdf", "source_web", "concept", "moc"]
 
@@ -20,17 +20,16 @@ module.exports = async (params) => {
 
 
     switch (noteType) {
-	case "source-pdf":
+	    case "source_pdf":
             await quickAddApi.executeChoice("소스노트 생성");
             break;
+
         case "source_web":
      		await quickAddApi.executeChoice("웹뷰열기");
             break;
 
         case "concept":
-
             await quickAddApi.executeChoice("개념노트 생성");
-
             break;
         
 
