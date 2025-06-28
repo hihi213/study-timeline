@@ -39,27 +39,7 @@ if (urlRegex.test(clipboard)) {
 await tp.file.rename(title);
 
 // 3. 노트의 최종 내용을 구성합니다. (type: noteType 이 자동으로 채워짐!)
-const finalContent = `---
-tags: concept
-type: ${noteType}
-status: seedling
-aliases: []
-date-created: ${tp.date.now("YYYY-MM-DD")}
----
 
-# ${title}
-
-> [!abstract] 한 줄 요약
-> 
-
-## 핵심 내용
-${content}
-
-## 질문 및 추가 탐구점
-- 
-
-## 관련 노트 (Connections)
-- `;
 
 tR += finalContent;
 %>
