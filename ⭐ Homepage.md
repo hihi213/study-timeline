@@ -77,3 +77,43 @@ dv.header(2, "🗺️ 나의 모든 지식 지도 (MOCs)");
 dv.list(dv.pages('#moc and !"_Templates"').sort(p => p.file.name, 'asc').map(p => p.file.link));
 
 ```
+
+
+## 📥 처리 대기열 (Processing Queue)
+
+_아직 가공되지 않은 원재료들입니다. 이 노트들을 'seeding' 상태의 개념 노트로 만들어보세요._
+
+**TABLE WITHOUT ID file.link AS "노트", creation_date AS "생성일"** **FROM ""** **WHERE status = "inbox"** **SORT creation_date ASC**
+
+---
+
+## 🌱 씨앗 키우기 (Concepts to Nurture)
+
+_'seeding' 상태의 노트들입니다. 내용을 보강하고 다른 노트와 연결하여 'growing' 상태로 발전시키세요._
+
+**TABLE WITHOUT ID file.link AS "개념", join(topics) AS "주제"** **FROM #개념노트** **WHERE status = "seeding"** **SORT file.mtime ASC**
+
+---
+
+## 🌳 성장 중인 아이디어 (Ideas in Progress)
+
+_일주일 이상 업데이트되지 않은 'growing' 상태의 노트들입니다. 잊지 말고 계속 발전시켜 나가세요._
+
+**TABLE WITHOUT ID file.link AS "개념", file.mtime AS "마지막 수정일"** **FROM #개념노트** **WHERE status = "growing" AND file.mtime < date(today) - dur(7 days)** **SORT file.mtime ASC**
+
+---
+
+## 🔗 연결이 필요한 노트 (Connection Opportunities)
+
+_다른 노트로의 연결(Outgoing Links)이 하나도 없는 '고아 노트'들입니다. 기존 지식 네트워크와 연결해주세요._
+
+**TABLE WITHOUT ID file.link AS "고아 노트", length(file.outlinks) as "연결 수"** **FROM #개념노트** **WHERE length(file.outlinks) = 0**
+
+---
+
+## ✅ 완료된 할 일 (Recent Accomplishments)
+
+_최근 7일간 완료된 할 일 목록입니다._
+
+**TASK** **WHERE done AND done > date(today) - dur(7 days)** **GROUP BY dateformat(done, "yyyy-MM-dd")**
+
