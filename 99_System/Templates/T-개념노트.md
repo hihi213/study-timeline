@@ -57,12 +57,12 @@ date-created: ${tp.date.now("YYYY-MM-DD")}
 > [!abstract] 나만의 단어로 한 줄 요약
 > 
 
-## 소스
-${content}
-
-
 ## 질문 및 추가 탐구점 / 관련 노트
-- `;
+- 
+
+## 소스
+${content}`;
+
 
 // 4. 현재 파일의 내용을 이 내용으로 완전히 교체합니다.
 tR = finalContent;
