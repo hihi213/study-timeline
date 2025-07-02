@@ -34,12 +34,57 @@ creation_date: 2025-07-01
   - > 💬 _이안에 톰캣과 스프링웹mvc가 있다는게 핵심_
   - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=10]]
 
-
 - spring-boot-starter
   - > 💬 _이 라이브러리로 스프링부트, 스프링 코어, 로깅에 관한게 다 떙겨진다_
   - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=10]]
 
+- spring-boot
+  - > 💬 _스프링코어 자동실행 환경설정_
+  - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=10]]
 
+- 로깅
+  - > 💬 _로그기록_
+  - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=10]]
+
+- thymeleaf  템플릿  엔진
+  - > 💬 _자바스크립트가 하는 "동적 DOM변경"과는 개념도 다르고 역할도 다르다 
+  - 루프, 조건문 등으로 HTML을 서버에서 만들어서 완성된 페이지를 클라이언트에 내려주는 역할 
+  - 사용자가 웹페이지를 요청 →스프링 컨트롤러가 데이터를 준비 → Thymeleaf가 그 데이터를 HTML에 채워 넣음 → 완성된 HTML을 브라우저로 보냄_
+
+  - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=11]]
+
+- [[02_Notes/java와 스프링컨트롤러에서의 return의 차이]]
+	java에서의 return: 계산결과를 되돌려주는 행위  ->스프림 mvc프레임워크가 다음동작을 결정
+	spring Controller에서 return: 
+	->이 요청에 대해 후속처리를 하도록 스프링 프레임워크에게 지시를 내리는 명령
+	->스프림 mvc프레임워크가 해석
+	
+	return 일반 자바: 값을 호출자에게 전달->호출자가 받음
+	Return 스프링컨트롤러: 뷰이름을 반환->템블릿 엔진이 처리->viewResolver가 받아서 html만들고 응답
+
+- 참고:  `spring-boot-devtools` 라이브러리를  추가하면,  `html` 파일을  컴파일만  해주면  서버  재시작 없이  View  파일  변경이  가능하다. 인텔리J  컴파일  방법:  메뉴  build  Recompile
+  - > 💬 _한번만 읽어야 빠르고 안전한, 애초에 고정된 로직인, 읽는시점이 시작시점인 빈(java클래스)와 달리 자주바뀌는 view는 요청올때마다 매번 파일을 다시읽어 랜더링 하기 때문에 서버 재시작없이 view 파일 변경이 가능_
+  - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=12]]
+
+- java  -jar  hello-spring-0.0.1-SNAPSHOT.jar
+  - > 💬 _만들어진 Jar파일을 실제로 실행하는 명령어_
+  - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=12]]
+
+
+- {{text}}
+  - {{`${comment && comment.trim() !== "" ? `> 💬 _${comment}_` : ''}`}}
+  - **출처:** {{linkToPage}}
+
+- {{text}}
+  - {{`${comment && comment.trim() !== "" ? `> 💬 ${comment.replace(/\n/g, '  ')}`  : ''}`}}
+  - **출처:** {{linkToPage}}
+
+- {{text}}
+  - {{`${comment && comment.trim() !== "" ? `> 💬 ${comment.replace(/\n/g, '  \n')}`  : ''}`}}
+  - **출처:** {{linkToPage}}
+- java  -jar  hello-spring-0.0.1-SNAPSHOT.jar
+  - `$만들어진 Jar파일을 실제로 실행하는 명령어 인텔리제이에서 실행하는 것과의 차이:  개발중 실행/디버깅용, .jar안만들고, 클래스만 실행 즉 ide 내부에서 클래스 컴파일+ 메모리에서 바로실행(빠름).replace(/\n/g, '\n> ')`
+  - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=12]]
 ---
 ## 💡 전체적인 나의 생각 (Overall Thoughts)
 - 이 정보원을 전체적으로 읽고 난 후의 생각이나 비판, 연결되는 아이디어 등을 자유롭게 기록합니다.
