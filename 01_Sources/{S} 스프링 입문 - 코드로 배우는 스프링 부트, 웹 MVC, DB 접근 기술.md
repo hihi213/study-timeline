@@ -58,7 +58,7 @@ creation_date: 2025-07-01
   - **출처:** [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=11]]
 
 
-- [[02_Notes/java와 스프링컨트롤러에서의 return의 차이]]
+- [[../00_Inbox/java와 스프링컨트롤러에서의 return의 차이]]
 	java에서의 return: 계산결과를 되돌려주는 행위  ->스프림 mvc프레임워크가 다음동작을 결정
 	spring Controller에서 return: 
 	->이 요청에 대해 후속처리를 하도록 스프링 프레임워크에게 지시를 내리는 명령
