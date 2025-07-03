@@ -14,14 +14,19 @@ topics:
 
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
 
-> [!PDF|74, 144, 226] 본문:
-> [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=4&annotation=1954R|스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술]]
+> [!PDF|74, 144, 226] 본문: [[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=4&annotation=1954R|스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술]]
+> ![[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=4&rect=23,135,582,451|스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술]]
 > > [!PDF|248, 231, 28] **강사의말:** 
 > > maven보단 gradle를 쓰는게 요즘 추세  groupid: 기업도메인명 artifactid: 빌드된 결과물(프로젝트명) dependencies: 어떤 라이브러리를 쓸거냐
 > 
 > >[!PDF|176, 16, 224] **나의 생각/질문:** 
 > > -.
 > > -.
+>
+
+
+
+
 
 
 
