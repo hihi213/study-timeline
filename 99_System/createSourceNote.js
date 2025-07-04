@@ -22,7 +22,7 @@ module.exports = async (params) => {
     // 4. 이미 같은 이름의 소스 노트가 존재하는지 확인하고, 없으면 새로 생성합니다.
     if (!fileToOpen) {
         // 템플릿 경로를 표준 경로로 수정
-        const templateFile = app.vault.getAbstractFileByPath("99_System/Templates/T-소스노트.md"); 
+        const templateFile = app.vault.getAbstractFileByPath("99_System/Templates/소스노트.md"); 
         if (!templateFile) {
             new Notice("오류: '_Templates/T - 소스 노트.md' 템플릿을 찾을 수 없습니다.");
             return;
