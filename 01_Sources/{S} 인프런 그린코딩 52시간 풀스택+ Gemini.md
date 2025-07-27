@@ -252,10 +252,10 @@ creation_date: 2025-07-21
 			- Object.create(), 생성자 함수로 관계 설정
 			- 동적: 실행중에도 상속관계 변경 가능
 	- 자바스크립트의 프로토타입이란?
-		- 다른 객체에게 속성과 기능(메서드)을 물려주는 **원본(부모) 객체**
+		- 다른 객체에게 속성과 기능(메서드)을 물려주는 **원본(부모) 객체**입니다. 자바스크립트의 모든 객체는 속성을 `{key: value}` 쌍으로 가지며, 프로토타입 역시 이 규칙을 따르는 일반 객체입니다.
+			- 예를 들어, `{ sound: function() { ... } }` 와 같은 형태가 됩니다. 
 	- 자바스크립트의 상속 핵심 원리: 프로토타입 체인
 		- 어떤 객체의 속성을 찾을 때 그 객체에 해당 속성이 없으면, 자바스크립트는 그 객체의 프로토타입(부모)으로 계속 거슬러 올라가며 속성을 찾습니다. 이 연결고리를 **프로토타입 체인**이라고 합니다.
-		- 자바스크립트의 모든 객체는 속성(property)을 `{key: value}` 쌍의 컬렉션으로 가집니다. **프로토타입 역시 일반 객체이므로** 이 규칙을 그대로 따릅니다. 예를 들어, `{ sound: function() { ... } }` 와 같은 형태가 됩니다. 
 		- 이 체인의 종점에는 모든 객체의 최상위 조상인 **`Object.prototype`**이 있습니다.
 			- **일반 객체 → `Object.prototype`**
 				- 모든 일반 객체는 `Object.prototype`으로부터 **`hasOwnProperty()`**, **`toString()`**, **`isPrototypeOf()`** 와 같은 객체의 기본적인 핵심 메서드들을 물려받습니다.
@@ -307,10 +307,21 @@ creation_date: 2025-07-21
 				
 	- 프로토타입 **조회 (Read): `Object.getPrototypeOf(객체)`**
 		- 객체의 부모(프로토타입)가 누구인지 명시적으로 확인할 수 있습니다.
-			```JavaScript
-			console.log(Object.getPrototypeOf(myCar) === Car.prototype); // true
-			```
-		- **모든 것은 객체다**: 함수 또한 특별한 능력을 가진 '객체'입니다. `Car.prototype.drive`에 할당된 값은 '함수'이므로, 이 함수의 부모는 모든 함수의 최종 조상인 `Function.prototype`입니다.
+		- `Object.getPrototypeOf()`의 결과는 조회하는 대상의 종류에 따라 달라집니다. 하나의 객체는 단 하나의 직계 부모만 가집니다.
+			- **객체 인스턴스 (`new Car()`로 생성)**
+			    - **직계 부모**: `Car.prototype`
+			    - **가계도**: `myCar` → `Car.prototype` → `Object.prototype`
+			    ```JavaScript
+			    function Car(name) { this.name = name; } const myCar = new Car('쏘나타'); console.log(Object.getPrototypeOf(myCar) === Car.prototype); // true
+			    ```
+			- **함수 (`function() {}`으로 생성)**
+			    - **직계 부모**: `Function.prototype`
+			    - **가계도**: `myFunction` → `Function.prototype` → `Object.prototype`
+			    ```JavaScript
+			    //모든 객체의 조상에게 sayHello 기능 추가
+			     Object.prototype.sayHello = function() { console.log("안녕하세요!"); };프
+			    console.log(Object.getPrototypeOf(sayHello) === Function.prototype); // true
+			    ```
 	- **동적 변경**: 자바스크립트는 실행 중에 객체의 프로토타입 상속 관계를 변경하는 것이 가능합니다.
 	- **⚠️ 경고: 내장 프로토타입 수정 금지**
 		- `Object.prototype`, `Array.prototype` 등 내장 객체의 프로토타입을 직접 수정하는 것은 다른 코드나 라이브러리와 충돌을 일으킬 수 있어 절대 피해야 합니다.
