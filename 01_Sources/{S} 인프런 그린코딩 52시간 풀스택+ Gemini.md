@@ -245,166 +245,133 @@ creation_date: 2025-07-21
 		- 일반객체 → Object.prototype
 		- 함수 → Function.prototype → Object.prototype
 			- 모든 함수는 Function.prototype으로부터 call, bind 같은 메소드를 물려받고, Function.prototype은 다시 Object.prototype으로부터 toString, hasOwnProperty 같은 최종 기능을 물려받습니다.
-	- 자바스크립트의 프로토타입(원형) 상속: 다른객체들이 속성과 기능을 물려받을 수있는 원본(부모)객체
+	- 자바의 클래스 상속
+		- 클래스를 통하여 이루어짐
+		- extends 키워드를 사용
+		- 컴파일 시점엔 이미 모든 상속관계가 확정
+	- 자바스크립트의 프로토타입 상속: 다른객체들이 속성과 기능을 물려받을 수있는 원본(부모)객체
 		- 객체를 통하여 이루어짐
 		- 객체가 다른객체로부터 직접 속성과 메소드를 물려받아 코드를 재사용
 			- 어떤 객체의 속성을 찾으려 할 때, 그 객체에 해당 속성이 없으면 자바스크립트는 그 객체의 프로토타입(부모)으로 올라가서 속성을 찾아봅니다. 이처럼 부모의 부모로 계속 이어지는 연결고리를 **프로토타입 체인(Prototype Chain)**이라고 합니다.
-		- `Object.create()`: 부모(프로토타입)를 지정하여 새 객체 만들기
+		- 프로토타입 조작 1: `Object.create()` 부모(프로토타입)를 지정하여 새 객체 만들기
 			- `Object.create(부모객체)`는 특정 객체를 부모로 삼는 새로운 빈 객체를 만들고, 그 객체의 메모리 주소를 반환합니다.
-			- 자바스크립트에서 프로토타입을 생성및추가(CREATE)를 한다는것은 사실상 새로운 객체를 생성하는것과 동일합니다. 그래서 프로토타입이라는 거대한 자바스크립트 바구니 안에 이제 {key:value}로 된 데이터를 저장시키고 CREATE하는 것.
+			- 자바스크립트의 모든 객체는 속성(property)을 `{key: value}` 쌍의 컬렉션으로 가집니다.
+				따라서 프로토타입 역시 이 규칙을 그대로 따릅니다.
 				const animal = {
 					sound:function(){
 					console.log("동물이 소리를 냅니다.");
 					}
 				} //{key:value}로 된 데이터 {sound:functio안}
-		- `__proto__`
+		- 프로토타입 조작2:  `__proto__`
 			- `Object.prototype`은 모든 객체의 최종 조상이므로, 여기에 기능을 추가하면 모든 자손 객체들이 해당 기능을 상속받아 사용할 수 있습니다.
 			- 다만, 내장 객체(`Object`, `Array` 등)의 프로토타입을 직접 수정하거나 삭제하는 것은 예기치 않은 문제를 일으킬 수 있어 피해야 합니다.
-		- `Object.getPrototypeOf(객체)`를 사용하면 해당 객체의 부모, 즉 프로토타입을 조회할 수 있습니다.
+		- 프로토타입 조회: `Object.getPrototypeOf(객체)`를 사용하면 해당 객체의 부모, 즉 프로토타입을 조회할 수 있습니다.
 			- console.log(Object.getPrototypeOf(sayHello) === Function.prototype);
 			- `Object.prototype.sayHello = function() {}` 코드에서 `sayHello`의 프로토타입을 조회하면 `Object.prototype`이 아닌 `Function.prototype`이 나옵니다. `sayHello`는 `Object.prototype`이라는 객체에 저장된 **값**일 뿐, 그 값 자체의 정체는 **'함수'**이기 때문입니다. 모든 함수의 부모는 `Function.prototype`입니다.
 		- 실행중에 상속관계 바꾸는것도 가능
-	- 자바의 클래스 상속
-		- 클래스를 통하여 이루어짐
-		- extends 키워드를 사용
-		- 컴파일 시점엔 이미 모든 상속관계가 확정
-	- 프로그래밍 언어에서는 논리적인 개념이 들어가면
+
 
 - ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
 - 리엑트 67번까지만 인강만 보고,그이후로부터 리엑트 프로젝트시작부분부터 + 졸프 프론트 구현병행
 	- 11번부터 시작.
 
 
-이부분 좀더 다듬는게 좋을듯
 
-// 자바스크립트 프로토타입(CRUD)
 
-// 자바스크립트에는 toString()과 같은 미리 정의된 속성과 함수가 존재합니다.
 
-// 이러한 속성과 함수를 다른 객체에게 속성과 메소드를 물려주는 '부모 객체'을 프로토타입(prototype)이라고 부릅니다.
-
-/*
-
-어떤 객체의 속성을 찾으려 할 때,
-
-그 객체에 해당 속성이 없으면 자바스크립트는 그 객체의 프로토타입(부모)으로 올라가서 속성을 찾아봅니다.
-
-*/
-
-  
-
-// 프로그래밍 세계에서는 프로토타입은 데이터를 저장(Create),조회(Read),수정(Update)
-
-// ,삭제(Delete)하기 위해 존재합니다. => CRUD
-
-// C => 프로토타입에 새로운 속성이나 메소드를 추가
-
-// R => 프로토타입에 저장된 기존 데이터와 메소드를 조회
-
-// U => 기존에 추가한 데이터나 메소드를 수정가능 하지만 수정하는건 매우 위험한 행동이니 지양할것
-
-// D => 프로토타입에서는 기본 예약어는 삭제할수 없으며, 직접 추가한 데이터만 삭제가능
-
-//결국 CREATE, READ만 가능다고 생각하자
-
-  
-
-// 우리가 자바스크립트 프로토타입에 CREATE,READ 기능을 적용시키기 위해서
-
-// 함수라는 기능을 사용할건데, 우리 함수에 대해서 깊이 들어가봅니다.
-
-// 자바스크립트 함수는 단순한 문법이 아니라 Function 객체에서 제공되는 기능입니다.
-
-// Function 객체는 함수 외에도 다양한 속성과 메소드를 가지고 있습니다.
-
-  
-
-// 모든 함수는 Function객체를 상속을 받는다
-
-//자바스크립트의 모든 데이터는 Object.prototype이라는 최상위 조상을 가집니다.
-
-//일반객체 → Object.prototype
-
-//함수 → Function.prototype → Object.prototype
-
-//프로토타입이 어려우면 상속할 한 묶음이라고 생각하자
-
-  
-
-// 모든 함수는 Function.prototype으로부터 call, bind 같은 메소드를 물려받고,
-
-// Function.prototype은 다시 Object.prototype으로부터
-
-// toString, hasOwnProperty 같은 최종 기능을 물려받습니다.
-
-  
-  
-
-// 프로토타입의 데이터를 추가(Create) 하고 조회(Read)하는 법을 배우도록 합니다.
-
-  
-
-// Object객체를 코드로 표현: "Object.prototype"
-
-// 자바스크립트에서 프로토타입을 생성및추가(CREATE)를 한다는것은 사실상
-
-// 새로운 객체를 생성하는것과 동일합니다. 그래서 프로토타입이라는 거대한 자바스크립트
-
-// 바구니 안에 이제 {key:value}로 된 데이터를 저장시키고 CREATE하는 것.
-
-  
-
-const animal = {
-
-sound:function(){
-
-console.log("동물이 소리를 냅니다.");
-
-}
-
-}//{key:value}로 된 데이터 {sound:functio안}
-
-  
-  
-
-// const dog = Object.create(animal);// animal를 부모로 삼는 빈객체를 생성하고, 메모리주소를 dog 변수에 저장한다
-
-// // Object.create(데이터) => 특정 객체를 프로토타입으로 삼는 새로운 빈 객체를 만듭니다
-
-// dog.sound();
-
-  
-
-// 객체를 생성하는 두번째 방법
-
-//객체1.prototype.변수1 : 객체1에 변수1(함수의 주소를 담은)를 추가합니다.
-
-Object.prototype.sayHello = function(){
-
-console.log("안녕하세요!");
-
-}
-
-  
-
-//Object.prototyper과 같은 내장 프로토타입에 기능을 추가하면 모든객체에 기능을 추가하는것과 마찬가지이무로
-
-//아무변수에서나 추가한 기능을 사용할수있다
-
-// const person = {name:"블랙"};
-
-// person.sayHello();
-
-  
-
-// 객체를 조회하는 방법
-
-//Object.getPrototypeOf(추가한 변수이름) 하면 추가한 변수가 가리키는 객체의 프로토타입을 가져온다.
-
-// 프로토타입 바구니에서 sayHello라는 우리가 직접 만든 sayHello코드를 조회
-
-console.log(Object.getPrototypeOf(sayHello) === Function.prototype);
-
-//sayHello는 Object.prototype이라는 객체에 저장된 값일 뿐,
-
-// 그 값의 정체는 **'함수'**입니다. 따라서 sayHello 함수의 부모를 물어보면 당연히 Function.prototype이 나오는 것
+#### 1. 프로토타입의 개념과 목적
+
+이 상속은 **프로토타입 체인(Prototype Chain)**을 통해 이루어집니다. 어떤 객체의 속성을 찾을 때 그 객체에 해당 속성이 없다면, 자바스크립트는 그 객체의 프로토타입(부모)으로 계속 거슬러 올라가 속성을 찾습니다. 이처럼 부모의 부모로 계속 이어지는 연결고리가 바로 프로토타입 체인입니다.
+
+이 체인의 종점에는 모든 객체의 최상위 조상인 **`Object.prototype`**이 있습니다.
+
+- **일반 객체:** `myObject` → `Object.prototype`
+    
+- **함수:** `myFunction` → `Function.prototype` → `Object.prototype`
+    
+
+---
+프로토타입을 다루는 핵심은 '어떤 객체를 부모로 삼을지'와 '부모 객체에 어떤 기능을 추가할지'입니다.
+
+- **조회 (Read): `Object.getPrototypeOf(객체)`** 이 메서드를 사용하면 해당 객체의 부모, 즉 프로토타입이 누구인지 명시적으로 확인할 수 있습니다.
+    
+- **추가 (Create):** 프로토타입 상속 관계를 만드는 방법은 크게 두 가지입니다.
+#### 2. 프로토타입 상속 관계 만들기
+
+프로토타입 상속을 구현하는 대표적인 방법은 크게 두 가지입니다.
+
+- **방법 1: `Object.create()`로 객체를 직접 상속하기** `Object.create(부모객체)`는 주어진 `부모객체`를 프로토타입으로 삼는 새로운 빈 객체를 생성하고, 그 메모리 주소를 반환합니다. 특정 객체의 유전자를 물려받는 자식 객체를 즉시 만들 때 유용합니다.
+    
+    JavaScript
+    
+    ```
+    const animal = { // 부모 객체 (프로토타입)
+        sound() {
+            console.log("동물이 소리를 냅니다.");
+        }
+    };
+    
+    const dog = Object.create(animal); // animal을 부모로 하는 dog 객체 생성 (animal를 부모로 삼는 빈객체를 생성하고, 메모리주소를 dog 변수에 저장한다)
+    dog.sound(); // "동물이 소리를 냅니다." -> 부모의 기능을 물려받음
+    ```
+    
+- **방법 2: 생성자 함수와 `new` 키워드로 상속하기** 생성자 함수는 '객체 설계도' 역할을 하며, `new` 키워드와 함께 사용될 때 프로토타입 상속을 가장 체계적으로 구현합니다.
+    
+    1. **생성자 함수(설계도)를 정의하고, 프로토타입에 공통 기능을 추가합니다.**
+        - 객체1.prototype.변수1 : 객체1에 변수1(함수의 주소를 담은)를 추가합니다
+        JavaScript
+        
+        ```
+        // 1. '차'를 만드는 생성자 함수(설계도) 정의
+        function Car(name) {
+          this.name = name;
+        }
+        // 2. 설계도의 프로토타입에 공통 기능 추가
+        // Car.prototype이라는 객체에 drive라는 속성을 추가합니다.
+        Car.prototype.drive = function() {
+          console.log(this.name + '가 운전합니다.');
+        };
+        ```
+        
+    2. **`new` 키워드로 객체를 생성합니다.** `new` 키워드는 내부적으로 다음 네 가지 일을 수행하며 상속 관계를 자동으로 완성합니다.
+        
+        - 새로운 빈 객체(`{}`)를 만듭니다.
+            
+        - 새 객체의 프로토타입을 **생성자 함수의 `prototype` 속성**에 연결합니다.
+	        - `새객체.__proto__ = 생성자함수.prototype`
+            
+        - 생성자 함수 코드 내의 `this`가 새로 만든 객체를 가리키도록 합니다.
+            
+        - 별도의 반환 구문이 없으면, 이렇게 완성된 새 객체를 반환합니다.
+            
+        
+        JavaScript
+        
+        ```
+        // 3. new 키워드로 객체 생성
+        const myCar = new Car('쏘나타'); // new가 마법을 부리는 시점!
+        myCar.drive(); // 쏘나타가 운전합니다.
+        ```
+        
+
+---
+
+#### 3. 프로토타입 체인 확인과 심화 이해
+
+- **프로토타입 확인: `Object.getPrototypeOf(객체)`** 이 메서드를 사용하면 해당 객체의 부모, 즉 프로토타입이 누구인지 명시적으로 확인할 수 있습니다.
+    
+    
+    
+    ```JavaScript
+    console.log(Object.getPrototypeOf(myCar) === Car.prototype); // true
+    ```
+    
+- **심화: 모든 것은 객체다** 자바스크립트에서는 함수 또한 특별한 능력을 가진 **'객체'**입니다. `Car.prototype.drive`에 할당된 값의 정체는 **'함수'**이므로, 이 함수의 부모 프로토타입을 조회하면 모든 함수의 최종 조상인 `Function.prototype`이 나옵니다.
+    
+    - `myCar`의 부모는 `Car.prototype` (객체)
+        
+    - `Car.prototype.drive`의 부모는 `Function.prototype` (객체)
+        
+    - `Car.prototype`의 부모는 `Object.prototype` (객체) 이처럼 모든 것이 객체이고, 프로토타입 체인으로 얽혀있는 것이 자바스크립트 상속의 본질입니다.
+        
+- **⚠️ 경고: 내장 프로토타입 수정 금지** `Object.prototype`이나 `Array.prototype` 같은 자바스크립트 **내장 객체**의 프로토타입을 직접 수정하는 것은 매우 위험합니다. 다른 코드나 라이브러리와 충돌하여 예측 불가능한 오류를 일으킬 수 있으므로 절대 피해야 합니다.
