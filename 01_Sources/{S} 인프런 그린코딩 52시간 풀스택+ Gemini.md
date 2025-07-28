@@ -483,8 +483,8 @@ creation_date: 2025-07-21
 		- **깊은 복사 (Deep Copy)**
 			- 내부에 중첩된 모든 객체와 배열까지 재귀적으로 복사하여 **완전히 독립된 복사본**을 만듭니다.
 			- 방법 1: Lodash 라이브러리 사용 (추천)
-					가장 안정적이고 편리한 방법은 `lodash` 라이브러리의 `cloneDeep` 메서드를 사용하는 것입니다.
-				
+					가장 안정적이고 편리한 방법은 `lodash` 라이브러리의 `cloneDeep` 메서드를 사용하는 것입니다
+				  
 				```JavaScript
 				//lodash라이브러리 불러오기
 				import _ from 'lodash';
