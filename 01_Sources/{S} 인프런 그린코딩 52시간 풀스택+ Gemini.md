@@ -276,7 +276,6 @@ creation_date: 2025-07-21
 			const dog = Object.create(animal); // animal을 부모로 하는 dog 객체 생성 (animal를 부모로 삼는 빈객체를 생성하고, 메모리주소를 dog 변수에 저장한다)
 			dog.sound(); // "동물이 소리를 냅니다." -> 부모의 기능을 물려받음
 			```
-			
 		- **방법 2: 생성자 함수와 `new` 키워드로 상속하기** 
 			- '객체 설계도' 역할을 하는 생성자 함수와 `new` 키워드를 사용하여 가장 체계적으로 상속을 구현합니다.
 			1. **생성자 함수(설계도)를 정의하고, 프로토타입에 공통 기능을 추가합니다.**
@@ -297,34 +296,57 @@ creation_date: 2025-07-21
 				- 1. 새로운 빈 객체(`{}`)를 만듭니다.
 				- 2. 새 객체의 프로토타입을 **생성자 함수의 `prototype` 속성**에 연결합니다.
 					- `새객체.__proto__ = 생성자함수.prototype`
-				- 3. 생성자 함수 코드 내의 `this`가 새로 만든 객체를 가리키도록 합니다.
+				- 3. this 바인딩
+					- 생성자 함수 코드 내의 `this`가 새로 만든 객체를 가리키도록 합니다.
 				- 4. 별도의 반환 구문이 없으면, 이렇게 완성된 새 객체를 반환합니다.
 				```JavaScript
 				// 3. new 키워드로 객체 생성
 				const myCar = new Car('쏘나타'); // new가 마법을 부리는 시점!
 				myCar.drive(); // 쏘나타가 운전합니다.
 				```
-				
+		- 방법 3: 내장 프로토타입 직접 확장하기
+			- 모든 객체의 최상위 조상인 `Object.prototype`에 직접 기능을 추가하면, 모든 객체가 해당 기능을 상속받아 사용할 수 있게 됩니다.
+			```JavaScript
+			// 모든 객체의 조상인 Object.prototype에 sayHello 메소드 추가
+			Object.prototype.sayHello = function() {
+			  console.log("안녕하세요!");
+			};
+			
+			const person = { name: "블랙" };
+			person.sayHello(); // 출력: 안녕하세요!
+			```
+			- **⚠️ 경고**: 이 방법은 매우 강력하지만, 다른 코드나 라이브러리와 충돌을 일으킬 수 있어 실제 프로젝트에서는 **절대 사용해서는 안 되는 위험한 방식**입니다.	
+			- 내장 프로토타입 수정 금지*`Object.prototype`, `Array.prototype` 등 내장 객체의 프로토타입을 직접 수정하는 것은 다른 코드나 라이브러리와 충돌을 일으킬 수 있어 절대 피해야 합니다.
 	- 프로토타입 **조회 (Read): `Object.getPrototypeOf(객체)`**
 		- 객체의 부모(프로토타입)가 누구인지 명시적으로 확인할 수 있습니다.
 		- `Object.getPrototypeOf()`의 결과는 조회하는 대상의 종류에 따라 달라집니다. 하나의 객체는 단 하나의 직계 부모만 가집니다.
-			- **객체 인스턴스 (`new Car()`로 생성)**
-			    - **직계 부모**: `Car.prototype`
-			    - **가계도**: `myCar` → `Car.prototype` → `Object.prototype`
-			    ```JavaScript
-			    function Car(name) { this.name = name; } const myCar = new Car('쏘나타'); console.log(Object.getPrototypeOf(myCar) === Car.prototype); // true
-			    ```
-			- **함수 (`function() {}`으로 생성)**
-			    - **직계 부모**: `Function.prototype`
-			    - **가계도**: `myFunction` → `Function.prototype` → `Object.prototype`
-			    ```JavaScript
-			    //모든 객체의 조상에게 sayHello 기능 추가
-			     Object.prototype.sayHello = function() { console.log("안녕하세요!"); };프
-			    console.log(Object.getPrototypeOf(sayHello) === Function.prototype); // true
-			    ```
-	- **동적 변경**: 자바스크립트는 실행 중에 객체의 프로토타입 상속 관계를 변경하는 것이 가능합니다.
-	- **⚠️ 경고: 내장 프로토타입 수정 금지**
-		- `Object.prototype`, `Array.prototype` 등 내장 객체의 프로토타입을 직접 수정하는 것은 다른 코드나 라이브러리와 충돌을 일으킬 수 있어 절대 피해야 합니다.
+		 -  1. `Object.create()`로 생성한 경우
+			`Object.create()`의 인자로 전달된 객체가 그대로 프로토타입이 됩니다.
+			```JavaScript
+			const animal = { sound() {} };
+			const dog = Object.create(animal);
+			
+			// dog의 직계 부모는 animal 객체입니다.
+			console.log(Object.getPrototypeOf(dog) === animal); // true
+			```
+		- 2. 생성자 함수(`new`)로 생성한 경우
+			`new` 키워드는 생성자 함수의 `.prototype` 속성을 객체의 프로토타입으로 자동 설정합니다.
+			```JavaScript
+			function Car(name) { this.name = name; }
+			const myCar = new Car('쏘나타');
+			
+			// myCar의 직계 부모는 Car.prototype 객체입니다.
+			console.log(Object.getPrototypeOf(myCar) === Car.prototype); // true
+			```
+		- 3. 객체 리터럴({})로 생성한 경우
+			`{}` 와 같은 객체 리터럴로 생성된 객체는 기본적으로 모든 객체의 최상위 조상인 `Object.prototype`을 프로토타입으로 가집니다.
+			```JavaScript
+			const person = { name: "블랙" };
+			
+			// person의 직계 부모는 Object.prototype 객체입니다.
+			console.log(Object.getPrototypeOf(person) === Object.prototype); // true
+			```
+
 
 
 - ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
