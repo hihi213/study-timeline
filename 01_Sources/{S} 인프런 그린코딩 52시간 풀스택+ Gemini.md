@@ -157,6 +157,7 @@ creation_date: 2025-07-21
 	- .클래스:focus
 		- 포커스됐을때의 속성 조절
 	- display가 block일때 마진을 0 auto로 두면 해당태그가 간격을 둔채 가운데 위치하게 됨
+- [[00_Inbox/Node.js공부하기전.md|Node.js공부하기전]]
 - 자바스크립트의 문법: 변수와 데이터 타입
 	- 자바스크립트란? :웹브라우저에서 실행되는 가장 기초적 언어
 	- 자바스크립트는 당시 자바의 유명세를 이용하기위해서 이름만 그렇게 지은 언어이다. 둘은 관련이 없다.
@@ -372,7 +373,7 @@ creation_date: 2025-07-21
 				- window를 가리킨다
 				- hi 변수에 sayHello 함수 자체를 저장한것이다
 - 자바스크립트 코드의 조직화: 예외처리
-	코드를 실행하는 도중 예기치 않은 문제(에러)가 발생하면 프로그램은 멈추게 됩니다. **예외 처리**는 이러한 에러가 발생할 가능성이 있는 코드를 미리 예측하고, 에러가 발생하더라도 프로그램이 멈추지 않고 대처할 수 있도록 만드는 안정적인 프로그래밍 방식입니다.
+	코드를 실행하는 도중 예기치 않은 문제(에러)가 발생하면 프로그램은 멈추게 됩니다. **예외 처리**는 이러한 에러가 발생할 가능성이 있는 코드를 미리 예측하고, 에러가 발생하더라도 프로그램이 멈추지 않고 대처할 수 있도록 만드는 안정적인 프로그래밍 방식입니다. 
 	
 	- `try...catch`의 기본 개념
 		- **`try` 블록**: 에러가 발생할 것으로 예상되는 코드를 이 안에 작성합니다.
@@ -482,22 +483,23 @@ creation_date: 2025-07-21
 		- **깊은 복사 (Deep Copy)**
 			- 내부에 중첩된 모든 객체와 배열까지 재귀적으로 복사하여 **완전히 독립된 복사본**을 만듭니다.
 			- 방법 1: Lodash 라이브러리 사용 (추천)
-				가장 안정적이고 편리한 방법은 `lodash` 라이브러리의 `cloneDeep` 메서드를 사용하는 것입니다.
+					가장 안정적이고 편리한 방법은 `lodash` 라이브러리의 `cloneDeep` 메서드를 사용하는 것입니다.
 				
 				```JavaScript
-				//const lodash = require('lodash');
+				//lodash라이브러리 불러오기
+				import _ from 'lodash';
 				
 				const originalObject = {
 				    name: 'black',
 				    address: { city: 'SEOUL' }
 				};
-				
-				const deepCopiedObject = lodash.cloneDeep(originalObject);
+				//`import _ from 'lodash';` 구문은 lodash 라이브러리 전체를 가져와서 `_` 라는 이름의 변수에 할당하라는 의미입니다. 따라서 함수를 호출할 때도 `_`를 사용해야 합니다.
+				const deepCopiedObject = _.cloneDeep(originalObject);
 				
 				deepCopiedObject.address.city = "BUSAN";
 				
 				// 깊은 복사된 객체를 수정해도 원본은 전혀 영향을 받지 않습니다.
-				console.log(originalObject.address.city); // "SEOUL"
+console.log(originalObject.address.city); // "SEOUL"
 				```
 				
 			-  방법 2: `JSON.parse(JSON.stringify())` 활용
