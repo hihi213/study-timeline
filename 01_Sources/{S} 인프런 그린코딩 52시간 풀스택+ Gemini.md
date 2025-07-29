@@ -682,3 +682,167 @@ creation_date: 2025-07-21
 - ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
 - 리엑트 67번까지만 인강만 보고,그이후로부터 리엑트 프로젝트시작부분부터 + 졸프 프론트 구현병행
 	- 11번부터 시작.
+
+
+- 1. 자바스크립트의 동기와 비동기
+	- 자바스크립트는 기본적으로 한 번에 하나의 작업만 처리하는 **동기(Synchronous)** 방식으로 동작합니다. 코드가 작성된 순서대로 위에서 아래로 실행되며, 특정 작업이 끝날 때까지 다음 작업은 대기합니다.
+	```JavaScript
+	// 동기 방식의 예: for문이 끝날 때까지 다음 코드는 실행되지 않음
+	console.log("1. 시작");
+	for(let i = 0; i < 1000000000; i++) {} // 이 작업이 끝날 때까지 멈춤
+	console.log("2. 끝");
+	```
+	
+	- 하지만 API 호출처럼 시간이 오래 걸리는 작업을 동기 방식으로 처리하면 웹 페이지 전체가 멈추는 문제가 발생합니다. 이를 해결하기 위해 **비동기(Asynchronous)** 방식이 사용됩니다. 비동기는 특정 작업의 완료를 기다리지 않고, 바로 다음 코드를 실행하여 프로그램의 흐름이 멈추지 않게 합니다.
+	
+	- **주요 비동기 작업 예시**: API 호출, 타이머 설정(`setTimeout`)
+	    
+
+---
+
+- ### 2. 비동기 처리 방식의 발전
+	
+	- 자바스크립트에서는 비동기 작업을 다루기 위해 다음과 같이 문법이 발전해왔습니다.
+#### **2.1. 콜백 함수 (Callback)**
+다른 함수의 인자로 전달되어, 특정 작업이 끝난 후 실행되는 함수입니다. 비동기 처리의 가장 기본적인 방식이지만, 코드가 복잡해지는 **콜백 헬(Callback Hell)** 문제가 발생할 수 있습니다.
+
+JavaScript
+
+```
+function fetchData(callback) {
+   setTimeout(() => {
+    console.log("데이터 가져오기 완료!");
+    callback(); // 작업 완료 후, 전달받은 콜백 함수 실행
+   }, 1000);
+}
+
+function displayData() {
+    console.log("데이터를 화면에 표시");
+}
+
+fetchData(displayData);
+```
+
+#### **2.2. 프로미스 (Promise)**
+
+콜백 헬 문제를 해결하기 위해 도입된 개념으로, 비동기 작업의 **'미래 결과(성공 또는 실패)'를 담는 객체**입니다. "언젠가 완료되면 결과를 알려주겠다"는 약속과 같습니다.
+
+- **피자 주문 비유:**
+    
+    1. 피자를 주문하면 영수증을 받습니다. (Promise 객체 생성)
+        
+    2. 피자가 완성될 때까지 기다립니다. (대기 상태: Pending)
+        
+    3. 피자가 완성되면 영수증을 보여주고 피자를 받습니다. (성공: Fulfilled, `resolve` 호출)
+        
+    4. 재료가 소진되면 피자를 받을 수 없다는 소식을 듣습니다. (실패: Rejected, `reject` 호출)
+        
+- **코드 예시:**
+    
+    JavaScript
+    
+    ```
+    function orderPizza() {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                let success = true; // 피자 제작 성공 여부
+                if (success) {
+                    resolve("피자 제작 성공!");
+                } else {
+                    reject("피자 제작 실패!");
+                }
+            }, 2000);
+        });
+    }
+    
+    orderPizza()
+      .then(result => console.log(result))  // 성공 시 실행
+      .catch(error => console.log(error))   // 실패 시 실행
+      .finally(() => console.log("주문 종료")); // 성공/실패 여부와 관계없이 실행
+    ```
+    
+
+#### **2.3. async / await**
+
+`Promise`를 기반으로, 비동기 코드를 마치 **동기 코드처럼 보이게 만들어** 가독성을 획기적으로 높인 최신 문법입니다.
+
+- **`async`**: 함수 앞에 붙이면, 해당 함수는 항상 `Promise`를 반환합니다.
+    
+- **`await`**: `async` 함수 안에서만 사용할 수 있으며, `Promise`가 완료될 때까지 함수의 실행을 **일시 정지하고 기다립니다.** `Promise`가 성공하면 그 결과값을 반환합니다.
+    
+    - **중요**: `await`는 프로그램 전체를 멈추는 것이 아니라, `async` 함수 내부의 흐름만 잠시 멈춥니다. 따라서 **비동기적인 특성은 그대로 유지**됩니다.
+        
+- **코드 예시:**
+    
+    JavaScript
+    
+    ```
+    async function fetchPizza() {
+        console.log("피자 주문 시작");
+        try {
+            const result = await orderPizza(); // orderPizza()가 완료될 때까지 기다림
+            console.log(result); // 성공 시 결과 출력
+        } catch (error) {
+            console.log(error); // 실패 시 에러 출력
+        } finally {
+            console.log("주문 종료");
+        }
+    }
+    
+    fetchPizza();
+    ```
+    
+
+---
+
+### 3. API 통신과 fetch 함수
+
+**API 명세서**는 클라이언트와 서버가 데이터를 주고받기 위한 약속이며, 주로 다음 내용을 포함합니다.
+
+- **HTTP Method**: `GET`(조회), `POST`(생성) 등
+    
+- **Endpoint**: 요청을 보낼 서버의 URL 주소
+    
+- **데이터 형식**: 주로 JSON 사용
+    
+- **상태 코드**: `200`(성공), `404`(찾을 수 없음) 등
+    
+
+#### **fetch 함수**
+
+자바스크립트에서 API를 호출하는 가장 기본적인 방법이며, `Promise`를 반환합니다.
+
+- **`response.json()`의 의미**: `fetch`로 받은 응답(Response)은 그대로 사용할 수 없고, 그 안의 데이터를 추출해야 합니다. `response.json()`은 응답 본문을 읽어 그 내용을 **자바스크립트 객체로 변환**하는 작업을 수행하며, 이 과정 또한 비동기이므로 `Promise`를 반환합니다. 파일 확장자를 바꾸는 것과는 관련이 없습니다.
+    
+
+JavaScript
+
+```
+// fetch와 async/await를 함께 사용한 예시
+async function getUserData() {
+    try {
+        // http:// 또는 https:// 포함 필수
+        const response = await fetch('https://api.example.com/user/1');
+        const userData = await response.json(); // 응답을 JS 객체로 변환
+        console.log(userData);
+    } catch (error) {
+        console.error("데이터를 가져오는 데 실패했습니다:", error);
+    }
+}
+```
+
+#### **jQuery의 ajax 함수**
+
+`fetch` 이전에 많이 사용되던 방식으로, 여전히 많은 곳에서 사용되고 있습니다.
+
+JavaScript
+
+```
+$.ajax({
+    url: "https://api.example.com/data",
+    type: "GET",
+    dataType: "json",
+    success: function(response){ console.log("성공: ", response); },
+    error: function(error){ console.log("실패: ", error); }
+});
+```
