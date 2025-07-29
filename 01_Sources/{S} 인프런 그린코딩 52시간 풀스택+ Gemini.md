@@ -744,30 +744,85 @@ fetchData(displayData);
 
 - **피자 주문 비유:**
     1. Promise 객체 생성: 피자를 주문하면 영수증을 받습니다. 
-    2. Pending (대기 상태): 피자가 완성될 때까지 기다립니다. 
-    3. 성공: Fulfilled, `resolve` 호출: 피자가 완성되면 영수증을 보여주고 피자를 받습니다.
-    4. 실패: Rejected, `reject` 호출: 재료가 소진되면 피자를 받을 수 없다는 소식을 듣습니다. 
-- **코드 예시:**
+    2. **대기 (Pending) 상태**: 피자가 완성될 때까지 기다립니다. 
+    3. 이행 (Fulfilled) 상태, `resolve` 호출: 피자가 완성되면 영수증을 보여주고 피자를 받습니다.
+    4. 거부 (Rejected) 상태, `reject` 호출: 재료가 소진되면 피자를 받을 수 없다는 소식을 듣습니다. 
+- ### Promise 생성 및 사용법
+	`new Promise()`를 통해 Promise 객체를 생성하고, 비동기 작업이 완료된 후의 처리는 `.then()`, `.catch()`, `.finally()` 메서드를 통해 연결합니다.
     ```JavaScript
+    
     function orderPizza() {
+    // new Promise()는 '대기(Pending)' 상태의 Promise 객체를 즉시 반환합니다.
         return new Promise((resolve, reject) => {
             setTimeout(() => {
-                let success = true; // 피자 제작 성공 여부
+            //2초가 지난 후 실행 시작
+                let success = true; // 피자 제작 성공 여부 
                 if (success) {
-                    resolve("피자 제작 성공!");
+                    resolve("피자 제작 성공!"); // 성공 시, Promise를 '이행' 상태로 만들고 결과 전달
                 } else {
-                    reject("피자 제작 실패!");
+                    reject("피자 제작 실패!"); // 실패 시, Promise를 '거부' 상태로 만들고 이유 전달
                 }
             }, 2000);
         });
     }
-    
+//orderPizza()가 반환한 Promise 객체에 후속 처리 메서드를 연결합니다.
     orderPizza()
-      .then(result => console.log(result))  // 성공 시 실행
-      .catch(error => console.log(error))   // 실패 시 실행
+      .then(result => console.log(result))  //  Promise가 성공(resolve)하면 실행
+      .catch(error => console.log(error))   // Promise가 실패(reject)하면 실행
       .finally(() => console.log("주문 종료")); // 성공/실패 여부와 관계없이 실행
     ```
-    
+	
+	람다식 없는 버전
+	```JavaScript
+	
+	function orderPizza() {
+	// new Promise()는 '대기(Pending)' 상태의 Promise 객체를 즉시 반환합니다.
+	    return new Promise(function(resolve, reject) {
+	        setTimeout(function() {
+			//2초가 지난 후 실행 시작
+	            let success = true; // 피자 제작 성공 여부
+	            if (success) {
+	                resolve("피자 제작 성공!"); //성공 시, Promise를 '이행' 상태로 만들고 결과 전달
+	            } else {
+	                reject("피자 제작 실패!"); /// 실패 시, Promise를 '거부' 상태로 만들고 이유 전달
+	            }
+	        }, 2000);// 자바스크립트 엔진은 `setTimeout`을 직접 처리하지 않고, **Web API**(브라우저가 제공하는 별도의 기능)에게 "2초 후에 이 함수를 실행해줘"라고 작업을 위임하고 즉시 다음 코드로 넘어갑니다.
+	    });
+	}
+	
+	orderPizza() //`orderPizza` 함수를 호출하여 **'대기(Pending)' 상태**의 Promise 객체를 얻고, Promise의 상태가 '대기(Pending)'에서 바뀔 때까지 가만히 기다립니다.
+
+	//이 함수는 즉시 실행되지 않고, 자신의 차례를 기다립니다.
+	  .then(function(result) { //익명함수 선언문은 Promise의 내부 시스템에 의해 자동으로 실행
+	      console.log(result);
+	  })
+	  .catch(function(error) {
+	      console.log(error);
+	  })
+	  .finally(function() {
+	      console.log("주문 종료");
+	  });
+	```
+##### Promise의 비동기 동작 원리 (이벤트 루프)
+Promise 내부의 비동기 코드는 자바스크립트 엔진과 브라우저(Web API)의 협력을 통해 다음과 같은 순서로 동작합니다.
+1. **함수 호출과 위임 (Call Stack & Web API)** 
+	- `orderPizza()` 함수가 호출되면, `setTimeout`이 **호출 스택(Call Stack)**에서 실행됩니다. 
+	- 자바스크립트 엔진은 타이머 작업을 직접 처리하지 않고, 브라우저의 **Web API**에게 "2초 후에 이 함수를 실행해줘"라고 작업을 위임한 뒤 즉시 다음 코드로 넘어갑니다.
+2. **백그라운드 작업** 
+	- Web API는 자바스크립트의 주 실행 흐름과 별개로, 백그라운드에서 2초 타이머를 작동시킵니다. 
+	- 이 시간 동안 자바스크립트 엔진은 다른 동기 코드를 계속 처리할 수 있습니다.
+3. **태스크 큐 (Task Queue) 등록** 
+	- 2초가 지나 타이머가 완료되면, Web API는 `setTimeout`에 전달되었던 콜백 함수(여기서는 `resolve`나 `reject`를 포함한 함수)를 **태스크 큐**라는 대기열로 보냅니다. 
+	- 이 함수는 즉시 실행되지 않고 자신의 차례를 기다립니다.
+4. **이벤트 루프 (Event Loop)의 역할** 
+	- **이벤트 루프**는 **호출 스택**이 비어 있는지 계속해서 확인합니다. 
+	- 프로그램의 모든 동기적 코드가 실행되어 호출 스택이 완전히 비워지면, 이벤트 루프는 **태스크 큐**에서 가장 오래된 작업을 **호출 스택으로 옮깁니다.**
+5. **최종 실행 및 상태 변경** 
+	- 호출 스택으로 옮겨진 콜백 함수가 실행되면서, 그 안의 `resolve()` 또는 `reject()`가 호출됩니다. 
+	- 이때 Promise의 상태가 '대기'에서 '이행' 또는 '거부'로 바뀝니다.
+6. **.then() / .catch() 실행 (마이크로태스크 큐)** 
+	- Promise의 상태가 바뀌면, `.then()`이나 `.catch()`에 등록된 함수들은 일반 태스크 큐보다 우선순위가 높은 **마이크로태스크 큐(Microtask Queue)** 에 등록됩니다.
+	- 이벤트 루프는 이 큐의 작업을 우선적으로 처리하므로, 해당 함수들이 거의 즉시 실행됩니다.
 ##### **2.3. async / await**
 
 `Promise`를 기반으로, 비동기 코드를 마치 **동기 코드처럼 보이게 만들어** 가독성을 획기적으로 높인 최신 문법입니다.
@@ -804,7 +859,7 @@ fetchData(displayData);
 - **Endpoint**: 요청을 보낼 서버의 URL 주소
 - **데이터 형식**: 주로 JSON 사용
 - **상태 코드**: `200`(성공), `404`(찾을 수 없음) 등
-    
+
 ##### **fetch 함수**
 
 자바스크립트에서 API를 호출하는 가장 기본적인 방법이며, `Promise`를 반환합니다.
