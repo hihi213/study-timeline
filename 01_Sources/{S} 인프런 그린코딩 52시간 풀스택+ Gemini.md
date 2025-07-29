@@ -417,7 +417,7 @@ creation_date: 2025-07-21
 - 자바스크립트 객체 심화: 복사
 	- **값에 의한 복사 (Copy by Value)**: 원시 타입을 복사할 때 일어납니다.
 	- **참조에 의한 복사 (Copy by Reference)**: 참조 타입을 ` = `로 할당할 때 일어납니다.
-	- **얕은 복사 (Shallow Copy) / 깊은 복사 (Deep Copy)**: 참조 타입의 '진짜 데이터'를 복사하고 싶을 때 사용하는 **별도의 복사 기법**입니다.
+	- **얕은 복사 (Shallow Copy) / 깊은 복사 (Deep Copy)**: 모두 참조 타입의 '진짜 데이터'를 복사하고 싶을 때 사용하는 **별도의 복사 기법**입니다.
 	- 1. 모든 복사를 이해하려면, 데이터 타입이 메모리에 어떻게 저장되는지 먼저 알아야 합니다.핵심은 **"모든 변수는 일단 스택(Stack)에서 시작한다"**는 점입니다.
 		1. 변수가 선언되면, 그 변수를 위한 공간이 메모리의 **스택(Stack) 영역**에 할당됩니다.
 		2. 이 공간에 저장되는 내용은 데이터의 타입에 따라 달라집니다
@@ -484,23 +484,26 @@ creation_date: 2025-07-21
 			- 내부에 중첩된 모든 객체와 배열까지 재귀적으로 복사하여 **완전히 독립된 복사본**을 만듭니다.
 			- 방법 1: Lodash 라이브러리 사용 (추천)
 					가장 안정적이고 편리한 방법은 `lodash` 라이브러리의 `cloneDeep` 메서드를 사용하는 것입니다
-				  
-				```JavaScript
-				//lodash라이브러리 불러오기
-				import _ from 'lodash';
-				
-				const originalObject = {
-				    name: 'black',
-				    address: { city: 'SEOUL' }
-				};
-				//`import _ from 'lodash';` 구문은 lodash 라이브러리 전체를 가져와서 `_` 라는 이름의 변수에 할당하라는 의미입니다. 따라서 함수를 호출할 때도 `_`를 사용해야 합니다.
-				const deepCopiedObject = _.cloneDeep(originalObject);
-				
-				deepCopiedObject.address.city = "BUSAN";
-				
-				// 깊은 복사된 객체를 수정해도 원본은 전혀 영향을 받지 않습니다.
-console.log(originalObject.address.city); // "SEOUL"
-				```
+				- [[00_Inbox/객체 출력시 주의할점.md|객체 출력시 주의할점]] 
+				- ^i9n9t8
+					```JavaScript 
+					//lodash라이브러리 불러오기
+					import _ from 'lodash';
+					
+					const originalObject = {
+					    name: 'black',
+					    address: { city: 'SEOUL' }
+					};
+					//`import _ from 'lodash';` 구문은 lodash 라이브러리 전체를 가져와서 `_` 라는 이름의 변수에 할당하라는 의미입니다. 따라서 함수를 호출할 때도 `_`를 사용해야 합니다.
+					const deepCopiedObject = _.cloneDeep(originalObject);
+					
+					deepCopiedObject.address.city = "BUSAN";
+					
+					// 깊은 복사된 객체를 수정해도 원본은 전혀 영향을 받지 않습니다.
+					console.log(originalObject.address.city); // "SEOUL"
+					console.log("\n"+ originalObject);//문자열로 더하면 암시적 변환이되어 객체 내부 출력이 되지 않는다 
+	
+					``` 
 				
 			-  방법 2: `JSON.parse(JSON.stringify())` 활용
 				
