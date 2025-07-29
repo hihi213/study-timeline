@@ -642,6 +642,7 @@ creation_date: 2025-07-21
 				```
 			- **`document.getElementsByClassName('클래스명')`**
 			    - 주어진 `class` 이름을 가진 **모든 요소**를 찾아 **HTMLCollection(유사 배열)**에 담아 반환합니다.
+			    - 하나만 담아서 바로 접근가능한 다른 메서드와는 달리 배열에 담아서 인덱스로 접근해야한다.
 				```JavaScript
 				const texts = document.getElementsByClassName("text");
 				// texts 변수에는 class가 "text"인 모든 요소들이 유사 배열 형태로 저장됩니다.
@@ -650,6 +651,7 @@ creation_date: 2025-07-21
 			- **`document.querySelector('선택자')`**
 			    - **CSS 선택자 문법**을 사용하여 요소를 찾습니다.
 			    - 일치하는 요소가 여러 개여도 **첫 번째 요소 하나만** 반환하는 것이 특징입니다.
+			    - 구체적이고 복잡한 조건으로 단 하나의 요소를 정확히 찾아야 할 때 `querySelector`는 필수적
 				```JavaScript
 				// 태그 이름으로 찾기
 				const titleByTag = document.querySelector("h1");
@@ -659,6 +661,17 @@ creation_date: 2025-07-21
 				
 				// 클래스로 찾기 (첫 번째 요소만)
 				const textByClass = document.querySelector(".text");
+				
+				//응용1. 자손선택
+				//div 태그 안에 있는 .item 클래스
+				document.querySelector('div .item');
+				//응용2. 속성선택
+				//type이 text인 input 태그
+				//(공백): '~의 안에 있는' 또는 '~의 후손인' 이라는 관계를 의미합니다.
+				document.querySelector('input[type="text"]');
+				//응용3. 구조가상클래스
+				//첫번째 li 태그
+				document.querySelector('li:first-child')
 				```
 		        
 		3. **반영**: 자바스크립트가 DOM 객체를 변경하면, 브라우저가 그 변화를 감지하여 즉시 화면에 다시 그립니다(rendering).
