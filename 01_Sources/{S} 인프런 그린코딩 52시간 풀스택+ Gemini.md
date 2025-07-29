@@ -765,7 +765,7 @@ fetchData(displayData);
             }, 2000);
         });
     }
-//orderPizza()가 반환한 Promise 객체에 후속 처리 메서드를 연결합니다.
+	//orderPizza()가 반환한 Promise 객체에 후속 처리 메서드를 연결합니다.
     orderPizza()
       .then(result => console.log(result))  //  Promise가 성공(resolve)하면 실행
       .catch(error => console.log(error))   // Promise가 실패(reject)하면 실행
@@ -806,7 +806,7 @@ fetchData(displayData);
 ##### Promise의 비동기 동작 원리 (이벤트 루프)
 Promise 내부의 비동기 코드는 자바스크립트 엔진과 브라우저(Web API)의 협력을 통해 다음과 같은 순서로 동작합니다.
 1. **함수 호출과 위임 (Call Stack & Web API)** 
-	- `orderPizza()` 함수가 호출되면, `setTimeout`이 **호출 스택(Call Stack)**에서 실행됩니다. 
+	- `orderPizza()` 함수가 호출되면, `setTimeout`이 **호출 스택(Call Stack)** 에서 실행됩니다. 
 	- 자바스크립트 엔진은 타이머 작업을 직접 처리하지 않고, 브라우저의 **Web API**에게 "2초 후에 이 함수를 실행해줘"라고 작업을 위임한 뒤 즉시 다음 코드로 넘어갑니다.
 2. **백그라운드 작업** 
 	- Web API는 자바스크립트의 주 실행 흐름과 별개로, 백그라운드에서 2초 타이머를 작동시킵니다. 
