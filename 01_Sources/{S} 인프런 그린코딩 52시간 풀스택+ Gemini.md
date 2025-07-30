@@ -781,29 +781,30 @@ numbers.filter((num) => {
 	3. 내부적으로 `setTimeout`은 2초 후 `resolve()`를 호출하여 첫 번째 Promise의 상태를 **'이행(Fulfilled)'** 으로 바꿉니다.
 	4. Promise는 자신의 상태 변경을 감지하고, 이전에 **예약해 두었던 `.then()`의 콜백 함수를 실행**시킵니다.
 ##### **2.3. async / await** : `Promise` 가독성, 작성방식 개선
-- 기존 Promise: `.then()`과 `.catch()`로 이어지는 콜백 형식이라 실행흐름이 위에서 아래가 아니다
-- `await`를 사용하여 Promise의 결과가 나올 때까지 **함수의 실행을 잠시 멈췄다가, 결과가 나오면 다시 순차적으로 이어서 실행**하는 방식이라  코드에 적힌 순서와 실제 실행 순서가 같아 보여 가독성 굿
+- 기존 Promise: 실행흐름이 위에서 아래가 아니다
+- `await`를 사용하여 Promise의 결과가 나올 때까지 함수의 실행을 잠시 멈췄다가 순차적으로 진행함 그래서 코드에 적힌 순서와 실제 실행 순서가 같아 보여 가독성 굿
 	**예시: 피자 주문하기**
     ```JavaScript
-    async function fetchPizza() {
-        console.log("피자 주문 시작");
-        try {
-        //Promise 상태변화될때까지 이 함수의 실행이 일시중지됨
-        //`orderPizza`의 `setTimeout`이 promise 상태 바꾸면, 이 함수의 실행을 재개시키고, resolve가 전달한 결과값을 result 변수에 할당
-            const result = await orderPizza();
-            console.log(result); // 성공 시 결과 출력
-        } catch (error) {
-            console.log(error); // 실패 시 에러 출력
-        } finally {
-            console.log("주문 종료");
-        }
+async function fetchPizza() {
+    console.log("피자 주문 시작");
+    try {
+     // 1. orderPizza() Promise가 완료될 때까지 여기서 실행을 멈춥니다.
+        const result = await orderPizza();
+	// 2. Promise가 성공하면, 결과값이 result에 담겨 다음 줄이 실행됩니다.
+        console.log(result);
+    } catch (error) {
+	// 3. 만약 Promise가 실패하면, catch 블록으로 즉시 이동합니다.
+        console.log(error);
+    } finally {
+        console.log("주문 종료");
     }
-    
-    fetchPizza();
+}
+
+fetchPizza();
     ```
-    
 - **`async`**: 함수 앞에 붙이면, 해당 함수는 항상 `Promise`를 반환합니다.
-- **`await`**: `async` 함수 안에서만 사용 가능하며, `Promise`가 완료될 때까지 함수의 실행을 **일시 정지**하고 기다립니다. `Promise`가 이행되면 그 결과값을 반환합니다.
+- **`await`**: `async` 함수 안에서만 사용 가능하며, `Promise`가 완료될 때까지 함수의 실행을 **일시 정지**하고 기다립니다. 
+	- Promise가 성공하면 그 결과값을, 실패하면 에러를 반환합니다.
     - **중요** `await`는 `async` 함수 내부의 흐름만 멈출 뿐, 프로그램 전체는 진행되므로 **비동기적인 특성은 그대로 유지**됩니다.
     - `.then(result => ...)` **→** `const result = await ...`
 - **에러 처리**: `Promise`의 `.catch()`와 달리, 일반적인 동기 코드처럼 `try...catch` 구문을 사용하여 에러를 직관적으로 처리할 수 있습니다.
