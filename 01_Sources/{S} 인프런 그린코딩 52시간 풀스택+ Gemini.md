@@ -735,10 +735,8 @@ numbers.filter((num) => {
 		    error: function(error){ console.log("실패: ", error); }     // 실패 시 콜백
 		});
         ```
-- **한계: 콜백 헬 (Callback Hell)**
-    - `ajax` 같은 콜백 기반 코드가 중첩되면 코드의 가독성과 유지보수성이 급격히 떨어지는 **콜백 헬** 문제가 발생합니다.
-
-##### **2.2. 프로미스 (Promise)** : **콜백 헬 문제를 해결**
+- **한계: 콜백 기반 코드가 중첩되면 가독성, 유지보수성이 매우 떨어지는 **콜백 헬** 문제가 발생합니다.
+##### **2.2. 프로미스 (Promise)** : 콜백 헬(코드중첩) 해결
 - 프로미스는 **비동기 작업의 최종 완료 또는 실패를 나타내는 객체**입니다. 이 객체는 다음 세 가지 상태 중 하나를 가집니다. 
 	- 즉시 결과를 알 수 없는 작업(예: 네트워크 요청, 타이머)에 대해 "나중에 결과가 나오면 내 상태변화를 통해 알려줄께 성공하면 결과물을 담고, 실패하면 에러를 담을테니 그때 확인해"라고 약속하는 개념입니다
 - **Promise의 3가지 상태**
@@ -751,96 +749,71 @@ numbers.filter((num) => {
 		- **`.then()`**: Promise가 '이행' 상태가 되었을 때 실행될 성공 결과값을 받을 콜백 함수를 등록합니다.
 		- **`.catch()`**: Promise가 '거부' 상태가 되었을 때 실행될 실패 에러를 받는 콜백 함수를 등록합니다.
 		- **`.finally()`**: Promise의 성공 또는 실패 여부와 관계없이 항상 실행될 콜백 함수를 등록합니다
-	- 예시: 피자 시뮬레이션
+- 예시: 피자 시뮬레이션 ^minmtx
 	```JavaScript
-    
-    function orderPizza() {
-    // new Promise()는 '대기' 상태의 Promise 객체를 즉시 반환합니다.
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-            //2초가 지난 후 실행 시작
-                let success = true; // 피자 제작 성공 여부 
-                if (success) {
-                    resolve("피자 제작 성공!"); // 성공 시, Promise를 '이행' 상태로 변경, 결과 전달
-                } else {
-                    reject("피자 제작 실패!"); // 실패 시, Promise를 '거부' 상태로 변경, 이유 전달
-                }
-            }, 2000);
-        });
-    }
-	//orderPizza()가 반환한 Promise 객체에 후속 처리 메서드를 연결합니다.
-    orderPizza()
-      .then(result => console.log(result))  // 성공(resolve)시 실행
-      .catch(error => console.log(error))   // 실패(reject) 시 실행
-      .finally(() => console.log("주문 종료")); // 성공/실패 여부와 관계없이 실행
-    ```
-	- 람다식 없는 버전
+	//선언문
+	function orderPizza() {
+		return new Promise((resolve, reject) => {
+			setTimeout(() => {//2초가 지난 후 실행 시작
+				let success = true; // 피자 제작 성공 여부 
+				if (success) {
+					resolve("피자 제작 성공!"); // 성공 시, Promise를 '이행' 상태로 변경, 결과 전달
+				} else {
+					reject("피자 제작 실패!"); // 실패 시, Promise를 '거부' 상태로 변경, 이유 전달
+				}
+			}, 2000);
+		});
+	}
+	//실행코드
+	orderPizza() 
+	  .then(result => console.log(result))
+	  .catch(error => console.log(error))   
+	  .finally(() => console.log("주문 종료")); 
+	```
+- [[00_Inbox/누가 Promise를받나 (메서드체이닝).md|누가 Promise를받나 (메서드체이닝)]]  
+- 실행흐름
+		1. `orderPizza()`가 호출, 동시에 **'대기(Pending)' 상태의 Promise 객체**가 반환
+		2. `.then()`, `.catch()`, `.finally()` 메서드가 **즉시 실행**되면서, 각 상황에 맞는 콜백 함수들이 Promise 내부에 **예약(등록)**됩니다.
+		3. `setTimeout`이 2초 후 `resolve()`를 호출하여 Promise의 상태를 **'이행(Fulfilled)'**으로 바꿉니다.
+		4. Promise는 자신의 상태 변경을 감지하고, 이전에 **예약해 두었던 `.then()`의 콜백 함수를 실행**시킵니다.
+- 람다식 없는 버전
 		```JavaScript
-		//선언된 함수 
 		function orderPizza() {
-		// new Promise()는 '대기(Pending)' 상태의 Promise 객체를 즉시 반환합니다.
-		    return new Promise(function(resolve, reject) {
-		        setTimeout(function() {
+			return new Promise(function(resolve, reject) {
+				setTimeout(function() {
 				//2초가 지난 후 실행 시작
-		            let success = true;
-		            if (success) {
-		                resolve("피자 제작 성공!"); 
-		            } else {
-		                reject("피자 제작 실패!"); 
-		            }
-		        }, 2000);// 자바스크립트 엔진은 `setTimeout`을 직접 처리하지 않고, **Web API**(브라우저가 제공하는 별도의 기능)에게 "2초 후에 이 함수를 실행해줘"라고 작업을 위임하고 즉시 다음 코드로 넘어갑니다.
-		    });
-		}
+					let success = true;
+					if (success) {
+						resolve("피자 제작 성공!"); 
+					} else {
+						reject("피자 제작 실패!"); 
+					}
+				}, 2000);
+			});
+		} ^minmtx
 		
-		//선언된 `orderPizza` 함수를 호출하여 **'대기(Pending)' 상태**의 Promise 객체를 얻고, Promise의 상태가 '대기(Pending)'에서 바뀔 때까지 가만히 기다립니다.
 		orderPizza() 
-		//이 함수들은 즉시 실행되지 않고, 자신의 차례를 기다립니다.
+		//이 함수들은 즉시 실행되지 않고, Promise의 상태가 '대기(Pending)'에서 바뀔 때까지 기다립니다.
 		  .then(function(result) { //익명함수 선언문은 Promise의 내부 시스템에 의해 자동으로 실행
-		      console.log(result);
+			  console.log(result);
 		  })
 		  .catch(function(error) {
-		      console.log(error);
+			  console.log(error);
 		  })
 		  .finally(function() {
-		      console.log("주문 종료");
+			  console.log("주문 종료");
 		  });
 		```
--	##### Promise의 비동기 동작 원리 (이벤트 루프)
-	`Promise` 내부의 비동기 코드는 자바스크립트 엔진과 브라우저(Web API)가 협력하여 동작합니다. 이는 자바스크립트의 **이벤트 루프(Event Loop)** 메커니즘을 통해 이루어집니다.
-	1. Promise 객체 생성 및 반환
-		- `orderPizza()` 함수가 호출되면, 즉시 `new Promise()`가 실행되어 **'대기(Pending)' 상태의 Promise 객체가 반환**됩니다
-		- 이때 이 객체에 `.then()`, `.catch()`같은 후속 처리 메서드가 연결됩니다.
-	2.  Web API로 비동기 작업 위임
-		- Promise 생성자 함수 내부의 `setTimeout`은 자바스크립트 엔진이 직접 처리하지 않습니다. 
-		- 브라우저의 **Web API**에게 "설정한 시간뒤에 이 함수를 실행해줘" 작업을 위임한 뒤 엔진은 즉시 다음 코드로 넘어가서 다른 나머지 동기 작업을 계속 처리합니다.
-	3. 태스크 큐(Task Queue)에 콜백 등록
-		- Web API는 백그라운드에서 위임받은 작업을 수행합니다
-			- Web API는 백그라운드에서 타이머를 설정했던 시간이 지나면, setTimeout에 전달되었던 콜백 함수를 태스크 큐라는 대기열로 보냅니다. 
-			- 예시에서는 `resolve`, `reject`를 실행하는 함수를 보냄
-	4. **이벤트 루프**는 호출 스택이 비어 있는지 계속 확인합니다. 
-		-  호출 스택이 비워지면(모든 동기 코드가 실행 완료되면), 이벤트 루프는 **태스크 큐**에서 가장 오래된 작업을 호출 스택으로 가져와 실행시킵니다.
-	5. **Promise 상태 변경 및 마이크로태스크 큐 등록** 
-		- 호출 스택에서 `resolve()` 또는 `reject()`가 실행되는 순간, Promise의 상태가 변경됩니다.
-		- 이때, Promise의 상태 변경을 감지한 `.then()`에 등록된 콜백 함수는 일반 태스크 큐가 아닌, 우선순위가 더 높은 **마이크로태스크 큐**에 들어갑니다.
-	6. **최종 실행** 
-		- 이벤트 루프는 태스크 큐를 확인하기 전에 **항상 마이크로태스크 큐를 먼저 확인하고 비웁니다.** 
-		- 따라서 마이크로태스크 큐에 있던 `.then()`의 콜백 함수가 즉시 호출 스택으로 옮겨져 최종적으로 실행됩니다.
-##### **2.3. async / await** : 동기 코드처럼 비동기를 다루다
-`async`/`await`는 `Promise`를 기반으로, 비동기 코드를 마치 동기 코드처럼 읽고 쓰기 쉽게 만든 최신 문법(Syntactic Sugar)입니다. 콜백 지옥(Callback Hell)을 피하고 코드의 가독성을 크게 향상시킵니다.
-- **`async`**: 함수 앞에 붙이면, 해당 함수는 항상 `Promise`를 반환합니다.
-- **`await`**: `async` 함수 안에서만 사용 가능하며, `Promise`가 완료될 때까지 함수의 실행을 **일시 정지**하고 기다립니다. `Promise`가 이행되면 그 결과값을 반환합니다.
-    - **중요** `await`는 `async` 함수 내부의 흐름만 멈출 뿐, 프로그램 전체는 진행되므로 **비동기적인 특성은 그대로 유지**됩니다.
-- **에러 처리**: `Promise`의 `.catch()`와 달리, 일반적인 동기 코드처럼 `try...catch` 구문을 사용하여 에러를 직관적으로 처리할 수 있습니다.
-- **코드 변환 예시:**
-	- `.then(result => ...)` **→** `const result = await ...`
-	- `.catch(error => ...)` **→** `catch (error) { ... }``
-	
-	**예시: `async`/`await`로 피자 주문하기**
+##### **2.3. async / await** : `Promise` 가독성, 작성방식 개선
+- 기존 Promise: `.then()`과 `.catch()`로 이어지는 콜백 형식이라 실행흐름이 위에서 아래가 아니다
+- `await`를 사용하여 Promise의 결과가 나올 때까지 **함수의 실행을 잠시 멈췄다가, 결과가 나오면 다시 순차적으로 이어서 실행**하는 방식이라  코드에 적힌 순서와 실제 실행 순서가 같아 보여 가독성 굿
+	**예시: 피자 주문하기**
     ```JavaScript
     async function fetchPizza() {
         console.log("피자 주문 시작");
         try {
-        // orderPizza()의 Promise가 완료될 때까지 기다렸다가 결과를 result에 할당
+        //Promise 상태변화될때까지 이 함수의 실행이 일시중지됨
+        //`orderPizza`의 `setTimeout`이 promise 상태 바꾸면, 이 함수의 실행을 재개시키고, resolve가 전달한 결과값을 result 변수에 할당
             const result = await orderPizza();
             console.log(result); // 성공 시 결과 출력
         } catch (error) {
@@ -853,8 +826,12 @@ numbers.filter((num) => {
     fetchPizza();
     ```
     
-- `async/await`를 통해 `.then()` 체이닝 없이 훨씬 간결하고 직관적인 비동기 코드를 작성할 수 있습니다.
-
+- **`async`**: 함수 앞에 붙이면, 해당 함수는 항상 `Promise`를 반환합니다.
+- **`await`**: `async` 함수 안에서만 사용 가능하며, `Promise`가 완료될 때까지 함수의 실행을 **일시 정지**하고 기다립니다. `Promise`가 이행되면 그 결과값을 반환합니다.
+    - **중요** `await`는 `async` 함수 내부의 흐름만 멈출 뿐, 프로그램 전체는 진행되므로 **비동기적인 특성은 그대로 유지**됩니다.
+    - `.then(result => ...)` **→** `const result = await ...`
+- **에러 처리**: `Promise`의 `.catch()`와 달리, 일반적인 동기 코드처럼 `try...catch` 구문을 사용하여 에러를 직관적으로 처리할 수 있습니다.
+	- `.catch(error => ...)` **→** `catch (error) { ... }``	
 ---
 
 #### 3. 실전 예제: `fetch` API 통신
@@ -901,7 +878,26 @@ numbers.filter((num) => {
 	getUserData();
 	```
 
-
+-	##### Promise의 비동기 동작 원리 (이벤트 루프)
+	`Promise` 내부의 비동기 코드는 자바스크립트 엔진과 브라우저(Web API)가 협력하여 동작합니다. 이는 자바스크립트의 **이벤트 루프(Event Loop)** 메커니즘을 통해 이루어집니다.
+	1. Promise 객체 생성 및 반환
+		- `orderPizza()` 함수가 호출되면, 즉시 `new Promise()`가 실행되어 **'대기(Pending)' 상태의 Promise 객체가 반환**됩니다
+		- 이때 이 객체에 `.then()`, `.catch()`같은 후속 처리 메서드가 연결됩니다.
+	2.  Web API로 비동기 작업 위임
+		- Promise 생성자 함수 내부의 `setTimeout`은 자바스크립트 엔진이 직접 처리하지 않습니다. 
+		- 브라우저의 **Web API**에게 "설정한 시간뒤에 이 함수를 실행해줘" 작업을 위임한 뒤 엔진은 즉시 다음 코드로 넘어가서 다른 나머지 동기 작업을 계속 처리합니다.
+	3. 태스크 큐(Task Queue)에 콜백 등록
+		- Web API는 백그라운드에서 위임받은 작업을 수행합니다
+			- Web API는 백그라운드에서 타이머를 설정했던 시간이 지나면, setTimeout에 전달되었던 콜백 함수를 태스크 큐라는 대기열로 보냅니다. 
+			- 예시에서는 `resolve`, `reject`를 실행하는 함수를 보냄
+	4. **이벤트 루프**는 호출 스택이 비어 있는지 계속 확인합니다. 
+		-  호출 스택이 비워지면(모든 동기 코드가 실행 완료되면), 이벤트 루프는 **태스크 큐**에서 가장 오래된 작업을 호출 스택으로 가져와 실행시킵니다.
+	5. **Promise 상태 변경 및 마이크로태스크 큐 등록** 
+		- 호출 스택에서 `resolve()` 또는 `reject()`가 실행되는 순간, Promise의 상태가 변경됩니다.
+		- 이때, Promise의 상태 변경을 감지한 `.then()`에 등록된 콜백 함수는 일반 태스크 큐가 아닌, 우선순위가 더 높은 **마이크로태스크 큐**에 들어갑니다.
+	6. **최종 실행** 
+		- 이벤트 루프는 태스크 큐를 확인하기 전에 **항상 마이크로태스크 큐를 먼저 확인하고 비웁니다.** 
+		- 따라서 마이크로태스크 큐에 있던 `.then()`의 콜백 함수가 즉시 호출 스택으로 옮겨져 최종적으로 실행됩니다.
 
 
 
