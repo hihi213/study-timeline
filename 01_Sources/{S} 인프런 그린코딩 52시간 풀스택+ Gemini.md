@@ -770,40 +770,16 @@ numbers.filter((num) => {
 	  .catch(error => console.log(error))   
 	  .finally(() => console.log("주문 종료")); 
 	```
-- [[00_Inbox/누가 Promise를받나 (메서드체이닝).md|누가 Promise를받나 (메서드체이닝)]]  
-- 실행흐름
-		1. `orderPizza()`가 호출, 동시에 **'대기(Pending)' 상태의 Promise 객체**가 반환
-		2. `.then()`, `.catch()`, `.finally()` 메서드가 **즉시 실행**되면서, 각 상황에 맞는 콜백 함수들이 Promise 내부에 **예약(등록)**됩니다.
-		3. `setTimeout`이 2초 후 `resolve()`를 호출하여 Promise의 상태를 **'이행(Fulfilled)'**으로 바꿉니다.
-		4. Promise는 자신의 상태 변경을 감지하고, 이전에 **예약해 두었던 `.then()`의 콜백 함수를 실행**시킵니다.
-- 람다식 없는 버전
-		```JavaScript
-		function orderPizza() {
-			return new Promise(function(resolve, reject) {
-				setTimeout(function() {
-				//2초가 지난 후 실행 시작
-					let success = true;
-					if (success) {
-						resolve("피자 제작 성공!"); 
-					} else {
-						reject("피자 제작 실패!"); 
-					}
-				}, 2000);
-			});
-		} ^minmtx
-		
-		orderPizza() 
-		//이 함수들은 즉시 실행되지 않고, Promise의 상태가 '대기(Pending)'에서 바뀔 때까지 기다립니다.
-		  .then(function(result) { //익명함수 선언문은 Promise의 내부 시스템에 의해 자동으로 실행
-			  console.log(result);
-		  })
-		  .catch(function(error) {
-			  console.log(error);
-		  })
-		  .finally(function() {
-			  console.log("주문 종료");
-		  });
-		```
+	- 실행흐름
+	1. `orderPizza()`가 호출, 동시에 **'대기(Pending)' 상태의 Promise 객체**가 반환
+		- [[00_Inbox/누가 Promise를받나 (메서드체이닝).md|누가 Promise를받나 (메서드체이닝)]]  
+	2. 이 반환된 Promise 객체에 `.then()`과 후속 메서드들이 **메서드 체이닝** 방식으로 연결되어, 각 콜백 함수를 미리 **예약(등록)** 합니다
+		1. `orderPizza()`가 **첫 번째 Promise**를 반환합니다.
+		2. `.then()`이 첫 번째 Promise에 연결되고, 실행 후 **두 번째 Promise**를 반환합니다.
+		3. `.catch()`가 두 번째 Promise에 연결되고, 실행 후 **세 번째 Promise**를 반환합니다.
+		- **후속 메서드(`.then`, `.catch`, `.finally`)가 호출될 때마다 새로운 Promise가 생성**됩니다.
+	3. 내부적으로 `setTimeout`은 2초 후 `resolve()`를 호출하여 첫 번째 Promise의 상태를 **'이행(Fulfilled)'** 으로 바꿉니다.
+	4. Promise는 자신의 상태 변경을 감지하고, 이전에 **예약해 두었던 `.then()`의 콜백 함수를 실행**시킵니다.
 ##### **2.3. async / await** : `Promise` 가독성, 작성방식 개선
 - 기존 Promise: `.then()`과 `.catch()`로 이어지는 콜백 형식이라 실행흐름이 위에서 아래가 아니다
 - `await`를 사용하여 Promise의 결과가 나올 때까지 **함수의 실행을 잠시 멈췄다가, 결과가 나오면 다시 순차적으로 이어서 실행**하는 방식이라  코드에 적힌 순서와 실제 실행 순서가 같아 보여 가독성 굿
