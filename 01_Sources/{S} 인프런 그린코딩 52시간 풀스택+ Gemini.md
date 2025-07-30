@@ -701,10 +701,8 @@ numbers.filter((num) => {
 
 
 #### 1. 왜 비동기 처리가 필요한가? (동기와 비동기)
-
-- **자바스크립트의 기본 동작: 동기(Synchronous)** 
-	- 동기: 한 번에 하나의 작업만 처리하며, 특정 작업이 완료될 때까지 다음 작업은 대기 상태에 놓입니다.
-	- 자바스크립트는 기본적으로 하나의 'Single Thread'에서 코드를 순차적으로 실행하는 **동기** 언어입니다. 
+- 자바스크립트는 기본적으로 **하나의 스레드(Single Thread)** 에서 코드를 순차적으로 처리하는 **동기(Synchronous)** 방식으로 동작합니다. 
+	- 즉, 한 번에 하나의 작업만 처리하며 특정 작업이 끝날 때까지 다음 코드는 실행되지 않고 대기합니다.
     ```JavaScript
     // 동기 방식: for문의 10억 번의 연산이 끝날 때까지 "2. 끝"은 실행되지 않고 멈춰있습니다.
     console.log("1. 시작");
@@ -713,9 +711,8 @@ numbers.filter((num) => {
     ``` 
     
 - **비동기(Asynchronous) 처리의 필요성** 
-	- 만약 서버에서 데이터를 가져오는 API 호출과 같이 시간이 오래 걸리는 작업을 동기 방식으로 처리하면, 데이터 응답이 올 때까지 웹 페이지 전체가 멈추는(Blocking) 치명적인 문제가 발생합니다. 이를 해결하기 위해 **비동기(Asynchronous)** 방식이 도입되었습니다.
-    
-    - 비동기 처리는 **해당 작업을 백그라운드(Web API)에 위임하고, 완료를 기다리지 않고 바로 다음 코드로 넘어가는 방식**으로 프로그램의 흐름이 멈추지 않게 합니다.
+	- 만약 서버에서 데이터를 가져오는 API 호출처럼 시간이 오래 걸리는 작업을 동기 방식으로 처리하면, 데이터가 올 때까지 웹 페이지 전체가 멈추는(Blocking) 문제가 발생합니다. 이를 해결하기 위해 **비동기(Asynchronous)** 방식이 필요합니다.
+    - 비동기 처리는 **해당 작업을 백그라운드(Web API)에 위임하고, 완료를 기다리지 않고 바로 다음 코드로 넘어가는 방식**으로 프로그램의 흐름이 멈추지 않게 하는 핵심 메커니즘입니다
 	- **주요 비동기 작업 예시**: 
 		- API 호출 (`fetch`)
 		- 타이머 설정(`setTimeout`, `setInterval`)
@@ -725,9 +722,9 @@ numbers.filter((num) => {
 ---
 
 #### 2. 비동기처리방식의 발전 : Callback → Promise → async/await
-##### **2.1. 콜백 함수 (Callback)**
-- 다른 함수의 인자로 전달되어, 특정 작업이 끝난 후에야 실행되는 함수입니다. 
-- 비동기 처리의 가장 기본적인 방식이지만, 콜백함수가 중첩되면 **콜백 헬(Callback Hell)** 이라는 가독성 문제가 발생합니다.
+##### **2.1. 콜백 함수 (Callback)**: 비동기처리의 가장 초기 방식
+- 다른 함수의 인자로 전달되어, 특정 작업이 끝난 후에야 실행되는 함수입니다.  
+- 콜백함수가 중첩되면 **콜백 헬(Callback Hell)** 이라는 가독성 문제가 발생합니다.
 	```JavaScript
 	function fetchData(callback) {
 	   setTimeout(() => {
@@ -741,24 +738,21 @@ numbers.filter((num) => {
 	}
 	
 	fetchData(displayData);
-	// 출력 결과: 
-	//(1초 후) 
-	// 데이터 가져오기 완료! 
-	// 데이터를 화면에 표시합니다.
 	```
 
 ##### **2.2. 프로미스 (Promise)**
-- 비동기 작업의 미래 결과(성공 또는 실패)를 담는 객체입니다.
-콜백 헬 문제를 해결하기 위해 도입된 개념으로, "언젠가 완료되면 결과를 알려주겠다"는 '약속의 증표'와 같습니다.
-
+- 프로미스는 **비동기 작업의 최종 완료 또는 실패를 나타내는 객체**입니다. 이 객체는 다음 세 가지 상태 중 하나를 가집니다.
+	- 비동기 코드가 실행되면, 프로미스 객체는 즉시 반환되어 작업이 진행 중인 **대기(pending)** 상태가 됩니다. 이때 `.then()`이나 `.catch()`와 같은 후속 처리 메서드를 연결하여 비동기 작업이 끝난 시점에 이루어지는 상태변경 결과에 따라 실행할 수 있도록합니다
+	- 이후 작업이 성공적으로 완료되면 프로미스 객체는 결과값을 가진 **이행(fulfilled)** 상태가 되고, 
+	- 실패하면 에러를 가진 **거부(rejected)** 상태가 됩니다.
 - **Promise의 3가지 상태**
-    1. **대기 (Pending)**: 작업이 아직 끝나지 않은 상태 (약속 생성)
-    2. **이행 (Fulfilled)**: 작업이 성공적으로 완료된 상태 (약속 이행)
-    3. **거부 (Rejected)**: 작업이 실패한 상태 (약속 파기)
-        - promise객체는 대기상태가 기본이며, 상태를 단 한번만 바꿀수있습니다
+    1. **대기 (Pending)**: 비동기 작업이 아직 끝나지 않은 초기 상태
+    2. **이행 (Fulfilled)**: 비동기 작업이 성공적으로 완료되어 상태
+    3. **거부 (Rejected)**: 비동기 작업이 실패한 상태
+        - Promise는 한 번 상태가 이행 또는 거부로 결정되면 더 이상 변하지 않습니다
 - 사용법
 	- `new Promise()`로 약속(Promise 객체)을 생성하고, 
-	- `.then()`, `.catch()`, `.finally()` 메서드를 체이닝하여 약속이 이행되었을 때의 후속 처리를 정의합니다.
+	- `.then()`, `.catch()`, `.finally()` 메서드를 체이닝하여 약속이 이행되었을 때의 후속 처리를 정의합니다
     ```JavaScript
     
     function orderPizza() {
@@ -871,29 +865,39 @@ numbers.filter((num) => {
 ---
 
 #### 3. 실전 예제: `fetch` API 통신
-
-- **`fetch` 함수**: 브라우저가 제공하는 Web API으로, 특정 URL로 HTTP 요청을 보내고, 그 결과로 즉시 **`Promise`** 를 반환 
-	- 이 `Promise`는 최종 데이터가 아닌, HTTP 응답 자체를 나타내는 **`Response` 객체**로 이행(resolve)됩니다.
-- **`response.json()`**: 응답 내용물 꺼내기
+- Promise: 서버에 HTTP 요청을 보내는 **그 즉시**, 자바스크립트가 작업의 진행 상황을 알려주기 위해 만드는, 비동기 작업의 최종 완료 또는 실패를 나타내는 객체
+- **Response** 객체: 서버한테 전송받은, HTTP 응답 자체를 나타내는 객체
+	- 상태 코드, 헤더는 응답에 대한 정보를 담고 있고, body에 서버한테 요청했던 실제 데이터가 들어있다
+- **`fetch(url)` 함수**: URL로 HTTP 요청을 보내는 브라우저 내장 함수 Web API
+	- 호출 즉시 **`Promise`** 를 반환하며, 서버가 성공적으로 응답하면,  `Promise`가 이행상태로 바뀌고, 성공의 결과물로 Response 객체를 담습니다
+- **`response.json()`**: `Response` 객체의 본문(body)에 담긴 JSON 형식의 텍스트를 스트림(stream)에서 모두 읽어들인후, 실제 자바스크립트 객체로 변환하는 메서드
 	- Respones객체의 응답 본문(body)은 JSON 형식의 텍스트로, 바로 사용할 수 없습니다.
-	- `response.json()` 메소드는 이 본문을 스트림(stream)에서 모두 읽어 들인 후, **JSON 형식의 텍스트를 실제 자바스크립트 객체로 변환**하는 역할을 합니다. 
 	- 이 변환 과정 역시 비동기이므로, **새로운 `Promise`**를 반환합니다.
 	```JavaScript
 	
-	// fetch와 async/await를 함께 사용한 가장 일반적인 API 호출 예시
 	async function getUserData() {
-	  const url = 'https://jsonplaceholder.typicode.com/users/1'; // 예시용 API 주소
+	  const url = 'https://jsonplaceholder.typicode.com/users/1';
 	
 	  try {
-	    // 1. fetch로 API를 호출하고, Promise가 완료될 때까지 기다려 응답(response)을 받음
+	    // 1. fetch 함수로 URL에 HTTP 요청을 보내고, 상대가 응답하여 전송하는 (Response 객체)이 올 때까지 기다립니다.
+ // await는 서버가 응답 헤더를 보내오면 완료되며, 그 결과물인 Response 객체를 반환합니다. // [중요] 이 단계에서는 인터넷 끊김 같은 '네트워크 에러'만 catch로 넘어가고, // 서버가 보내는 404나 500 같은 'HTTP 에러'는 일단 성공으로 간주합니다.
 	    const response = await fetch(url);
 	
-	    // 2. 응답(response)을 JSON 형태로 변환하고, Promise가 완료될 때까지 기다려 실제 데이터를 받음
-	    const userData = await response.json(); 
-	    
+// 2. HTTP 통신의 성공 여부를 직접 확인합니다. // 위와 같은 이유로, response.ok (상태 코드가 200번대인지 여부)를 확인해야 합니다. // 만약 false라면, throw new Error()를 통해 에러를 발생시켜 catch 블록으로 강제 이동시킵니다.
+	    if (!response.ok) {
+	      throw new Error(`HTTP error! status: ${response.status}`);
+	    }
+	
+		 // 3. Response 객체의 본문을 JavaScript 객체로 변환하는 두 번째 비동기 작업을 시작합니다. 
+		 // response.json()은 본문을 모두 읽어 파싱하는 새로운 Promise를 반환하므로, 
+		 // await로 다시 한번 기다려 최종 결과인 JavaScript 객체를 얻습니다.
+	    const userData = await response.json();
+	
+	    // 4. 최종적으로 변환된 JavaScript 객체를 사용하여 원하는 작업을 수행합니다.
 	    console.log(userData);
 	
 	  } catch (error) {
+	    // 1번의 네트워크 에러나 2번에서 직접 발생시킨 에러를 여기서 처리합니다.
 	    console.error("데이터를 가져오는 데 실패했습니다:", error);
 	  }
 	}
@@ -918,36 +922,3 @@ $.ajax({
 
 
 
-### ## 1. `fetch()` 호출과 Promise 생성
-
-`fetch(url)`를 호출하면, 자바스크립트는 즉시 다음 두 가지 일을 합니다.
-
-1. 브라우저의 네트워크 API를 통해 백그라운드에서 해당 `url`로 **HTTP 요청을 보내기 시작합니다.**
-    
-2. 이 요청의 최종 결과를 기다리지 않고, "요청의 미래 결과"를 담을 **`Promise` 객체**를 즉시 반환합니다. 이 시점의 `Promise`는 **대기(`pending`) 상태**입니다.
-    
-
-### ## 2. 네트워크 통신과 Promise의 상태 변화
-
-백그라운드에서 브라우저와 서버는 HTTP 통신을 합니다. 서버가 요청을 처리하고 응답을 보내기 시작하면, 브라우저는 응답의 **상태 라인(Status Line)과 헤더(Headers)를 먼저** 받게 됩니다.
-
-- 이 **헤더 정보가 도착하는 순간**, `fetch`가 반환했던 `Promise`는 `pending` 상태에서 **성공(`fulfilled`) 상태**로 바뀝니다.
-    
-- 이때 Promise가 반환하는 성공 결과값이 바로 **`Response` 객체**입니다.
-    
-
-> **[핵심]** `fetch` Promise는 서버와 통신 자체에 실패하는 **네트워크 에러**(예: 인터넷 끊김, DNS 조회 실패)가 발생할 때만 **실패(`rejected`)** 상태가 됩니다. 서버가 `404 Not Found`나 `500 Server Error` 같은 HTTP 에러 코드를 응답하더라도, 일단 **응답 헤더를 받기는 했으므로 Promise 자체는 성공(`fulfilled`)**으로 처리됩니다.
-
-### ## 3. `.then()`과 `Response` 객체 처리
-
-Promise가 `fulfilled` 상태가 되면, `.then()`에 등록된 콜백 함수가 실행됩니다.
-
-- 이 콜백 함수의 첫 번째 인자로 **`Response` 객체**가 전달됩니다.
-    
-- 이 `Response` 객체는 최종 데이터(JSON 등)가 아니라, **HTTP 응답에 대한 정보와 상태를 담고 있는 객체**입니다.
-    
-- 바로 이 시점에서 우리는 `Response` 객체의 속성을 확인하여 HTTP 요청이 정말로 성공했는지 직접 확인해야 합니다.
-    
-    - `response.ok`: HTTP 상태 코드가 200번대(성공)이면 `true`, 아니면 `false`입니다.
-        
-    - `response.status`: `200`, `404` 같은 숫자 상태 코드를 담고 있습니다.
