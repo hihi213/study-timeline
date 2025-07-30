@@ -712,48 +712,47 @@ numbers.filter((num) => {
     
 - **비동기(Asynchronous) 처리의 필요성** 
 	- 만약 서버에서 데이터를 가져오는 API 호출처럼 시간이 오래 걸리는 작업을 동기 방식으로 처리하면, 데이터가 올 때까지 웹 페이지 전체가 멈추는(Blocking) 문제가 발생합니다. 이를 해결하기 위해 **비동기(Asynchronous)** 방식이 필요합니다.
-    - 비동기 처리는 **해당 작업을 백그라운드(Web API)에 위임하고, 완료를 기다리지 않고 바로 다음 코드로 넘어가는 방식**으로 프로그램의 흐름이 멈추지 않게 하는 핵심 메커니즘입니다
+    - 비동기 처리는 **해당 작업을 백그라운드(Web API)에 위임하고, 엔진은 완료를 기다리지 않고 바로 다음 코드로 넘어가는 방식**으로 프로그램의 흐름이 멈추지 않게 하는 핵심 메커니즘입니다
 	- **주요 비동기 작업 예시**: 
 		- API 호출 (`fetch`)
 		- 타이머 설정(`setTimeout`, `setInterval`)
-			- 자바스크립트는 예약을 걸자마자 다음 코드를 실행하고, 브라우저가 백그라운드에서 시간을 세다가 약속된 시간이 되면 예약된 작업을 실행
-		- 비동기는 코드 완료한것처럼 보이게하고 다음 코드를 실행해 그사이 다른작업 진행한다고 이해하기(정확한 개념x)
-	
+			- 브라우저가 백그라운드에서 시간을 세다가 약속된 시간이 되면 예약된 작업을 실행
 ---
 
 #### 2. 비동기처리방식의 발전 : Callback → Promise → async/await
 ##### **2.1. 콜백 함수 (Callback)**: 비동기처리의 가장 초기 방식
 - 다른 함수의 인자로 전달되어, 특정 작업이 끝난 후에야 실행되는 함수입니다.  
-- 콜백함수가 중첩되면 **콜백 헬(Callback Hell)** 이라는 가독성 문제가 발생합니다.
-	```JavaScript
-	function fetchData(callback) {
-	   setTimeout(() => {
-	    console.log("데이터 가져오기 완료!");
-	    callback(); // 작업 완료 후, 전달받은 콜백 함수 실행
-	   }, 1000);
-	}
-	
-	function displayData() {
-	    console.log("데이터를 화면에 표시");
-	}
-	
-	fetchData(displayData);
-	```
+- **실전 예시: jQuery의 `ajax`**
+    - `fetch`가 표준화되기 전에는 주로 jQuery 라이브러리의 `ajax` 함수가 사용되었습니다. 이 방식은 콜백 함수를 직접 전달하여 성공과 실패를 처리합니다.
+        ```JavaScript
+		// jQuery를 사용한 동일한 API 호출
+		// 이 방식은 콜백 함수를 직접 전달하여 성공과 실패를 처리합니다.
+		$.ajax({
+		    url: "https://api.example.com/data",
+		    type: "GET",
+		    dataType: "json",
+		    success: function(response){ console.log("성공: ", response); }, // 성공 시 콜백
+		    error: function(error){ console.log("실패: ", error); }     // 실패 시 콜백
+		});
+        ```
+- **한계: 콜백 헬 (Callback Hell)**
+    - `ajax` 같은 콜백 기반 코드가 중첩되면 코드의 가독성과 유지보수성이 급격히 떨어지는 **콜백 헬** 문제가 발생합니다.
 
-##### **2.2. 프로미스 (Promise)**
-- 프로미스는 **비동기 작업의 최종 완료 또는 실패를 나타내는 객체**입니다. 이 객체는 다음 세 가지 상태 중 하나를 가집니다.
-	- 비동기 코드가 실행되면, 프로미스 객체는 즉시 반환되어 작업이 진행 중인 **대기(pending)** 상태가 됩니다. 이때 `.then()`이나 `.catch()`와 같은 후속 처리 메서드를 연결하여 비동기 작업이 끝난 시점에 이루어지는 상태변경 결과에 따라 실행할 수 있도록합니다
-	- 이후 작업이 성공적으로 완료되면 프로미스 객체는 결과값을 가진 **이행(fulfilled)** 상태가 되고, 
-	- 실패하면 에러를 가진 **거부(rejected)** 상태가 됩니다.
+##### **2.2. 프로미스 (Promise)** : **콜백 헬 문제를 해결**
+- 프로미스는 **비동기 작업의 최종 완료 또는 실패를 나타내는 객체**입니다. 이 객체는 다음 세 가지 상태 중 하나를 가집니다. 
+	- 즉시 결과를 알 수 없는 작업(예: 네트워크 요청, 타이머)에 대해 "나중에 결과가 나오면 내 상태변화를 통해 알려줄께 성공하면 결과물을 담고, 실패하면 에러를 담을테니 그때 확인해"라고 약속하는 개념입니다
 - **Promise의 3가지 상태**
     1. **대기 (Pending)**: 비동기 작업이 아직 끝나지 않은 초기 상태
-    2. **이행 (Fulfilled)**: 비동기 작업이 성공적으로 완료되어 상태
-    3. **거부 (Rejected)**: 비동기 작업이 실패한 상태
-        - Promise는 한 번 상태가 이행 또는 거부로 결정되면 더 이상 변하지 않습니다
+    2. **이행 (Fulfilled)**: 비동기 작업이 성공적으로 완료되어 결과값을 담은 상태
+    3. **거부 (Rejected)**: 비동기 작업이 실패해 에러를 담은 상태
+	- Promise는 초기에 **'대기'** 상태이며, 비동기 작업의 결과에 따라 **'이행'** 또는 **'거부'** 상태로 단 한 번만 변경됩니다.결정된 상태는 다시 변하지 않습니다.
 - 사용법
-	- `new Promise()`로 약속(Promise 객체)을 생성하고, 
-	- `.then()`, `.catch()`, `.finally()` 메서드를 체이닝하여 약속이 이행되었을 때의 후속 처리를 정의합니다
-    ```JavaScript
+	- `new Promise()`로 Promise 객체을 생성하고, Promise의 상태 변화에 따라 이후 처리할 메서드를 체이닝합니다
+		- **`.then()`**: Promise가 '이행' 상태가 되었을 때 실행될 성공 결과값을 받을 콜백 함수를 등록합니다.
+		- **`.catch()`**: Promise가 '거부' 상태가 되었을 때 실행될 실패 에러를 받는 콜백 함수를 등록합니다.
+		- **`.finally()`**: Promise의 성공 또는 실패 여부와 관계없이 항상 실행될 콜백 함수를 등록합니다
+	- 예시: 피자 시뮬레이션
+	```JavaScript
     
     function orderPizza() {
     // new Promise()는 '대기' 상태의 Promise 객체를 즉시 반환합니다.
@@ -807,39 +806,36 @@ numbers.filter((num) => {
 		  });
 		```
 -	##### Promise의 비동기 동작 원리 (이벤트 루프)
-	`Promise` 내부의 비동기 코드는 자바스크립트 엔진과 브라우저(Web API)가 협력하여 동작합니다.
+	`Promise` 내부의 비동기 코드는 자바스크립트 엔진과 브라우저(Web API)가 협력하여 동작합니다. 이는 자바스크립트의 **이벤트 루프(Event Loop)** 메커니즘을 통해 이루어집니다.
 	1. Promise 객체 생성 및 반환
 		- `orderPizza()` 함수가 호출되면, 즉시 `new Promise()`가 실행되어 **'대기(Pending)' 상태의 Promise 객체가 반환**됩니다
 		- 이때 이 객체에 `.then()`, `.catch()`같은 후속 처리 메서드가 연결됩니다.
-	    
 	2.  Web API로 비동기 작업 위임
 		- Promise 생성자 함수 내부의 `setTimeout`은 자바스크립트 엔진이 직접 처리하지 않습니다. 
-		- 엔진은 "너가 2초 후에 이 함수를 실행해줘"라고 브라우저의 **Web API**에게 작업을 위임한 뒤 즉시 다음 코드로 넘어가서 나머지 동기 작업을 계속 처리합니다.
-	    
+		- 브라우저의 **Web API**에게 "설정한 시간뒤에 이 함수를 실행해줘" 작업을 위임한 뒤 엔진은 즉시 다음 코드로 넘어가서 다른 나머지 동기 작업을 계속 처리합니다.
 	3. 태스크 큐(Task Queue)에 콜백 등록
-		- Web API는 자신이 백그라운드에서 타이머를 설정했던 2초가 지나면, `setTimeout`에 전달되었던 콜백 함수를 **태스크 큐**라는 대기열로 보냅니다.
+		- Web API는 백그라운드에서 위임받은 작업을 수행합니다
+			- Web API는 백그라운드에서 타이머를 설정했던 시간이 지나면, setTimeout에 전달되었던 콜백 함수를 태스크 큐라는 대기열로 보냅니다. 
 			- 예시에서는 `resolve`, `reject`를 실행하는 함수를 보냄
-		
 	4. **이벤트 루프**는 호출 스택이 비어 있는지 계속 확인합니다. 
-		-  호출 스택이 비워지면(모든 동기 코드가 실행 완료되면), 이벤트 루프는 **태스크 큐**에서 가장 오래된 작업인 콜백함수를 호출 스택으로 가져와 실행시킵니다.
-		
+		-  호출 스택이 비워지면(모든 동기 코드가 실행 완료되면), 이벤트 루프는 **태스크 큐**에서 가장 오래된 작업을 호출 스택으로 가져와 실행시킵니다.
 	5. **Promise 상태 변경 및 마이크로태스크 큐 등록** 
-		- 태스크 큐에서 넘어온 콜백 함수가 호출 스택에서 실행되어 `resolve()`가 호출되는 순간, Promise의 상태는 **'이행(Fulfilled)'** 으로 바뀝니다. 
+		- 호출 스택에서 `resolve()` 또는 `reject()`가 실행되는 순간, Promise의 상태가 변경됩니다.
 		- 이때, Promise의 상태 변경을 감지한 `.then()`에 등록된 콜백 함수는 일반 태스크 큐가 아닌, 우선순위가 더 높은 **마이크로태스크 큐**에 들어갑니다.
-	    
 	6. **최종 실행** 
-		- 이벤트 루프는 태스크 큐를 확인하기 전에 **항상 마이크로태스크 큐를 먼저 확인하고 비웁니다.** 따라서 마이크로태스크 큐에 있던 `.then()`의 콜백 함수가 즉시 호출 스택으로 옮겨져 최종적으로 실행됩니다.
-##### **2.3. async / await** : 동기 코드처럼 쓰는 비동기 (최신 문법)
-
-`Promise`를 기반으로, 비동기 코드를 마치 동기 코드처럼 읽고 쓰기 쉽게 만든 최신 문법(Syntactic Sugar)입니다.
+		- 이벤트 루프는 태스크 큐를 확인하기 전에 **항상 마이크로태스크 큐를 먼저 확인하고 비웁니다.** 
+		- 따라서 마이크로태스크 큐에 있던 `.then()`의 콜백 함수가 즉시 호출 스택으로 옮겨져 최종적으로 실행됩니다.
+##### **2.3. async / await** : 동기 코드처럼 비동기를 다루다
+`async`/`await`는 `Promise`를 기반으로, 비동기 코드를 마치 동기 코드처럼 읽고 쓰기 쉽게 만든 최신 문법(Syntactic Sugar)입니다. 콜백 지옥(Callback Hell)을 피하고 코드의 가독성을 크게 향상시킵니다.
 - **`async`**: 함수 앞에 붙이면, 해당 함수는 항상 `Promise`를 반환합니다.
 - **`await`**: `async` 함수 안에서만 사용 가능하며, `Promise`가 완료될 때까지 함수의 실행을 **일시 정지**하고 기다립니다. `Promise`가 이행되면 그 결과값을 반환합니다.
     - **중요** `await`는 `async` 함수 내부의 흐름만 멈출 뿐, 프로그램 전체는 진행되므로 **비동기적인 특성은 그대로 유지**됩니다.
 - **에러 처리**: `Promise`의 `.catch()`와 달리, 일반적인 동기 코드처럼 `try...catch` 구문을 사용하여 에러를 직관적으로 처리할 수 있습니다.
-- **코드 변환:**
+- **코드 변환 예시:**
 	- `.then(result => ...)` **→** `const result = await ...`
 	- `.catch(error => ...)` **→** `catch (error) { ... }``
-		 
+	
+	**예시: `async`/`await`로 피자 주문하기**
     ```JavaScript
     async function fetchPizza() {
         console.log("피자 주문 시작");
@@ -859,13 +855,10 @@ numbers.filter((num) => {
     
 - `async/await`를 통해 `.then()` 체이닝 없이 훨씬 간결하고 직관적인 비동기 코드를 작성할 수 있습니다.
 
-
-
-
 ---
 
 #### 3. 실전 예제: `fetch` API 통신
-- Promise: 서버에 HTTP 요청을 보내는 **그 즉시**, 자바스크립트가 작업의 진행 상황을 알려주기 위해 만드는, 비동기 작업의 최종 완료 또는 실패를 나타내는 객체
+실제 웹 개발에서 가장 흔한 비동기 작업 중 하나는 서버와의 네트워크 통신입니다
 - **Response** 객체: 서버한테 전송받은, HTTP 응답 자체를 나타내는 객체
 	- 상태 코드, 헤더는 응답에 대한 정보를 담고 있고, body에 서버한테 요청했던 실제 데이터가 들어있다
 - **`fetch(url)` 함수**: URL로 HTTP 요청을 보내는 브라우저 내장 함수 Web API
@@ -876,49 +869,40 @@ numbers.filter((num) => {
 	```JavaScript
 	
 	async function getUserData() {
-	  const url = 'https://jsonplaceholder.typicode.com/users/1';
+	    const url = 'https://jsonplaceholder.typicode.com/users/1';
 	
-	  try {
-	    // 1. fetch 함수로 URL에 HTTP 요청을 보내고, 상대가 응답하여 전송하는 (Response 객체)이 올 때까지 기다립니다.
- // await는 서버가 응답 헤더를 보내오면 완료되며, 그 결과물인 Response 객체를 반환합니다. // [중요] 이 단계에서는 인터넷 끊김 같은 '네트워크 에러'만 catch로 넘어가고, // 서버가 보내는 404나 500 같은 'HTTP 에러'는 일단 성공으로 간주합니다.
-	    const response = await fetch(url);
+	    try {
+	        // 1. fetch 함수로 URL에 HTTP 요청을 보내고, 서버가 응답 헤더를 보내올 때까지 기다립니다.
+	        // 이 단계에서는 인터넷 끊김 같은 '네트워크 에러'만 catch로 넘어가고,
+	        // 서버가 보내는 404나 500 같은 'HTTP 에러'는 일단 성공으로 간주합니다.
+	        const response = await fetch(url);
 	
-// 2. HTTP 통신의 성공 여부를 직접 확인합니다. // 위와 같은 이유로, response.ok (상태 코드가 200번대인지 여부)를 확인해야 합니다. // 만약 false라면, throw new Error()를 통해 에러를 발생시켜 catch 블록으로 강제 이동시킵니다.
-	    if (!response.ok) {
-	      throw new Error(`HTTP error! status: ${response.status}`);
+	        // 2. HTTP 통신의 성공 여부를 직접 확인합니다.
+	        // 위와 같은 이유로, response.ok (상태 코드가 200번대인지 여부)를 확인해야 합니다.
+	        // 만약 false라면, throw new Error()를 통해 에러를 발생시켜 catch 블록으로 강제 이동시킵니다.
+	        if (!response.ok) {
+	            throw new Error(`HTTP error! status: ${response.status}`);
+	        }
+	
+	        // 3. Response 객체의 본문을 JavaScript 객체로 변환하는 두 번째 비동기 작업을 시작합니다.
+	        // response.json()은 본문을 모두 읽어 파싱하는 새로운 Promise를 반환하므로,
+	        // await로 다시 한번 기다려 최종 결과인 JavaScript 객체를 얻습니다.
+	        const userData = await response.json();
+	
+	        // 4. 최종적으로 변환된 JavaScript 객체를 사용하여 원하는 작업을 수행합니다.
+	        console.log(userData);
+	
+	    } catch (error) {
+	        // 1번의 네트워크 에러나 2번에서 직접 발생시킨 에러를 여기서 처리합니다.
+	        console.error("데이터를 가져오는 데 실패했습니다:", error);
 	    }
-	
-		 // 3. Response 객체의 본문을 JavaScript 객체로 변환하는 두 번째 비동기 작업을 시작합니다. 
-		 // response.json()은 본문을 모두 읽어 파싱하는 새로운 Promise를 반환하므로, 
-		 // await로 다시 한번 기다려 최종 결과인 JavaScript 객체를 얻습니다.
-	    const userData = await response.json();
-	
-	    // 4. 최종적으로 변환된 JavaScript 객체를 사용하여 원하는 작업을 수행합니다.
-	    console.log(userData);
-	
-	  } catch (error) {
-	    // 1번의 네트워크 에러나 2번에서 직접 발생시킨 에러를 여기서 처리합니다.
-	    console.error("데이터를 가져오는 데 실패했습니다:", error);
-	  }
 	}
 	
 	getUserData();
 	```
 
-##### **과거의 방법: jQuery의 `ajax`**
 
-`fetch`가 표준화되기 전에는 주로 jQuery 라이브러리의 `ajax` 함수가 사용되었습니다. 콜백 기반으로 동작하며, 여전히 많은 레거시 코드에서 찾아볼 수 있습니다.
 
-```JavaScript
-// jQuery를 사용한 동일한 API 호출
-$.ajax({
-    url: "https://api.example.com/data",
-    type: "GET",
-    dataType: "json",
-    success: function(response){ console.log("성공: ", response); },
-    error: function(error){ console.log("실패: ", error); }
-});
-```
 
 
 
