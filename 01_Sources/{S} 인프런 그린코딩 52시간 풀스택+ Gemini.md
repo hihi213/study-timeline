@@ -122,39 +122,50 @@ creation_date: 2025-07-21
 	- content: 내용물
 	- padding: 뽁뽁이
 	- border: 상자 두께
-	- margin: 상자들 사이의 간격
-- ##### 2. css display 속성
-	- html 태그들을 3차원 공간을 가진 웹브라우저에 전시하는것
-	- block: 태그요소의 크기와 위치변경이 가능
-		- z축을 포함한 3차원공간
-		- x축 전체길이를 전부 차지
-		- y축 콘텐츠 길이+마진길이만큼 차지
-	- inline: 태그요소의 크기와 위치변경이 불가능(weight, height 변경이 불가 position 제한적 변경
-		- z,x,y 모두 콘텐츠 길이만큼 차지
-	- inline block: 블럭의 크기와 위치변경이 가능+ 콘텐츠 길이만큼만 차지
-- 태그마다 기본 display 설정이 다르기 때문에 블로그 찾아가기
-- cmd+/ 하면 주석처리됨
-- ##### 3.css position: 태그를 위치 지정하기위한 속성
-	- static: 기본값으로 설정되는  top, left, right, bottom적용 x되는 속성
-	- relative : 자기자신을 기준으로 적용
-	- absolute : 부모기준으로 적용 (static이 아닌 부모태그중에서 가장 가까운 부모태그)
+	- margin: 다른 상자들 사이의 간격
+- ##### 2. `box-sizing`: 박스 크기 계산 방식
+	요소의 `width`와 `height`를 어디까지 계산할지 정하는 속성입니다.
+	- **`content-box` (기본값)**: content 자체 크기로 width, height가 매겨짐(Padding과 Border가 추가되면 박스 크기가 늘어남)
+	- **`border-box`**: Padding과 border를 포함한 크기로 width, height가 매겨짐
+		- 대부분의 경우 이 방식을 사용하면 레이아웃을 예측하기 쉬워 개발이 편리해집니다.
+	-  하위태그는 부모설정을 따라간다
+- ##### 3. display 속성: 요소의 배치 방식
+	- 태그마다 display 기본 설정이 다르기 때문에 블로그 찾아가서 알아내기
+	- **`block`**
+	    - 항상 **새로운 줄**에서 시작하며, 가로 너비 전체(100%)를 차지합니다.
+	    - `width`, `height`, `margin`, `padding` 속성을 모두 자유롭게 사용할 수 있습니다.
+	- **`inline`**
+	    - 줄을 바꾸지 않고, 문장의 일부처럼 다른 요소와 **같은 줄**에 배치됩니다.
+	    - `width`와 `height` 속성이 **적용되지 않습니다.**
+	- **`inline-block`**
+	    - `inline`처럼 같은 줄에 배치되지만, `block`처럼 `width`, `height` 속성을 자유롭게 사용할 수 있습니다.
+- ##### 4. position: 태그 위치 지정 속성
+	- CSS `position` 속성은 `top`, `left`, `right`, `bottom` 좌표 속성과 함께 사용하여 요소의 위치를 정밀하게 제어합니다. 좌표를 적용하려면, `position` 값을 기본값인 `static`이 아닌 다른 값으로 변경해야 합니다.
+	- `static` (기본값)
+		- 모든 요소의 기본값으로, 일반적인 문서 흐름에 따라 배치됩니다.
+		- `top`, `left` 등의 **좌표 속성이 적용되지 않습니다.**
+	- relative : 
+		- **원래 자신이 있던 위치**를 기준으로 좌표가 적용됩니다.
+		- 다른 요소에 영향을 주지 않고 자기 자리에서만 살짝 이동하고 싶을 때 사용합니다.
+	- absolute : 
+		- **`position`이 `static`이 아닌 가장 가까운 부모 요소**를 기준으로 좌표가 적용됩니다.
+		- 만약 기준이 될 부모가 없으면, 문서 전체(`body`)가 기준이 됩니다.
 	- fixed: 스크롤을 내려도 계속 그위치를 고수하는 포지션
-	- 위의 4가지 position속성과 top, left, right, bottom속성은 하나의 세트이다 근데 static은 안먹히게만들어져있다. 그래서 나머지 3속성으로 변경해야한다.
-- ##### 4. box-sizing: 
-	- border-box :Padding과 border를 포함한 크기로 width, height가 매겨짐
-		- 이걸로 html태그를 설정하는게 개발이 쉬워짐
-	- content-box: 일반적으로 설정되는, content 자체 크기로 width, height가 매겨짐
-	- 하위태그는 부모설정을 따라간다
-- ##### 5-1 flex: 자신의 자식요소들을 정렬함
-	- 부모요소의 width를 100프로 차지
-- ##### 5-2 align-items: y축 중앙을 기준으로 
-	- center: 내부자식요소들을 중앙에 정렬
-	-  아이템이 움직일 수 있는 **세로 공간을 만들어주기 위해** 컨테이너에 `height` 값을 설정해줘야함
-- ##### 5-3 justify-content: x축 중앙을 기준으로 
-- 100vh: 웹브라우저 최대화면 높이
+- ##### 5. Flexbox: 자식 요소 정렬하기
+	Flexbox는 **부모 요소(Flex Container)**에 `display: flex;`를 적용하여, 그 안의 **자식 요소(Flex Items)**들을 쉽고 유연하게 정렬하는 방식입니다.
+	
+	`display: flex;`를 적용하면 부모 컨테이너는 여전히 **블록 레벨 요소**로서 **자신이 위치한 가로 공간을 100% 차지**하게 됩니다. 이는 Flex Container가 자식 요소들을 정렬할 수 있는 **넓은 기준 공간**을 확보한다는 의미이며, 이를 바탕으로 `justify-content` (가로 정렬)와 `align-items` (세로 정렬) 등의 속성을 사용하여 자식 요소들을 원하는 방식으로 배치할 수 있게 됩니다.
+	- **`justify-content`**: 메인 축(**가로**) 정렬
+	    - 자식 요소들을 **수평 방향**으로 어떻게 정렬할지 결정합니다.
+	    - **주요 값**: `center`(가운데), `flex-start`(시작점), `flex-end`(끝점), `space-between`(양 끝에 붙고 사이 간격 동일) 등
+	- **`align-items`**: 교차 축(**세로**) 정렬
+	    - 자식 요소들을 **수직 방향**으로 어떻게 정렬할지 결정합니다.
+	    - **주요 값**: `center`(가운데), `flex-start`(시작점), `flex-end`(끝점) 등
+	    - **참고**: `align-items: center`가 제대로 동작하려면, 부모 컨테이너에 정렬할 수 있는 `height` 값이 있어야 합니다.
+- `100vh`는 현재 보이는 브라우저 화면의 전체 높이
 - .클래스:focus
 	- 포커스됐을때의 속성 조절
-- display가 block일때 마진을 0 auto로 두면 해당태그가 간격을 둔채 가운데 위치하게 됨
+- **가운데 정렬**: `display: block`인 요소에 `width` 값을 준 후 `margin: 0 auto;`를 적용하면 수평 가운데 정렬이 됩니다.
 - [[00_Inbox/Node.js공부하기전.md|Node.js공부하기전]]
 
 -----
