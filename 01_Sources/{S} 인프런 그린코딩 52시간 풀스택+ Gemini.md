@@ -105,7 +105,7 @@ creation_date: 2025-07-21
 	- class: 여러 태그에 고유한 class를 부여
 		- \<label id="A">했다면 A 재사용 가능
 		- 한칸 띄어쓰면 공백으로 연결해서 사용하면 뒤에나온 선택자가 하위 개체로 지정.
-			- https://padahkim.tistory.com/34 
+			- https://padahkim.tistory.com/34 (다중선택자정리)
 	- for
 		- for ="Id" 가 속성인 라벨을 클릭했을때 그 Id인 요소가 선택됨
 	- 비실무적: 
