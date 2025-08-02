@@ -662,7 +662,9 @@ numbers.filter((num) => {
 			```
 		- **`document.getElementsByClassName('클래스명')`**
 			- 주어진 `class` 이름을 가진 **모든 요소**를 찾아 **HTMLCollection(유사 배열)**에 담아 반환합니다.
-			- 하나만 담아서 바로 접근가능한 다른 메서드와는 달리 배열에 담아서 인덱스로 접근해야한다.
+			- 하나만 반환해 바로 접근가능한 다른 메서드와는 달리 배열에 담아 반환하기에 인덱스로 접근해야한다.
+				- const helperText = inputGroup.getElementsByClassName("helperText")[0]
+				- 하나만 있는 요소라도 인덱스\[0]를 통해서 접근하기
 			```JavaScript
 			const texts = document.getElementsByClassName("text");
 			// texts 변수에는 class가 "text"인 모든 요소들이 유사 배열 형태로 저장됩니다.
@@ -875,6 +877,16 @@ fetchPizza();
 [[00_Inbox/자바스크립트-addEventListener.md|자바스크립트-addEventListener]] ^opa8z9
 
 [[00_Inbox/정규식.md|정규식]] ^r7cruu
+
+
+
+실습1.
+HTMl
+- 태그
+js
+- 비어있는지 확인
+	- value.trim()=== "";
+
 
 
 ## 백엔드 영역
