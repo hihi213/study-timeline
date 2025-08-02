@@ -37,6 +37,7 @@ element.addEventListener('click', myFunction, {
 ##### `e.preventDefault()`: 이벤트의 기본 동작 막기
 
 이벤트 객체의 가장 중요한 기능 중 하나입니다. 특히 `<form>`의 `submit` 이벤트나 `<a>` 태그의 `click` 이벤트처럼, 브라우저가 기본적으로 수행하는 동작(페이지 새로고침, 링크 이동 등)을 막고 싶을 때 사용합니다.
+- 이 코드가 없으면 유효성 검사 결과와 상관없이 **폼이 제출되어 페이지가 새로고침됩니다.**
 
 ```JavaScript
 registrationForm.addEventListener("submit", (e) => {

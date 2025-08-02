@@ -881,12 +881,20 @@ fetchPizza();
 
 
 실습1.
-HTMl
-- 태그
+css :JavaScript는 상태(State)만, CSS는 디자인(Style)만
+- CSS에서는 **후손 선택자**(`.invalid .child-element`)를 사용해 그 상태에 따른 **세부 디자인**을 모두 정의
+	-  자바스크립트는 **부모 요소의 클래스 하나만 바꾸면 여러 자식 요소의 디자인을 한 번에 제어해 컴포넌트의 '상태'**(`invalid`, `active` 등)를 변경
+	- `.invalid .helperText` 이렇게 선택자 css작성하면, `.invalid`만 바꿔주면 내부에 있는 `.helperText`의 `visibility`와 `color`를 변경하는 식
+	- JavaScript가 **개별 자식 요소들을 일일이 찾아** 스타일(`element.style.color`)이나 클래스를 직접 변경하는 방식은 피합니다.
 js
-- 비어있는지 확인
+- 비어있는지 데이터 확인
 	- value.trim()=== "";
-
+- 정규표현식패턴.test(문자열);
+	- **정규표현식 패턴이 주어진 문자열과 일치하는지 여부를 확인하여, 그 결과를 `true` 또는 `false`로 반환합니다.**
+	- 문자열에서 특정 패턴을 찾을 때, "어떤 내용이 일치했는지"나 "어디서 일치했는지" 등의 상세 정보가 아니라, 단순히 일치여부답변만 필요한 경우 사용함
+	- 일치하지 않으면 `null`을, 일치하면 상세 정보가 담긴 배열을 반환하는 다른 메서드
+		- `string.match(pattern)`
+		- `pattern.exec(string)`
 
 
 ## 백엔드 영역
