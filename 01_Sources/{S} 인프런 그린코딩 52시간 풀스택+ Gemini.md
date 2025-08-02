@@ -895,7 +895,43 @@ js
 	- 일치하지 않으면 `null`을, 일치하면 상세 정보가 담긴 배열을 반환하는 다른 메서드
 		- `string.match(pattern)`
 		- `pattern.exec(string)`
-
+- ### **조건부 로직을 객체로 분리하는 '핸들러 맵' 패턴**
+	이 패턴의 핵심은 **`if`나 `switch` 같은 분기문을 사용하는 대신, 조건(Key)과 실행할 로직(Value)을 하나의 객체에 매핑**하고 실제 실행부에서는 이 객체를 **찾아서(lookup) 실행**하기만 하는 방식입니다.
+	- #### 언제 사용하면 좋은가?
+		- 하나의 값에 따라 실행할 코드가 **여러 갈래로 나뉘는** 경우
+		- 앞으로 **새로운 조건이 추가될 가능성**이 높은 경우    
+	- #### 적용 방법
+		1. **맵(Map) 객체 정의**: 조건과 로직을 담을 객체를 생성합니다.
+		2. **Key-Value 매핑**:
+		    - **Key**: `case`에 해당하는 **조건 값** (예: `input.id`)
+		    - **Value**: 해당 조건에서 실행될 **함수**
+		3. **호출**: `객체[key]()` 형태로 조건에 맞는 함수를 찾아 실행합니다.
+		#### 예시 코드
+		
+		```JavaScript
+		// 1 & 2: 각 input의 id(Key)와 실행할 검사 함수(Value)를 객체에 매핑
+		const validationHandlers = {
+		    userNickname: () => checkEmptyInput(userNickname),
+		    userEmail: () => validateEmailFormat(userEmail),
+		    userPassword: () => {
+		        checkPasswordStrength(userPassword);
+		        validatePasswordMatch(userPassword, confirmPassword);
+		    },
+		    confirmPassword: () => validatePasswordMatch(userPassword, confirmPassword),
+		    userPhone: () => validatePhoneNumber(userPhone)
+		};
+		
+		// 모든 input 태그에 이벤트 리스너를 부여
+		document.querySelectorAll("input").forEach(input => {
+		    input.addEventListener("input", () => {
+		        // 3: 현재 input의 id를 key로 사용하여 적절한 핸들러를 찾아 실행
+		        const handler = validationHandlers[input.id];
+		        if (handler) {
+		            handler();
+		        }
+		    });
+		});
+		```
 
 ## 백엔드 영역
 
