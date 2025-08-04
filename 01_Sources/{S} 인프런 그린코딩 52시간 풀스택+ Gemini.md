@@ -990,7 +990,19 @@ js
 js
 - document.querySelector()
 	**모든 CSS 선택자**를 사용할수있어 document.getElementById('quote')보다 선호되는 방식
-## 백엔드 영역
+- `let favorite=JSON.parse(localStorage.getItem("favorites"))||[];`
+	- localStorage.getItem("favorites")
+		- 브라우저 저장소에서 'favorites'라는 key로 저장된 데이터를 꺼냅니다.
+		- 데이터가 있으면 **문자열** 형태로, 없으면 **`null`**을 반환합니다.
+	- JSON.parse(...)
+		- `localStorage`에서 꺼낸 데이터가 문자열이므로, `JSON.parse`를 사용해 다시 자바스크립트 **배열**로 변환합니다.
+			- `localStorage`에서 꺼낸 데이터는 문자열 형태이지만, 우리가 원하는 것은 **문자열 자체가 아니라 그 안에 담긴 '목록'** 이기 때문에
+			- **배열로 변환해야만** 목록에 아이템을 **추가(`push`)**하거나, 각 아이템을 **순회(`forEach`)** 하는 등 배열의 편리한 기능들을 사용할 수 있습니다.
+	- `|| []`
+		-  만약 저장된 데이터가 없어 `localStorage.getItem("favorites")`이 `null`을 반환하면, `JSON.parse(null)`은 에러를 발생
+		- 그걸 방지하기 위해 `||` (OR) 연산자는 왼쪽 값이 `null`이나 `undefined` 같은 falsy 값이면, 오른쪽 값(여기서는 `[]`)을 대신 사용합니다.
+- [[00_Inbox/localStorage.md|localStorage]]
+## 백엔드 영역 ^2h279a
 
 
 
