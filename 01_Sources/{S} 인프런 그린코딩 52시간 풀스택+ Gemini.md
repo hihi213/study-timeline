@@ -1171,14 +1171,6 @@ js
     - **안정성**: 자식 컴포넌트가 부모나 다른 컴포넌트의 상태를 마음대로 바꿀 수 없어, 예기치 않은 부작용(side effect)을 방지하고 코드의 안정성을 높입니다.
 
 
-----
-
-
-
-
-
-
-
 
 -----
 ### 리액트 설치
@@ -1195,9 +1187,8 @@ Node.js는 원래 웹 브라우저 안에서만 동작하던 자바스크립트�
 1. **[Node.js 공식 웹사이트](https://nodejs.org/)**에 접속합니다.
 2. **LTS (Long-Term Support)** 버전을 다운로드하여 설치합니다. LTS 버전은 장기적으로 안정성이 보장되므로 가장 권장되는 버전입니다.
 3. 설치가 완료되면, 터미널(Windows는 CMD 또는 PowerShell, macOS는 터미널)을 열고 아래 명령어를 입력하여 제대로 설치되었는지 확인합니다.
-    Bash
     
-    ```
+    ```Bash
     node -v
     npm -v
     ```
@@ -1256,7 +1247,7 @@ npx create-react-app my-react-app
 
 
 
-### 리엑트 폴더구조
+### (CRA)리엑트 폴더구조
 #### 1. `node_modules` 폴더: 라이브러리 창고
 
 - **역할**: 리액트를 포함하여 이 프로젝트를 실행하는 데 필요한 모든 외부 라이브러리(패키지)들이 저장되는 공간입니다.
@@ -1302,6 +1293,65 @@ npx create-react-app my-react-app
     
 3. **`src/App.js`** 를 시작으로 모든 컴포넌트가 `#root` 안에 차례대로 그려지며 우리가 보는 웹 페이지가 완성됩니다.
 
+
+### Vite(React) 기본 폴더 구조 설명
+- **핵심 차이**:
+    - `index.html`의 위치(루트),
+    - 심플하고 커스터마이즈 가능한 `src` 구조,
+    - 명확히 분리된 설정(vite.config.js)  
+        등이 Vite의 특징입니다.
+#### 1. `node_modules` 폴더: 라이브러리 저장소
+
+- **역할**: Vite와 React를 포함한 모든 외부 라이브러리가 설치되는 장소입니다.
+- **생성 과정**: `npm install` 혹은 `yarn` 실행 시 의존성들이 여기에 설치됩니다.
+- **특징**: 용량이 매우 크고, `.gitignore`에 포함되어 있어 코드 공유 시 제외됩니다.
+#### 2. `public` 폴더: 정적 자원 관리
+
+- **역할**: favicon 또는 일부 정적 이미지, 파일 등을 보관하는 곳입니다.
+- **특이점**:
+    - Vite 프로젝트에선 이 폴더 안 내용이 별도 빌드 처리 없이 그대로 공개 경로(`/`)로 서비스됩니다.
+    - 기본적으로 `favicon.ico` 하나만 존재하거나 아예 비어 있을 수 있음.
+#### 3. `index.html` 파일 (루트 디렉토리에 위치)
+
+- **역할**:
+    - Vite 프로젝트의 가장 큰 특징은, `index.html`이 `public` 폴더가 아닌 프로젝트 최상위(루트)에 있다는 점입니다.
+    - 이 파일 내의 `<div id="root"></div>`(혹은 `id="app"`)는 React 앱이 실제로 마운트되는 진입점 역할을 합니다.
+    - Vite는 특별한 플러그인 없이도 이 HTML을 개발/배포 환경에서 자체 처리합니다.
+#### 4. `src` 폴더: 개발의 중심
+
+- **역할**: 모든 TypeScript/JavaScript 코드, 컴포넌트, 스타일, 비즈니스 로직 등이 이곳에서 작성됩니다.
+- **기본 파일**:
+    - `main.jsx` (또는 `main.tsx`): 가장 상위 렌더링 파일. `index.html`의 `div#root`에 React 앱을 마운트합니다.
+    - `App.jsx` (또는 `App.tsx`): 최상위 React 컴포넌트.
+    - `assets/` 폴더: 기본적으로 로고 등 몇몇 파일이 있을 수 있음.
+- **구조적 특징**:
+    - CRA 대비 불필요한 파일이 거의 없음(예: 테스트 파일, 설명 주석 등 미포함)
+    - 구조가 매우 심플해서 개발자가 원하는 형태로 쉽게 확장, 커스텀 가능
+#### 5. 기타 주요 파일
+- **vite.config.js**:
+    - Vite의 환경설정 파일. 플러그인 추가, 별도 빌드 옵션, 경로 별칭 등 다양한 개발자 맞춤 환경을 손쉽게 적용할 수 있습니다.
+- **package.json**: 프로젝트 정보, 의존성, 실행 스크립트 관리.
+- **.gitignore**, **README.md** 등: CRA와 동일하게 프로젝트 설정/설명 용도로 존재.
+#### 정리: Vite(React) 프로젝트 연결 방식
+1. **루트의 `index.html`**이 `<div id="root"></div>`를 마련합니다.
+2. **`src/main.jsx`에서** `ReactDOM.createRoot(document.getElementById('root'))`로 `<App />`을 그려넣습니다.
+3. 모든 React 컴포넌트, 비즈니스 로직, 스타일은 `src/` 폴더 내에서 관리합니다.
+    
+#### 폴더 도식 예시
+	`my-vite-app/ 
+		├── node_modules/ 
+		├── public/ 
+		│   └── favicon.ico 
+		├── src/ 
+		│   ├── assets/ 
+		│   │   └── logo.svg 
+		│   ├── App.jsx 
+		│   └── main.jsx 
+		├── index.html       <-- CRA와 다르게 루트에 위치! 
+		├── package.json 
+		├── vite.config.js 
+		├── .gitignore 
+		└── README.md`
 
 
 
