@@ -1284,16 +1284,6 @@ npx create-react-app my-react-app
         
     - **`App.js`**: 리액트 애플리케이션의 **최상위 컴포넌트**입니다. 모든 컴포넌트가 이 `App` 컴포넌트 아래에 자식으로 연결되어 트리 구조를 형성하게 됩니다.
         
-
-#### 요약: 어떻게 연결되는가?
-
-1. **`public/index.html`** 은 `<div id="root"></div>` 라는 뼈대를 제공합니다.
-    
-2. **`src/index.js`** 는 "id가 'root'인 요소를 찾아, 그 안에 `<App />` 컴포넌트를 그려라" 라고 명령합니다.
-    
-3. **`src/App.js`** 를 시작으로 모든 컴포넌트가 `#root` 안에 차례대로 그려지며 우리가 보는 웹 페이지가 완성됩니다.
-
-
 ### Vite(React) 기본 폴더 구조 설명
 - **핵심 차이**:
     - `index.html`의 위치(루트),
@@ -1354,6 +1344,12 @@ npx create-react-app my-react-app
 		└── README.md`
 
 
+
+
+### React 앱의 기본 구성: 컴포넌트, JSX, 그리고 `index.js`
+
+
+[[00_Inbox/정리하고 삭제할것.md|정리하고 삭제할것]] ^4rihie
 
 
 
