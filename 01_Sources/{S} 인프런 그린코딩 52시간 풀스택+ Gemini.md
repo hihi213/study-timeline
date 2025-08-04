@@ -108,6 +108,9 @@ creation_date: 2025-07-21
 	- **`<li>` (List Item)** `<ul>`이나 `<ol>` 내부에 사용되어 목록의 개별 항목을 정의합니다.
 		- **목록 스타일 변경** CSS의 `list-style` 속성을 사용하면 목록 항목 앞에 붙는 기호(마커)를 변경하거나 `none` 값으로 제거할 수 있습니다
 		- **중첩 목록 (Nested Lists)** `<li>` 태그 내부에 다른 `<ul>`이나 `<ol>`을 포함시켜 계층적인 목록 구조를 만들 수 있습니다
+		- **`document.createElement("li")`**: `<li>` 태그에 해당하는 새로운 DOM 요소(객체)를 메모리에 생성합니다.
+		- **`listItem.innerText = "명언"`**: 생성된 `<li>` 요소 객체에 "명언"이라는 텍스트 내용을 추가합니다. (`<li>명언</li>` 형태가 됨)
+		- **`listElement.appendChild(listItem)`**: `listItem` 요소를 `listElement`(`<ul>` 등)의 마지막 자식으로 추가하여 화면에 실제로 보이게 합니다.
 - 태그 속성: 태그에게 특별한 지시를 내리는 메모
 	- id: 해당 html 태그의 그 자체
 		- 서로 같은 태그들중 하나에만 고유한 id를 부여해서 특정한 스타일을 적용 
@@ -849,51 +852,64 @@ fetchPizza();
 - **에러 처리**: `Promise`의 `.catch()`와 달리, 일반적인 동기 코드처럼 `try...catch` 구문을 사용하여 에러를 직관적으로 처리할 수 있습니다.
 	- `.catch(error => ...)` **→** `catch (error) { ... }``	
 ---
+#### 3. 실전예제-`fetch` API 
+	2단계 Promise와 에러 처리
+`fetch` API는 **두 단계의 Promise**로 동작하는 비동기 통신 인터페이스입니다. 
+1) 응답에 대한 정보를 담고있는 헤더를 먼저 받고 
+2) 실제 데이터인, 응답 본문(body)을 읽는 과정이 분리되어 있습니다.
+---
+#### 1단계 Promise: `fetch(url)` → `Response` 객체
 
-#### 3. 실전 예제: `fetch` API 통신
-실제 웹 개발에서 가장 흔한 비동기 작업 중 하나는 서버와의 네트워크 통신입니다
-- **Response** 객체: 서버한테 전송받은, HTTP 응답 자체를 나타내는 객체
-	- 상태 코드, 헤더는 응답에 대한 정보를 담고 있고, body에 서버한테 요청했던 실제 데이터가 들어있다
-- **`fetch(url)` 함수**: URL로 HTTP 요청을 보내는 브라우저 내장 함수 Web API
-	- 호출 즉시 **`Promise`** 를 반환하며, 서버가 성공적으로 응답하면,  `Promise`가 이행상태로 바뀌고, 성공의 결과물로 Response 객체를 담습니다
-- **`response.json()`**: `Response` 객체의 본문(body)에 담긴 JSON 형식의 텍스트를 스트림(stream)에서 모두 읽어들인후, 실제 자바스크립트 객체로 변환하는 메서드
-	- Respones객체의 응답 본문(body)은 JSON 형식의 텍스트로, 바로 사용할 수 없습니다.
-	- 이 변환 과정 역시 비동기이므로, **새로운 `Promise`**를 반환합니다.
-	```JavaScript
-	
-	async function getUserData() {
-	    const url = 'https://jsonplaceholder.typicode.com/users/1';
-	
-	    try {
-	        // 1. fetch 함수로 URL에 HTTP 요청을 보내고, 서버가 응답 헤더를 보내올 때까지 기다립니다.
-	        // 이 단계에서는 인터넷 끊김 같은 '네트워크 에러'만 catch로 넘어가고,
-	        // 서버가 보내는 404나 500 같은 'HTTP 에러'는 일단 성공으로 간주합니다.
-	        const response = await fetch(url);
-	
-	        // 2. HTTP 통신의 성공 여부를 직접 확인합니다.
-	        // 위와 같은 이유로, response.ok (상태 코드가 200번대인지 여부)를 확인해야 합니다.
-	        // 만약 false라면, throw new Error()를 통해 에러를 발생시켜 catch 블록으로 강제 이동시킵니다.
-	        if (!response.ok) {
-	            throw new Error(`HTTP error! status: ${response.status}`);
-	        }
-	
-	        // 3. Response 객체의 본문을 JavaScript 객체로 변환하는 두 번째 비동기 작업을 시작합니다.
-	        // response.json()은 본문을 모두 읽어 파싱하는 새로운 Promise를 반환하므로,
-	        // await로 다시 한번 기다려 최종 결과인 JavaScript 객체를 얻습니다.
-	        const userData = await response.json();
-	
-	        // 4. 최종적으로 변환된 JavaScript 객체를 사용하여 원하는 작업을 수행합니다.
-	        console.log(userData);
-	
-	    } catch (error) {
-	        // 1번의 네트워크 에러나 2번에서 직접 발생시킨 에러를 여기서 처리합니다.
-	        console.error("데이터를 가져오는 데 실패했습니다:", error);
-	    }
-	}
-	
-	getUserData();
-	```
+`fetch(url)`는 호출 즉시 **첫 번째 `Promise`를**  반환합니다.
+- 이 Promise는 서버로부터 **헤더(headers)가 도착**하면 즉시 이행(resolve)되며, 결과값으로 `Response` 객체를 반환합니다.
+- **중요**: 이 단계에서는 아직 실제 데이터(body)를 모두 다운로드한 것이 아닙니다.
+- 네트워크 연결 실패 시에만 `catch` 블록으로 넘어가고, `404 Not Found`나 `500` 서버 에러 같은 **HTTP 에러는 성공으로 간주**합니다.
+---
+#### **2단계 Promise: `response.json()` → 실제 데이터
 
+`Response` 객체의 본문(body)은 바로 사용할 수 없는 **스트림(Stream)** 형태입니다. `response.json()` 메서드는 이 스트림을 끝까지 읽어 JavaScript 객체로 변환하는 작업을 수행합니다.
+- 이 읽기/변환 과정은 비동기 작업이므로 **두 번째 `Promise`를** 반환합니다.
+- 이 Promise가 최종적으로 이행되면, 우리가 실제로 사용하려는 JavaScript 객체를 얻게 됩니다.
+    
+---
+#### 에러 처리 핵심: `response.ok`
+
+`fetch`는 네트워크 에러만 감지하므로, HTTP 에러는 `response.ok` (상태 코드가 200-299 범위인지 확인) 속성을 통해 **반드시 수동으로 확인**해야 합니다. `!response.ok`일 경우, `throw new Error(...)`를 사용하여 의도적으로 에러를 발생시켜 `catch` 블록에서 처리해야 합니다.
+#### **데이터 변환 흐름**
+1. **서버 : JavaScript 객체**
+	- `{ "id": 1, "user": "Alice" }`
+2. **네트워크 전송 : JSON 텍스트**
+	- `'{ "id": 1, "user": "Alice" }'`
+3. **클라이언트 (`.json()` 실행 후)**: 다시 JavaScript 객체
+	-  `{ "id": 1, "user": "Alice" }`
+
+```JavaScript
+async function getUserData() {
+    const url = 'https://jsonplaceholder.typicode.com/users/1';
+    
+    try {
+        // 1단계 Promise: HTTP 응답 헤더를 기다려 Response 객체를 받음
+        const response = await fetch(url);
+
+        // HTTP 에러 처리: `ok`가 false이면 에러를 발생시켜 catch 블록으로 보냄
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        // 2단계 Promise: 응답 본문을 모두 읽어 JavaScript 객체로 변환
+        const userData = await response.json();
+
+        // 최종 데이터 사용
+        console.log(userData);
+
+    } catch (error) {
+        // 네트워크 에러 또는 위에서 발생시킨 HTTP 에러를 여기서 처리
+        console.error('Failed to fetch data:', error);
+    }
+}
+
+getUserData();
+```
   
 
 프론트엔드의 fetch는 데이터를 보내달라고 '요청(Request)'하는 역할이고,
@@ -1010,7 +1026,6 @@ js
 - ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
 - 리엑트 67번까지만 인강만 보고,그이후로부터 리엑트 프로젝트시작부분부터 + 졸프 프론트 구현병행
 	- 11번부터 시작.
-
 
 
 
