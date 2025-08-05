@@ -1152,10 +1152,9 @@ js
 리액트는 아래 4가지 특징을 통해 복잡한 SPA를 효율적으로 만들고 관리합니다.
 
 #### **1. 컴포넌트(Component) 기반 구조**
-
 - **개념**: 웹사이트의 UI를 **독립적인 부품(퍼즐 조각)으로** 나누어 개발하는 방식입니다. 각 컴포넌트는 자신만의 기능과 모양을 가지며, 보통 하나의 JavaScript 파일로 만들어집니다.
 - **역할**: 이 컴포넌트들을 조립하여 하나의 완성된 웹 페이지를 만듭니다. 덕분에 코드의 **재사용성**이 높아지고, 특정 기능만 수정하거나 관리하기가 매우 쉬워집니다.
-
+- **컴포넌트(Component)란?** 웹 페이지의 UI를 구성하는 **독립적이고 재사용 가능한 부품**입니다. React는 이러한 컴포넌트들을 조립하여 하나의 완전한 애플리케이션을 만듭니다.
 #### **2. 가상돔(Virtual DOM)과 성능 최적화**
 
 - **문제점**: 자바스크립트로 실제 DOM(웹페이지의 구조)을 직접 조작하는 것은 매우 느리고 비효율적인 작업입니다.
@@ -1180,9 +1179,6 @@ js
 - **이 방식의 장점**
     - **예측 가능성**: 데이터의 출처가 항상 부모로 명확하기 때문에, 앱이 복잡해져도 데이터 흐름을 추적하고 문제의 원인을 찾기가 매우 쉽습니다.
     - **안정성**: 자식 컴포넌트가 부모나 다른 컴포넌트의 상태를 마음대로 바꿀 수 없어, 예기치 않은 부작용(side effect)을 방지하고 코드의 안정성을 높입니다.
-	
-
-
 ### 3. 개발 환경 설정 및 프로젝트 생성
 #### 1단계: Node.js 설치
 
@@ -1247,21 +1243,171 @@ js
 
 --------
 
-### 4. React 프로젝트의 기본구조
-Vite와 CRA는 동일한 React를 사용하지만, 프로젝트의 초기 구조와 설정 방식에 차이가 있습니다.
-#### Vite 프로젝트 구조 (최신)
-- `index.html`: **프로젝트 최상위(루트)에 위치**하며, `<div id="root"></div>`를 포함합니다.
-- `src/main.jsx`: **JavaScript 진입점**. `index.html`의 `#root`에 React 앱을 렌더링합니다.
-- `src/App.jsx`: 최상위 루트 컴포넌트.
-- `vite.config.js`: Vite 관련 설정 파일. 플러그인 추가, 빌드 옵션 등을 여기서 관리합니다.
-- **특징**: CRA 대비 구조가 매우 단순하고, 개발 서버가 훨씬 빠릅니다.
-#### Create React App (CRA) 프로젝트 구조 (전통적)
-- `public/index.html`: `public` 폴더 안에 위치하며, `<div id="root"></div>`를 포함합니다.
-- `src/index.js`: **JavaScript 진입점**. `public/index.html`의 `#root`에 React 앱을 렌더링합니다.
-- `src/App.js`: 최상위 루트 컴포넌트.
-- `node_modules`: `npm install`로 설치된 라이브러리 저장소.
-- `package.json`: 프로젝트 정보와 의존성 목록을 관리하는 파일.
-### Vite(React) 기본 폴더 구조 설명
+### **4. React 앱의 핵심 파일 및 폴더 구조**
+
+React 애플리케이션의 동작을 이해하기 위해서는 먼저 프로젝트를 구성하는 핵심 디렉터리와 파일의 용도를 알아야 합니다.  React 앱은 크게 세 가지 핵심 영역으로 나뉘어 각자의 역할을 수행합니다.
+
+#### **1번째 영역:`public` 폴더, 진입점 `index.html`**
+ 
+  `public` 폴더
+- 이미지, 폰트 등 **별도의 처리 없이 원본 그대로** 사용될 정적 파일(static assets)을 저장한다.
+- 이 폴더의 파일들은 웹 서버에 배포 시, `https://내웹사이트.com/파일이름`처럼 직접 URL로 접근할 수 있습니다.
+
+**`index.html`**
+- **역할**: React 애플리케이션의 유일한 HTML 문서이자 브라우저가 최초로 불러오는 진입점(Entry Point)이다.
+- 이 파일의 가장 핵심적인 역할은 내부에 포함된 아래의 `div` 요소 하나를 제공하는 것입니다.
+    ```HTML
+    <div id="root"></div>
+    ```
+	- 위 `div` 요소가 바로  루트 DOM 노드(Root DOM Node) , React가 제어할 DOM의 최상위 요소가 됩니다
+	
+
+#### **2번째 영역: `src` 폴더, 애플리케이션 소스 코드**
+
+`src`(Source) 폴더는 **애플리케이션의 핵심 소스 코드**가 위치하는 공간입니다. JavaScript, CSS, 컴포넌트 등 애플리케이션의 모든 로직과 UI를 구성하는 파일들이 이곳에 담깁니다.
+	개발자는 컴포넌트, 스타일, 로직 등 대부분의 파일을 이곳에서 작성합니다.
+	
+- ##### **`App.js`**: 최상위 컴포넌트
+	- 애플리케이션 UI의 가장 큰 틀을 구성하는 **루트 컴포넌트(Root Component)** 입니다
+    - 모든 하위 컴포넌트들은 이 `App` 컴포넌트 내부에 조립되어 하나의 완성된 UI를 형성합니다다.
+    - 파일 하단의 `export default App;` 구문은 `App` 컴포넌트를 다른 파일에서 `import` 할 수 있도록 외부로 내보내는 역할을 합니다. 이것이 있기에 `index.js`에서 `App` 컴포넌트를 불러올 수 있습니다.
+	    - **`export` (내보내기)**: `App` 컴포넌트를 "공개" 상태로 만듭니다.
+		- **`default`**: 이 파일에서는 `App` 컴포넌트가 **대표**라는 의미입니다
+    
+- ##### **`index.js`**:  애플리케이션의 진입점
+	- JavaScript 코드의 실행이 시작되는 **시작점(Entry Point)** 으로, 텅 빈 HTML 뼈대에 동적인 React 컴포넌트(`App.js`)를 연결합니다.
+	- `public/index.html`의 `<div id="root">`를 찾아, 그 안에 `<App />` 컴포넌트를 그려 넣으라고(렌더링) 명령합니다.
+	- 이 파일의 코드는 크게 두 부분으로 나뉩니다.
+		1. 상단부분 **`import`**: `React`, `ReactDOM`, `<App />` 등 필요한 기능들을 불러옵니다.
+		2. 본문부분 **렌더링**: 불러온 `ReactDOM`을 사용하여 `<App />` 컴포넌트를 실제 웹 페이지에 그립니다.
+		- 코드예시
+			```JavaScript
+			// 1. 필요한 라이브러리 불러오기
+			import React from 'react';
+			import ReactDOM from 'react-dom/client'; // React를 DOM에 연결하는 도구
+			import App from './App'; // 우리가 만든 최상위 컴포넌트
+			
+			// 2. HTML 요소 선택
+			// public/index.html 파일에 있는 <div id="root"></div>를 찾습니다.
+			const rootElement = document.getElementById('root');
+			
+			// 3. React Root 생성
+			// 찾은 HTML 요소를 React가 제어할 수 있는 공간(Root)으로 만듭니다.
+			const root = ReactDOM.createRoot(rootElement);
+			
+			// 4. 컴포넌트 렌더링
+			// 생성된 React Root에 최상위 컴포넌트인 <App />을 그려 넣습니다.
+			root.render(
+			  <React.StrictMode>
+			    <App />
+			  </React.StrictMode>
+			);
+			```
+#### **3번째 영역: `node_modules` 폴더, 라이브러리 저장공간**
+- ##### `node_modules` 폴더
+	- `package.json`대로, `npm install` 명령어를 통해 **실제 라이브러리 파일들이 설치되는 폴더**입니다.
+	- **특징**: `node_modules`는 용량이 매우 크기 때문에 Git으로 관리하지 않고(`.gitignore`에 추가), `package.json` 파일만 공유합니다. `package.json` 파일을 받은 다른 개발자는 `npm install` 명령어 하나로 동일한 `node_modules` 폴더를 복원할 수 있습니다.
+- ##### `package.json` (주문서역할) 
+	- 프로젝트의 이름, 버전 같은 기본 정보(메타정보)와, 실행에 필요한 **모든 라이브러리(의존성) 목록**을 기록하는 설정 파일입니다. 개발자가 직접 확인하고 수정할 수 있습니다.
+- ##### **`package-lock.json`**
+	- `package.json`을 바탕으로, 실제로 설치된 라이브러리들의 **정확한 버전과 그 하위 의존성까지 모두 기록**하는 파일입니다. 이를 통해 다른 개발자나 배포 환경에서도 버전에 따른 충돌 없이 **모두가 동일한 환경을 갖도록 보장**합니다. 이 파일은 npm이 자동으로 관리하므로 직접 수정하지 않습니다.
+
+---
+
+### **5. React 렌더링 과정**
+
+각 파일의 역할을 확인했습니다. 이제 이 파일들이 어떻게 상호작용하여 화면을 렌더링(HTML과 React의 연결)하는지 그 과정을 단계별로 살펴보겠습니다.
+
+##### 1. 브라우저의 `index.html` 로드와 DOM 생성**
+- 브라우저의 `index.html` 로드와 DOM 생성
+	사용자가 웹사이트에 접속하면 브라우저는 `public/index.html` 파일을 받아옵니다. 
+- 그 후, 텍스트로 된 HTML 문서를 **파싱(Parsing)하여** 자바스크립트가 제어할 수 있는 객체 구조인 **DOM(문서 객체 모델)을** 메모리에 생성합니다. 이 단계에서 `<div id="root"></div>`는 생성되지만 내부는 비어있습니다.
+	- **파싱(Parsing)**: 텍스트로 된 문서를 브라우저가 이해하고 사용할 수 있는 구조(DOM)로 변환하는 과정
+	- 이 단계가 끝나면 `<div id="root"></div>`를 포함한 모든 HTML 요소가 DOM에 존재하게 됩니다. 하지만 이 **루트 DOM 노드(`root`)** 는 아직 비어있으므로 화면에는 아무것도 보이지 않습니다.
+##### **2. JavaScript 실행 및 컴포넌트 연결 준비
+-  `index.html`을 파싱하던 브라우저는 `<script>` 태그를 만나면 JavaScript 실행을 시작합니다. CRA 환경에서는 웹팩(Webpack)에 의해 하나로 합쳐진 **번들(bundle) 파일**이 실행되며, 그 시작점은 `src/index.js`입니다. 
+	```JavaScript
+	//  `import` 구문을 통해 렌더링에 필요한 핵심 라이브러리 불러온다.
+	import React from 'react';// React의 핵심 기능(JSX 처리 등)을 로드합니다.
+	import ReactDOM from 'react-dom/client';// React 컴포넌트를 브라우저의 실제 DOM에 연결(렌더링)기능을 로드
+	import App from './App'; // 우리가 만든 애플리케이션의 최상위 컴포넌트 로드
+	```
+	- 번들: `src` 폴더의 모든 자바스크립트 파일이 하나로 합쳐진 파일 
+##### 3. ReactDOM으로 컴포넌트 렌더링
+- DOM이 준비되고 필요한 모듈이 모두 로드되면, `index.js`는 `ReactDOM`을 사용하여 React 애플리케이션을 실제 화면에 그립니다. 
+- 이 핵심 과정은 다음과 같은 세 가지 작업으로 이루어집니다.
+	- **1단계: 렌더링할 DOM 요소 선택**
+		먼저 `document.getElementById('root')`를 통해, React가 렌더링될 `index.html`의 `<div id="root"></div>` 요소를 정확히 찾아냅니다
+		```JavaScript
+		const rootElement = document.getElementById('root');
+		```
+		
+	- **2단계: React Root 생성** 
+		-  다음으로, 찾은 DOM 요소를 `ReactDOM.createRoot()`에 전달하여 **React Root**를 생성합니다
+		```JavaScript
+		// 찾은 HTML 요소를 React가 제어할 수 있는 공간(Root)으로 만듭니다.
+		const root = ReactDOM.createRoot(rootElement);
+		```
+		
+		- 이는 React에게 "이제부터 이 DOM 노드는 당신이 전적으로 관리할 공간입니다"라고 알려주는 것과 같습니다. 이 `root` 객체는 UI를 화면에 그리는 `render()` 메서드를 제공합니다.
+		- 위 코드가 실행되면, `root`라는 상수 변수에는 **React가 제어할 DOM의 최상위 루트(root)에 대한 정보와 제어 기능이 담긴 객체**가 저장됩니다.
+		- React Root :`createRoot()` 함수가 반환하는 React가 컴포넌트를 관리하고 렌더링할 **전용 공간(React Root)** 
+	-  **3단계: 컴포넌트 렌더링 실행**
+		```JavaScript
+		root.render(
+		  <React.StrictMode>
+			<App />
+		  </React.StrictMode>
+		);
+```
+		-  마지막으로 `root.render()` 메서드에 최상위 컴포넌트인 `<App />`을 전달합니다. 이 명령이 실행되는 즉시, React는 `<App />` 컴포넌트부터 시작하는 모든 컴포넌트 트리를 실제 DOM(`#root`) 내부에 삽입하여 화면에 UI를 표시합니다
+
+---
+
+### **6. 핵심 문법과 도구**
+JavaScript 파일(`App.js`) 안에서 HTML과 비슷한 코드를 자유롭게 작성할 수 있는 이유는 다음과 같은 핵심 문법과 도구 덕분입니다.
+
+#### **1. JSX: JavaScript를 위한 구문 확장**
+
+JSX는 JavaScript 파일 내에서 UI 구조를 시각적으로 표현하기 위해 HTML과 유사한 마크업을 사용할 수 있게 하는 특별한 문법입니다.
+
+```JavaScript
+function App() {// in App.js
+  return (
+    <div className="App">Hello, React!</div>
+  );
+}
+```
+
+- **주요 기능**:
+    1. JavaScript 함수 안에서 HTML과 비슷한 코드를 `return` 할 수 있게 합니다.
+    2. `App.js`와 같은 컴포넌트 파일을 `<App />` 형태의 태그로 사용할 수 있게 합니다.
+- **특징**: JSX는 코드의 가독성을 높이지만, 브라우저가 직접 실행할 수는 없습니다. 실행 전에 반드시 '바벨'을 통해 순수 JavaScript로 변환되어야 합니다.
+#### **2. 바벨(Babel): JavaScript 컴파일러**
+
+**바벨(Babel)은** JSX나 최신 JavaScript 문법을 구형 브라우저에서도 호환되는 표준 JavaScript 코드로 변환(컴파일)해주는 도구입니다.다.
+
+- **역할**:
+    1. **JSX 변환**: `<div />`와 같은 JSX 코드를 브라우저가 이해할 수 있는 `React.createElement()` 함수 호출로 변환합니다
+	2. **버전 호환성**: 화살표 함수, `const/let` 등 최신 최신 JavaScript 문법을 구형 브라우저에서도 동작하는 코드(ES5)로 변환하여 호환성을 확보합니다.
+- **동작 방식**: Create React App이나 Vite 같은 개발 환경에서는 코드를 저장하거나 실행할 때마다 바벨이 자동으로 동작합니다. 개발자는 별도의 설정 없이 편리하게 최신 문법을 사용할 수 있습니다.
+
+### 7. React 개발 규칙: "하나의 파일, 하나의 컴포넌트"
+
+React 개발에는 강제는 아니지만, 거의 모든 개발자가 따르는 중요한 규칙이 있습니다.
+
+> **하나의 컴포넌트 파일(예: `App.js`)에는 반드시 하나의 컴포넌트 함수만 작성한다.**
+
+이 규칙을 지키면 코드의 구조가 명확해지고, 특정 컴포넌트를 찾거나 수정하기가 매우 쉬워져 유지보수성이 크게 향상됩니다.
+
+- 개발이란 기존 기술들을 바탕으로 **'어떻게 하면 데이터와 화면을 더 안정적이고 효율적으로 연결할까?'** 라는 고민을 해결해 나가는 과정임
+
+
+
+
+
+- ## React 나중에 볼것
+	- ### Vite(React) 기본 폴더 구조 설명
 - **핵심 차이**:
     - `index.html`의 위치(루트),
     - 심플하고 커스터마이즈 가능한 `src` 구조,
@@ -1320,177 +1466,6 @@ Vite와 CRA는 동일한 React를 사용하지만, 프로젝트의 초기 구조
 		├── .gitignore 
 		└── README.md`
 
-
-### **React(CRA)의 실행과 렌더링 과정** 
-
-`npm start` 명령어로 CRA 프로젝트를 실행하면 브라우저에 React 애플리케이션이 표시됩니다. 이 과정은 **`public/index.html`**, **`src/index.js`**, **`src/App.js`** 세 파일이 어떻게 협력하는지 이해하는 것을 중심으로 이루어집니다. 이 세 파일의 관계를 이해하면 React의 동작 방식이 명확하게 보이기 시작할 것입니다.
-
-**컴포넌트(Component)란?** 웹 페이지의 UI를 구성하는 **독립적이고 재사용 가능한 부품**입니다. React는 이러한 컴포넌트들을 조립하여 하나의 완전한 애플리케이션을 만듭니다.
-
----
-
-### **1부: React 앱의 핵심 파일 및 폴더 구조**
-
-React 애플리케이션의 동작을 이해하기 위해서는 먼저 프로젝트를 구성하는 핵심 디렉터리와 파일의 용도를 알아야 합니다.  React 앱은 크게 세 가지 핵심 영역으로 나뉘어 각자의 역할을 수행합니다.
-
-#### **1-1. `public` 폴더, 진입점 `index.html`**
- 
- `public` 폴더
-- 이미지, 폰트 등 **별도의 처리 없이 원본 그대로** 사용될 정적 파일(static assets)을 저장한다.
-- 이 폴더의 파일들은 웹 서버에 배포 시, `https://내웹사이트.com/파일이름`처럼 직접 URL로 접근할 수 있습니다.
-
-**`index.html`**
-- **역할**: React 애플리케이션의 유일한 HTML 문서이자 브라우저가 최초로 불러오는 진입점(Entry Point)이다.
-- 이 파일의 가장 핵심적인 역할은 내부에 포함된 아래의 `div` 요소 하나를 제공하는 것입니다.
-    ```HTML
-    <div id="root"></div>
-    ```
-	- 위 `div` 요소가 바로  루트 DOM 노드(Root DOM Node) , React가 제어할 DOM의 최상위 요소가 됩니다
-	
-
-#### **1-2. `src` 폴더, 애플리케이션 소스 코드**
-
-`src`(Source) 폴더는 **애플리케이션의 핵심 소스 코드**가 위치하는 공간입니다. JavaScript, CSS, 컴포넌트 등 애플리케이션의 모든 로직과 UI를 구성하는 파일들이 이곳에 담깁니다.
-	개발자는 컴포넌트, 스타일, 로직 등 대부분의 파일을 이곳에서 작성합니다.
-	
-- **`App.js`**: 최상위 컴포넌트
-	- 애플리케이션 UI의 가장 큰 틀을 구성하는 **루트 컴포넌트(Root Component)** 입니다
-    - 모든 하위 컴포넌트들은 이 `App` 컴포넌트 내부에 조립되어 하나의 완성된 UI를 형성합니다다.
-    - 파일 하단의 `export default App;` 구문은 `App` 컴포넌트를 다른 파일에서 `import` 할 수 있도록 외부로 내보내는 역할을 합니다. 이것이 있기에 `index.js`에서 `App` 컴포넌트를 불러올 수 있습니다.
-	    - **`export` (내보내기)**: `App` 컴포넌트를 "공개" 상태로 만듭니다.
-		- **`default`**: 이 파일에서는 `App` 컴포넌트가 **대표**라는 의미입니다
-    
-- **`index.js`**:  애플리케이션의 진입점
-	- JavaScript 코드의 실행이 시작되는 **시작점(Entry Point)** 으로, 텅 빈 HTML 뼈대에 동적인 React 컴포넌트(`App.js`)를 연결합니다.
-	- `public/index.html`의 `<div id="root">`를 찾아, 그 안에 `<App />` 컴포넌트를 그려 넣으라고(렌더링) 명령합니다.
-	- 이 파일의 코드는 크게 두 부분으로 나뉩니다.
-		1. 상단부분 **`import`**: `React`, `ReactDOM`, `<App />` 등 필요한 기능들을 불러옵니다.
-		2. 본문부분 **렌더링**: 불러온 `ReactDOM`을 사용하여 `<App />` 컴포넌트를 실제 웹 페이지에 그립니다.
-		- 코드예시
-			```JavaScript
-			// 1. 필요한 라이브러리 불러오기
-			import React from 'react';
-			import ReactDOM from 'react-dom/client'; // React를 DOM에 연결하는 도구
-			import App from './App'; // 우리가 만든 최상위 컴포넌트
-			
-			// 2. HTML 요소 선택
-			// public/index.html 파일에 있는 <div id="root"></div>를 찾습니다.
-			const rootElement = document.getElementById('root');
-			
-			// 3. React Root 생성
-			// 찾은 HTML 요소를 React가 제어할 수 있는 공간(Root)으로 만듭니다.
-			const root = ReactDOM.createRoot(rootElement);
-			
-			// 4. 컴포넌트 렌더링
-			// 생성된 React Root에 최상위 컴포넌트인 <App />을 그려 넣습니다.
-			root.render(
-			  <React.StrictMode>
-			    <App />
-			  </React.StrictMode>
-			);
-			```
-#### **1-3. `node_modules` 폴더, 라이브러리 저장공간**
-- `node_modules` 폴더
-	- `package.json`대로, `npm install` 명령어를 통해 **실제 라이브러리 파일들이 설치되는 폴더**입니다.
-	- **특징**: `node_modules`는 용량이 매우 크기 때문에 Git으로 관리하지 않고(`.gitignore`에 추가), `package.json` 파일만 공유합니다. `package.json` 파일을 받은 다른 개발자는 `npm install` 명령어 하나로 동일한 `node_modules` 폴더를 복원할 수 있습니다.
-- `package.json` (주문서역할) 
-	- 프로젝트의 이름, 버전 같은 기본 정보(메타정보)와, 실행에 필요한 **모든 라이브러리(의존성) 목록**을 기록하는 설정 파일입니다. 개발자가 직접 확인하고 수정할 수 있습니다.
-- **`package-lock.json`**
-	- `package.json`을 바탕으로, 실제로 설치된 라이브러리들의 **정확한 버전과 그 하위 의존성까지 모두 기록**하는 파일입니다. 이를 통해 다른 개발자나 배포 환경에서도 버전에 따른 충돌 없이 **모두가 동일한 환경을 갖도록 보장**합니다. 이 파일은 npm이 자동으로 관리하므로 직접 수정하지 않습니다.
-
----
-
-### **2부: React 렌더링 과정**
-
-1부에서 각 파일의 역할을 확인했습니다. 이제 이 파일들이 어떻게 상호작용하여 화면을 렌더링(HTML과 React의 연결)하는지 그 과정을 단계별로 살펴보겠습니다.
-
-#### **2-1. 브라우저의 `index.html` 로드와 DOM 생성**
-
-1.  브라우저의 `index.html` 로드와 DOM 생성
-	사용자가 웹사이트에 접속하면 브라우저는 `public/index.html` 파일을 받아옵니다. 그 후, 텍스트로 된 HTML 문서를 **파싱(Parsing)**하여 자바스크립트가 제어할 수 있는 객체 구조인 **DOM(문서 객체 모델)** 을 메모리에 생성합니다. 이 단계에서 `<div id="root"></div>`는 생성되지만 내부는 비어있습니다.
-	- **파싱(Parsing)**: 텍스트로 된 문서를 브라우저가 이해하고 사용할 수 있는 구조(DOM)로 변환하는 과정
-	- 이 단계가 끝나면 `<div id="root"></div>`를 포함한 모든 HTML 요소가 DOM에 존재하게 됩니다. 하지만 이 **루트 DOM 노드(`root`)** 는 아직 비어있으므로 화면에는 아무것도 보이지 않습니다.
-#### **2-2. JavaScript 실행 및 컴포넌트 연결 준비
-
-2. `index.html`을 파싱하던 브라우저는 `<script>` 태그를 만나면 JavaScript 실행을 시작합니다. CRA 환경에서는 웹팩(Webpack)에 의해 하나로 합쳐진 **번들(bundle) 파일**이 실행되며, 그 시작점은 `src/index.js`입니다. 
-	```JavaScript
-	//  `import` 구문을 통해 렌더링에 필요한 핵심 라이브러리 불러온다.
-	import React from 'react';// React의 핵심 기능(JSX 처리 등)을 로드합니다.
-	import ReactDOM from 'react-dom/client';// React 컴포넌트를 브라우저의 실제 DOM에 연결(렌더링)기능을 로드
-	import App from './App'; // 우리가 만든 애플리케이션의 최상위 컴포넌트 로드
-	```
-	- 번들: `src` 폴더의 모든 자바스크립트 파일이 하나로 합쳐진 파일 
-
-#### 2-3. ReactDOM으로 컴포넌트 렌더링
-3. DOM이 준비되고 필요한 모듈이 모두 로드되면, `index.js`는 `ReactDOM`을 사용하여 React 애플리케이션을 실제 화면에 그립니다. 
-	- 이 핵심 과정은 다음과 같은 세 가지 작업으로 이루어집니다.
-		- **1단계: 렌더링할 DOM 요소 선택**
-			먼저 `document.getElementById('root')`를 통해, React가 렌더링될 `index.html`의 `<div id="root"></div>` 요소를 정확히 찾아냅니다
-		    ```JavaScript
-		    const rootElement = document.getElementById('root');
-		    ```
-		    
-		- **2단계: React Root 생성** 
-			-  다음으로, 찾은 DOM 요소를 `ReactDOM.createRoot()`에 전달하여 **React Root**를 생성합니다
-		    ```JavaScript
-		    // 찾은 HTML 요소를 React가 제어할 수 있는 공간(Root)으로 만듭니다.
-		    const root = ReactDOM.createRoot(rootElement);
-		    ```
-		    
-			- 이는 React에게 "이제부터 이 DOM 노드는 당신이 전적으로 관리할 공간입니다"라고 알려주는 것과 같습니다. 이 `root` 객체는 UI를 화면에 그리는 `render()` 메서드를 제공합니다.
-			- 위 코드가 실행되면, `root`라는 상수 변수에는 **React가 제어할 DOM의 최상위 루트(root)에 대한 정보와 제어 기능이 담긴 객체**가 저장됩니다.
-			- React Root :`createRoot()` 함수가 반환하는 React가 컴포넌트를 관리하고 렌더링할 **전용 공간(React Root)** 
-		-  **3단계: 컴포넌트 렌더링 실행**
-		    ```JavaScript
-		    root.render(
-		      <React.StrictMode>
-		        <App />
-		      </React.StrictMode>
-		    );
-    ```
-			-  마지막으로 `root.render()` 메서드에 최상위 컴포넌트인 `<App />`을 전달합니다. 이 명령이 실행되는 즉시, React는 `<App />` 컴포넌트부터 시작하는 모든 컴포넌트 트리를 실제 DOM(`#root`) 내부에 삽입하여 화면에 UI를 표시합니다
-
----
-
-### **3부: 핵심 문법과 도구**
-JavaScript 파일(`App.js`) 안에서 HTML과 비슷한 코드를 자유롭게 작성할 수 있는 이유는 다음과 같은 핵심 문법과 도구 덕분입니다.
-
-#### **3-1. JSX: JavaScript를 위한 구문 확장**
-
-JSX는 JavaScript 파일 내에서 UI 구조를 시각적으로 표현하기 위해 HTML과 유사한 마크업을 사용할 수 있게 하는 특별한 문법입니다.
-
-```JavaScript
-function App() {// in App.js
-  return (
-    <div className="App">Hello, React!</div>
-  );
-}
-```
-
-- **주요 기능**:
-    1. JavaScript 함수 안에서 HTML과 비슷한 코드를 `return` 할 수 있게 합니다.
-    2. `App.js`와 같은 컴포넌트 파일을 `<App />` 형태의 태그로 사용할 수 있게 합니다.
-- **특징**: JSX는 코드의 가독성을 높이지만, 브라우저가 직접 실행할 수는 없습니다. 실행 전에 반드시 '바벨'을 통해 순수 JavaScript로 변환되어야 합니다.
-#### **3-2. 바벨(Babel): JavaScript 컴파일러**
-
-**바벨(Babel)은** JSX나 최신 JavaScript 문법을 구형 브라우저에서도 호환되는 표준 JavaScript 코드로 변환(컴파일)해주는 도구입니다.다.
-
-- **역할**:
-    1. **JSX 변환**: `<div />`와 같은 JSX 코드를 브라우저가 이해할 수 있는 `React.createElement()` 함수 호출로 변환합니다
-	2. **버전 호환성**: 화살표 함수, `const/let` 등 최신 최신 JavaScript 문법을 구형 브라우저에서도 동작하는 코드(ES5)로 변환하여 호환성을 확보합니다.
-- **동작 방식**: Create React App이나 Vite 같은 개발 환경에서는 코드를 저장하거나 실행할 때마다 바벨이 자동으로 동작합니다. 개발자는 별도의 설정 없이 편리하게 최신 문법을 사용할 수 있습니다.
-
-
-
-### React 개발 규칙: "하나의 파일, 하나의 컴포넌트"
-
-React 개발에는 강제는 아니지만, 거의 모든 개발자가 따르는 중요한 규칙이 있습니다.
-
-> **하나의 컴포넌트 파일(예: `App.js`)에는 반드시 하나의 컴포넌트 함수만 작성한다.**
-
-이 규칙을 지키면 코드의 구조가 명확해지고, 특정 컴포넌트를 찾거나 수정하기가 매우 쉬워져 유지보수성이 크게 향상됩니다.
-
-- 개발이란 기존 기술들을 바탕으로 **'어떻게 하면 데이터와 화면을 더 안정적이고 효율적으로 연결할까?'** 라는 고민을 해결해 나가는 과정임
 
 
 ## 백엔드 영역 ^2h279a
