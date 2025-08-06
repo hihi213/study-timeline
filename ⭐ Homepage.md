@@ -3,7 +3,7 @@ date created: 수요일, 6월 25일 2025, 3:39:33 오후
 date modified: 수요일, 6월 25일 2025, 3:54:54 오후
 ---
 
-# 🏭 지식 공장 HQ
+# 🏭 지식 공장 HQ ^v1xbt4
 
 ---
 ## 📥 처리 대기열 (`status: inbox`)
