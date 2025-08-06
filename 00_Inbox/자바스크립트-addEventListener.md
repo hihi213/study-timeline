@@ -71,7 +71,7 @@ document.querySelector('ul').addEventListener('click', (e) => {
 ##### 마우스 이벤트 (Mouse Events) 🖱️
 
 사용자가 마우스를 사용할 때 발생합니다.
-- **`click`**: 요소를 클릭했을 때
+- **`click`**: 요소를 클릭했을 때 ^f2u89m
 - **`dblclick`**: 요소를 더블 클릭했을 때
 - **`mousedown`**: 요소 위에서 마우스 버튼을 눌렀을 때
 - **`mouseup`**: 요소 위에서 마우스 버튼을 뗐을 때
@@ -112,4 +112,4 @@ document.querySelector('ul').addEventListener('click', (e) => {
 - **`resize`**: 브라우저 창 크기를 조절할 때
 ---
 ## 💭 나의 추가적 생각/질문
-- 
+- [[HTML 속성이나 DOM 프로퍼티를 사용할 때vs addEventListener쓸때의 이벤트의 이름이 다르다|HTML 속성이나 DOM 프로퍼티를 사용할 때vs addEventListener쓸때의 이벤트의 이름이 다르다]] 
