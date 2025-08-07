@@ -12,7 +12,7 @@ creation_date: 2025-07-21
 - 이 정보원의 핵심 내용이나 주제를 한두 문장으로 요약합니다.
 
 
-# 컴퓨터 지식
+컴퓨터 지식
 ## 컴퓨터지식 섹션2
 ### 웹 애플리케이션의 구조와 동작 원리
 - **데이터 관리의 기본, CRUD**
@@ -148,7 +148,7 @@ creation_date: 2025-07-21
 
 
 
-# 프론트 영역
+프론트 영역
 ## 프론트 :html, css
 - 태그: 암기하는게 아닌 웹개발할때마다 필요한 태그가 있을때마다 서치해서 알아내기 (Webstroyboy가 만든 홈페이지 참고)
 	- html태그 :html언어로 작성됨을 의미하는 태그
@@ -1251,129 +1251,96 @@ js
     ```
 
 --------
+### 4. React 프로젝트 구조와 렌더링 원리 ⚙️
 
-### **4. React 앱의 핵심 파일 및 폴더 구조**
+React 애플리케이션의 동작을 이해하려면, 프로젝트를 구성하는 **핵심 파일들의 역할**과 이들이 상호작용하여 화면을 그리는 **렌더링 과정**을 알아야 합니다.
 
-React 애플리케이션의 동작을 이해하기 위해서는 먼저 프로젝트를 구성하는 핵심 디렉터리와 파일의 용도를 알아야 합니다.  React 앱은 크게 세 가지 핵심 영역으로 나뉘어 각자의 역할을 수행합니다.
-
-#### **1번째 영역:`public` 폴더, 진입점 `index.html`**
- 
-  `public` 폴더
-- 이미지, 폰트 등 **별도의 처리 없이 원본 그대로** 사용될 정적 파일(static assets)을 저장한다.
-- 이 폴더의 파일들은 웹 서버에 배포 시, `https://내웹사이트.com/파일이름`처럼 직접 URL로 접근할 수 있습니다.
-
-**`index.html`**
-- **역할**: React 애플리케이션의 유일한 HTML 문서이자 브라우저가 최초로 불러오는 진입점(Entry Point)이다.
-- 이 파일의 가장 핵심적인 역할은 내부에 포함된 아래의 `div` 요소 하나를 제공하는 것입니다.
-    ```HTML
-    <div id="root"></div>
-    ```
-	- 위 `div` 요소가 바로  루트 DOM 노드(Root DOM Node) , React가 제어할 DOM의 최상위 요소가 됩니다
+---
+#### 1. 핵심 파일 및 폴더 역할
+ React 앱은 크게 세 가지 핵심 영역으로 나뉘어 각자의 역할을 수행합니다.
+ - 📁 `public` 폴더와 📄`index.html`
+	- **`public` 폴더**: 이미지, 폰트 등 별도의 처리 없이 원본 그대로 사용될 **정적 파일(Static Assets)을** 저장하는 공간입니다.
+		- 이 폴더의 파일들은 웹 서버에 배포 시, `https://내웹사이트.com/파일이름`처럼 직접 URL로 접근할 수 있습니다.
+	- **`index.html`**: React 애플리케이션의 유일한 HTML 문서이자 브라우저가 최초로 불러오는 **진입점(Entry Point)** 입니다. 이 파일의 가장 핵심적인 역할은 React 앱이 그려질 아래의 `div` 요소를 제공하는 것입니다.
+	    ```HTML
+	    <div id="root"></div>
+	    ```
+	    
+	    이 `div` 요소가 바로 **루트 DOM 노드(Root DOM Node)**, 즉 React가 제어할 DOM의 최상위 요소가 됩니다.
+- 📁 `src` 폴더와 핵심 소스 코드
+	- **`src` 폴더**: 컴포넌트, 스타일, 로직 등 **애플리케이션의 모든 핵심 소스 코드**가 위치하는 공간입니다.
+		- 개발자는 컴포넌트, 스타일, 로직 등 대부분의 파일을 이곳에서 작성합니다.
+	- **📄 `App.js` : 최상위 컴포넌트**
+	    - 애플리케이션 UI의 가장 큰 틀을 구성하는 **루트 컴포넌트(Root Component)** 입니다.
+	    - 모든 하위 컴포넌트들은 이 `App` 컴포넌트 내부에 조립되어 하나의 UI를 형성합니다.
+	    - `export default App;` 구문을 통해 `App` 컴포넌트를 다른 파일에서 `import` 할 수 있도록 외부로 내보냅니다.
+	        - **`export` (내보내기)**: `App` 컴포넌트를 "공개" 상태로 만듭니다.
+			- **`default`**: 이 파일에서는 `App` 컴포넌트가 **대표**라는 의미입니다
+	- **📄 `index.js` : 애플리케이션의 연결고리**
+	    - JavaScript 코드의 실행이 시작되는 **시작점(Entry Point)** 으로, 텅 빈 HTML(`index.html`)과 동적인 React 컴포넌트(`App.js`)를 연결하는 역할을 합니다.
+	    - `public/index.html`의 `<div id="root">`를 찾아, 그 안에 `<App />` 컴포넌트를 그려 넣으라고(렌더링) 명령합니다.
+		- 이 파일의 코드는 크게 두 부분으로 나뉩니다.
+			1. 상단부분 **`import`**: `React`, `ReactDOM`, `<App />` 등 필요한 기능들을 불러옵니다.
+			2. 본문부분 **렌더링**: 불러온 `ReactDOM`을 사용하여 `<App />` 컴포넌트를 실제 웹 페이지에 그립니다
+- 📁 `node_modules`와 의존성 관리
 	
-
-#### **2번째 영역: `src` 폴더, 애플리케이션 소스 코드**
-
-`src`(Source) 폴더는 **애플리케이션의 핵심 소스 코드**가 위치하는 공간입니다. JavaScript, CSS, 컴포넌트 등 애플리케이션의 모든 로직과 UI를 구성하는 파일들이 이곳에 담깁니다.
-	개발자는 컴포넌트, 스타일, 로직 등 대부분의 파일을 이곳에서 작성합니다.
-	
-- ##### **`App.js`**: 최상위 컴포넌트
-	- 애플리케이션 UI의 가장 큰 틀을 구성하는 **루트 컴포넌트(Root Component)** 입니다
-    - 모든 하위 컴포넌트들은 이 `App` 컴포넌트 내부에 조립되어 하나의 완성된 UI를 형성합니다다.
-    - 파일 하단의 `export default App;` 구문은 `App` 컴포넌트를 다른 파일에서 `import` 할 수 있도록 외부로 내보내는 역할을 합니다. 이것이 있기에 `index.js`에서 `App` 컴포넌트를 불러올 수 있습니다.
-	    - **`export` (내보내기)**: `App` 컴포넌트를 "공개" 상태로 만듭니다.
-		- **`default`**: 이 파일에서는 `App` 컴포넌트가 **대표**라는 의미입니다
-    
-- ##### **`index.js`**:  애플리케이션의 진입점
-	- JavaScript 코드의 실행이 시작되는 **시작점(Entry Point)** 으로, 텅 빈 HTML 뼈대에 동적인 React 컴포넌트(`App.js`)를 연결합니다.
-	- `public/index.html`의 `<div id="root">`를 찾아, 그 안에 `<App />` 컴포넌트를 그려 넣으라고(렌더링) 명령합니다.
-	- 이 파일의 코드는 크게 두 부분으로 나뉩니다.
-		1. 상단부분 **`import`**: `React`, `ReactDOM`, `<App />` 등 필요한 기능들을 불러옵니다.
-		2. 본문부분 **렌더링**: 불러온 `ReactDOM`을 사용하여 `<App />` 컴포넌트를 실제 웹 페이지에 그립니다.
-		- 코드예시
-			```JavaScript
-			// 1. 필요한 라이브러리 불러오기
-			import React from 'react';
-			import ReactDOM from 'react-dom/client'; // React를 DOM에 연결하는 도구
-			import App from './App'; // 우리가 만든 최상위 컴포넌트
-			
-			// 2. HTML 요소 선택
-			// public/index.html 파일에 있는 <div id="root"></div>를 찾습니다.
-			const rootElement = document.getElementById('root');
-			
-			// 3. React Root 생성
-			// 찾은 HTML 요소를 React가 제어할 수 있는 공간(Root)으로 만듭니다.
-			const root = ReactDOM.createRoot(rootElement);
-			
-			// 4. 컴포넌트 렌더링
-			// 생성된 React Root에 최상위 컴포넌트인 <App />을 그려 넣습니다.
-			root.render(
-			  <React.StrictMode>
-			    <App />
-			  </React.StrictMode>
-			);
-			```
-#### **3번째 영역: `node_modules` 폴더, 라이브러리 저장공간**
-- ##### `node_modules` 폴더
-	- `package.json`대로, `npm install` 명령어를 통해 **실제 라이브러리 파일들이 설치되는 폴더**입니다.
-	- **특징**: `node_modules`는 용량이 매우 크기 때문에 Git으로 관리하지 않고(`.gitignore`에 추가), `package.json` 파일만 공유합니다. `package.json` 파일을 받은 다른 개발자는 `npm install` 명령어 하나로 동일한 `node_modules` 폴더를 복원할 수 있습니다.
-- ##### `package.json` (주문서역할) 
-	- 프로젝트의 이름, 버전 같은 기본 정보(메타정보)와, 실행에 필요한 **모든 라이브러리(의존성) 목록**을 기록하는 설정 파일입니다. 개발자가 직접 확인하고 수정할 수 있습니다.
-- ##### **`package-lock.json`**
-	- `package.json`을 바탕으로, 실제로 설치된 라이브러리들의 **정확한 버전과 그 하위 의존성까지 모두 기록**하는 파일입니다. 이를 통해 다른 개발자나 배포 환경에서도 버전에 따른 충돌 없이 **모두가 동일한 환경을 갖도록 보장**합니다. 이 파일은 npm이 자동으로 관리하므로 직접 수정하지 않습니다.
+	- **`package.json`**: 프로젝트 메타정보와 실행에 필요한 **라이브러리(의존성) 목록**을 기록하는 설정 파일입니다.
+	    - 다른개발자에게 package.json 파일만 공유합니다. npm install 명령어 하나로 동일한 node_modules 폴더를 복원할 수 있습니다.
+	- **`package-lock.json`**: 설치된 라이브러리들의 **정확한 버전**을 기록하여, 모든 개발 환경에서 동일한 버전의 패키지를 사용하도록 보장합니다. (npm이 자동 관리)
+	- **`node_modules` 폴더**: `npm install` 시 `package.json`과 `package-lock.json`을 바탕으로 **실제 라이브러리 파일들이 설치되는 공간**입니다. 용량이 매우 커서 Git으로 관리하지 않습니다.    
 
 ---
 
-### **5. React 렌더링 과정**
+#### 2. React 렌더링 과정
 
-각 파일의 역할을 확인했습니다. 이제 이 파일들이 어떻게 상호작용하여 화면을 렌더링(HTML과 React의 연결)하는지 그 과정을 단계별로 살펴보겠습니다.
+이제 위 파일들이 어떻게 상호작용하여 화면을 렌더링하는지 3단계로 나누어 살펴보겠습니다.
 
-#### 1. 브라우저의 `index.html` 로드와 DOM 생성**
-- 브라우저의 `index.html` 로드와 DOM 생성
-	사용자가 웹사이트에 접속하면 브라우저는 `public/index.html` 파일을 받아옵니다. 
-- 그 후, 텍스트로 된 HTML 문서를 **파싱(Parsing)하여** 자바스크립트가 제어할 수 있는 객체 구조인 **DOM(문서 객체 모델)을** 메모리에 생성합니다. 이 단계에서 `<div id="root"></div>`는 생성되지만 내부는 비어있습니다.
-	- **파싱(Parsing)**: 텍스트로 된 문서를 브라우저가 이해하고 사용할 수 있는 구조(DOM)로 변환하는 과정
-	- 이 단계가 끝나면 `<div id="root"></div>`를 포함한 모든 HTML 요소가 DOM에 존재하게 됩니다. 하지만 이 **루트 DOM 노드(`root`)** 는 아직 비어있으므로 화면에는 아무것도 보이지 않습니다.
-#### **2. JavaScript 실행 및 컴포넌트 연결 준비
--  `index.html`을 파싱하던 브라우저는 `<script>` 태그를 만나면 JavaScript 실행을 시작합니다. CRA 환경에서는 웹팩(Webpack)에 의해 하나로 합쳐진 **번들(bundle) 파일**이 실행되며, 그 시작점은 `src/index.js`입니다. 
-	```JavaScript
-	//  `import` 구문을 통해 렌더링에 필요한 핵심 라이브러리 불러온다.
-	import React from 'react';// React의 핵심 기능(JSX 처리 등)을 로드합니다.
-	import ReactDOM from 'react-dom/client';// React 컴포넌트를 브라우저의 실제 DOM에 연결(렌더링)기능을 로드
-	import App from './App'; // 우리가 만든 애플리케이션의 최상위 컴포넌트 로드
-	```
-	- 번들: `src` 폴더의 모든 자바스크립트 파일이 하나로 합쳐진 파일 
-#### 3. ReactDOM으로 컴포넌트 렌더링
-- DOM이 준비되고 필요한 모듈이 모두 로드되면, `index.js`는 `ReactDOM`을 사용하여 React 애플리케이션을 실제 화면에 그립니다. 
-- 이 핵심 과정은 다음과 같은 세 가지 작업으로 이루어집니다.
-	- **1단계: 렌더링할 DOM 요소 선택**
-		먼저 `document.getElementById('root')`를 통해, React가 렌더링될 `index.html`의 `<div id="root"></div>` 요소를 정확히 찾아냅니다
-		```JavaScript
-		const rootElement = document.getElementById('root');
-		```
-		
-	- **2단계: React Root 생성** 
-		-  다음으로, 찾은 DOM 요소를 `ReactDOM.createRoot()`에 전달하여 **React Root**를 생성합니다
-		```JavaScript
-		// 찾은 HTML 요소를 React가 제어할 수 있는 공간(Root)으로 만듭니다.
-		const root = ReactDOM.createRoot(rootElement);
-		```
-		
-		- 이는 React에게 "이제부터 이 DOM 노드는 당신이 전적으로 관리할 공간입니다"라고 알려주는 것과 같습니다. 이 `root` 객체는 UI를 화면에 그리는 `render()` 메서드를 제공합니다.
-		- 위 코드가 실행되면, `root`라는 상수 변수에는 **React가 제어할 DOM의 최상위 루트(root)에 대한 정보와 제어 기능이 담긴 객체**가 저장됩니다.
-		- React Root :`createRoot()` 함수가 반환하는 React가 컴포넌트를 관리하고 렌더링할 **전용 공간(React Root)** 
-	-  **3단계: 컴포넌트 렌더링 실행**
-		```JavaScript
-		root.render(
-		  <React.StrictMode>
-			<App />
-		  </React.StrictMode>
-		);
-		```
-		-  마지막으로 `root.render()` 메서드에 최상위 컴포넌트인 `<App />`을 전달합니다. 이 명령이 실행되는 즉시, React는 `<App />` 컴포넌트부터 시작하는 모든 컴포넌트 트리를 실제 DOM(`#root`) 내부에 삽입하여 화면에 UI를 표시합니다
+##### **1단계: HTML 파싱 및 DOM 생성**
 
----
+사용자가 웹사이트에 접속하면 브라우저는 `public/index.html` 파일을 받아옵니다. 그 후, 텍스트로 된 HTML 문서를 **파싱(Parsing)**하여 자바스크립트가 제어할 수 있는 객체 구조인 **DOM(문서 객체 모델)**을 메모리에 생성합니다. 이 단계에서 `<div id="root"></div>`는 생성되지만 내부는 비어있습니다. 그러므로 화면에는 아무것도 보이지 않습니다
+- **파싱(Parsing)**: 텍스트로 된 문서를 브라우저가 이해하고 사용할 수 있는 구조(DOM)로 변환하는 과정
+##### **2단계: JavaScript 실행 및 React 연결**
 
-### **6. React 핵심 문법과 도구**
+`index.html`을 파싱하던 브라우저는 `<script>` 태그를 만나 **번들링된 JavaScript 파일**을 실행합니다. 이 코드의 시작점은 `src/index.js`이며, 이 파일이 React 애플리케이션을 DOM에 연결하는 모든 작업을 수행합니다.
+- 번들: `src` 폴더의 모든 자바스크립트 파일이 하나로 합쳐진 파일 
+##### **3단계: `ReactDOM`으로 컴포넌트 렌더링**
+
+DOM이 준비되고 필요한 모듈이 모두 로드되면, `index.js`는 `ReactDOM` 라이브러리를 사용하여 실제 화면을 그립니다. 아래는 이 과정을 한눈에 보여주는 `index.js`의 전체 코드입니다.
+
+```JavaScript
+// src/index.js
+
+// 1. 필요한 라이브러리 불러오기
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App'; // 렌더링할 최상위 컴포넌트
+
+// 2. 렌더링할 DOM 요소 선택
+const rootElement = document.getElementById('root');
+
+// 3. React Root 생성
+const root = ReactDOM.createRoot(rootElement);
+
+// 4. 컴포넌트 렌더링 실행
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+```
+
+> **코드 동작 요약**
+> 
+> 1. **`import`**: `React`, `ReactDOM`, `<App/>` 등 필요한 모듈을 불러옵니다.
+>     
+> 2. **DOM 요소 선택**: `document.getElementById('root')`로 HTML의 렌더링 위치를 찾습니다.
+>     
+> 3. **React Root 생성**: 찾은 DOM 요소를 `ReactDOM.createRoot()`에 전달하여 React가 제어할 전용 공간을 만듭니다. 이 `root` 객체는 UI를 그리는 `render()` 메서드를 가집니다.
+>     
+> 4. **렌더링 실행**: `root.render()`에 최상위 컴포넌트인 `<App />`을 전달하여 실제 DOM에 UI를 그려 넣습니다.
+> 	이 명령이 실행되는 즉시, React는 `<App />` 컴포넌트부터 시작하는 모든 컴포넌트 트리를 실제 DOM(`#root`) 내부에 삽입합니다.
+>
+### **5. React 핵심 문법과 도구**
 JavaScript 파일(`App.js`) 안에서 HTML과 비슷한 코드를 자유롭게 작성할 수 있는 이유는 다음과 같은 핵심 문법과 도구 덕분입니다.
 
 #### **1. JSX: JavaScript를 위한 구문 확장**
@@ -1400,8 +1367,110 @@ function App() {// in App.js
     1. **JSX 변환**: `<div />`와 같은 JSX 코드를 브라우저가 이해할 수 있는 `React.createElement()` 함수 호출로 변환합니다
 	2. **버전 호환성**: 화살표 함수, `const/let` 등 최신 최신 JavaScript 문법을 구형 브라우저에서도 동작하는 코드(ES5)로 변환하여 호환성을 확보합니다.
 - **동작 방식**: Create React App이나 Vite 같은 개발 환경에서는 코드를 저장하거나 실행할 때마다 바벨이 자동으로 동작합니다. 개발자는 별도의 설정 없이 편리하게 최신 문법을 사용할 수 있습니다.
+#### JSX 작성 핵심 규칙 ✍️
 
-### 7. React 개발 규칙: "하나의 파일, 하나의 컴포넌트"
+React의 UI를 작성하는 JSX는 HTML과 비슷해 보이지만, JavaScript 위에서 동작하기 때문에 반드시 지켜야 할 몇 가지 중요한 문법 규칙이 있습니다.
+
+---
+##### 1. 컴포넌트는 대문자로 시작해야 합니다.
+
+React는 태그의 첫 글자가 **소문자이면 일반 HTML 태그(`div`, `span` 등)로, 대문자이면 직접 만든 React 컴포넌트(`MyComponent`)로** 인식합니다.
+- **올바른 예시**:
+    ```JavaScript
+    function MyButton() { // 컴포넌트 이름은 대문자로 시작
+      return <button>I'm a button</button>;
+    }
+    
+    function App() {
+      return (
+        <div>
+          <MyButton /> {/* 컴포넌트 사용 시에도 대문자로 시작 */}
+        </div>
+      );
+    }
+    ```
+---
+##### 2. 하나의 최상위 요소만 반환해야 합니다.
+
+컴포넌트가 반환(return)하는 JSX 코드는 반드시 **하나의 태그로 감싸져 있어야 합니다.** 여러 개의 태그를 나란히 반환할 수 없습니다.
+- **잘못된 예시 (Error)**:
+    ```JavaScript
+    return (
+      <h1>제목</h1>
+      <p>내용</p> // <h1>과 <p>가 동등한 위치에 있어 에러 발생
+    );
+    ```
+- **올바른 예시**:
+    ```JavaScript
+    return (
+      <div> {/* 하나의 div로 감싸기 */}
+        <h1>제목</h1>
+        <p>내용</p>
+      </div>
+    );
+    ```
+> **Tip: 불필요한 div를 피하고 싶을 때** 💡 실제 렌더링 시 불필요한 `<div>` 태그를 만들고 싶지 않다면, 비어있는 태그인 **Fragment (`<>...</>`)**를 사용하세요.
+```JavaScript
+return ( 
+	<> 
+		<h1>제목</h1> 
+		<p>내용</p> 
+		</> 
+		);
+```
+---
+
+##### 3. 모든 태그는 닫혀있어야 합니다.
+
+HTML과 달리, JSX에서는 모든 태그가 반드시 닫혀있어야 합니다.
+- **일반 태그**: `<div>`는 `</div>`로 닫습니다.
+- **내용이 없는 태그**: `<br>`, `<img>`, `<input>` 등은 반드시 **셀프 클로징 태그 (`/>`)**로 닫아주어야 합니다.
+    ```JavaScript
+    // HTML에서는 <br>도 가능하지만, JSX에서는 <br />만 가능합니다.
+    return (
+      <>
+        첫 번째 줄<br />
+        <img src="path/to/image.jpg" alt="예시 이미지" />
+        <input type="text" />
+      </>
+    );
+    ```
+---
+##### 4. `class` 대신 `className`을 사용합니다.
+
+JSX에서 CSS 클래스를 지정할 때는 `class`가 아닌 **`className`** 속성을 사용해야 합니다. `class`는 JavaScript에서 클래스를 선언하는 **예약어(reserved keyword)**이기 때문입니다.
+
+```JavaScript
+// App.js
+function App() {
+  return <div className="greeting">Hello, React!</div>;
+}
+
+// App.css
+// .greeting { color: blue; }
+```
+---
+##### 5. JavaScript 표현식은 `{}` 안에 작성합니다.
+JSX 내부에서 변수나 간단한 계산 등 JavaScript 코드를 사용하고 싶을 때는 **중괄호 `{}`**로 감싸주어야 합니다.
+- **주석 처리**: 주석 또한 JavaScript이므로, `{/* 주석 내용 */}` 형태로 작성합니다.
+- **규칙**: `{}` 안에는 변수, 함수 호출, 계산식 등 **결과가 값으로 나오는 표현식(Expression)**만 사용할 수 있습니다. (`if`문, `for`문 같은 문(Statement)은 직접 사용할 수 없습니다.)
+```JavaScript
+function UserProfile({ user }) {
+  const a = 10;
+  const b = 20;
+
+  return (
+    <div>
+      {/* user 객체의 name 프로퍼티를 동적으로 표시 */}
+      <h1>{user.name}님, 환영합니다.</h1>
+
+      {/* 간단한 계산식 사용 */}
+      <p>계산 결과: {a} + {b} = {a + b}</p>
+    </div>
+  );
+}
+```
+### 6. React 개발 규칙: "하나의 파일, 하나의 컴포넌트"
 
 React 개발에는 강제는 아니지만, 거의 모든 개발자가 따르는 중요한 규칙이 있습니다.
 
@@ -1411,8 +1480,266 @@ React 개발에는 강제는 아니지만, 거의 모든 개발자가 따르는 
 
 - 개발이란 기존 기술들을 바탕으로 **'어떻게 하면 데이터와 화면을 더 안정적이고 효율적으로 연결할까?'** 라는 고민을 해결해 나가는 과정임
 
+### 7.`useState`: React 컴포넌트의 기억 장치 💡
 
+React에서 **상태(State)**는 컴포넌트가 기억해야 할 **'바뀔 수 있는 데이터'입니다**. 사용자의 입력, API 응답 등 동적인 정보를 담는 그릇이며, React는 이 상태가 변경될 때마다 화면을 자동으로 다시 그려(리렌더링) 변경 사항을 UI에 반영합니다.
 
+`useState`는 함수형 컴포넌트에서 이러한 상태를 만들고 관리하게 해주는 React의 가장 기본적인 Hook입니다.
+
+#### `useState` 사용법
+`useState`는 컴포넌트의 렌더링 과정에서 호출되며, **상태 값**과 그 값을 **업데이트하는 함수**를 배열 형태로 반환합니다.
+```JavaScript
+const [state, setState] = useState(initialValue);
+```
+- **`state`**: **현재 렌더링**에서의 상태 값입니다. 이 값은 해당 렌더링 주기 동안 절대 변하지 않는 **읽기 전용 값(스냅샷)입니다.**
+- **`setState`**: 상태 값을 **업데이트하는 함수**입니다. 이 함수를 호출하면 React에게 다음 렌더링을 예약합니다.
+- **`initialValue`**: 상태의 **초기값**입니다. 이 값은 컴포넌트가 **최초 렌더링될 때 단 한 번만** 사용됩니다.
+
+- ###### **호출 순서에 따른 과정** (아직 몰라두됨)
+	1. **`useState(initialValue)` 실행**: 컴포넌트가 렌더링될 때 `useState` 함수가 먼저 호출됩니다. React는 이 함수를 통해 상태를 저장할 공간을 만들고, 인자로 받은 `initialValue`를 그 공간의 **초기값**으로 설정합니다.
+    
+	2. **배열 반환**: `useState`는 `[ 현재값, 상태변경함수 ]` 형태의 배열을 반환합니다.
+	    - **최초 렌더링 시**: `[ initialValue, 상태변경함수 ]`
+	    - **이후 렌더링 시**: `[ 현재_상태값, 상태변경함수 ]`
+        
+	3. **배열 디스트럭처링**: 반환된 배열의 요소들이 `state`와 `setState` 변수에 순서대로 할당됩니다.
+	    - `state` 변수에는 **현재 렌더링 시점의 상태 값**이 담깁니다. (읽기 전용)
+	    - `setState` 변수에는 **상태를 변경(업데이트)하는 함수**가 담깁니다.
+---
+
+#### `useState`의 동작 원리:  스냅샷과 업데이트 예약
+
+`useState`의 동작을 이해하는 핵심은 **"상태 업데이트는 즉시가 아니라 예약된다"**는 것입니다.
+
+##### 1. 상태는 렌더링 시점의 스냅샷이다
+`state` 변수는 특정 렌더링이 시작될 때의 값으로 **고정(fixed)**됩니다. 마치 사진을 찍는 것처럼, 해당 렌더링 주기 안에서는 그 값이 변하지 않습니다.
+##### 2. 상태 업데이트는 '예약'이다
+
+`setState` 함수(예: `setCount(1)`)는 현재 렌더링의 `state` 값을 직접 바꾸지 않습니다. 대신, **"다음 렌더링 때 이 값으로 바꿔주세요"** 라고 React에게 **업데이트를 예약**하는 역할을 합니다.
+- `setState`가 즉시, 동기적으로 상태를 변경한다면, 하나의 함수가 실행되는 도중에 상태 값이 계속해서 바뀌게 됩니다.
+##### 3. 업데이트는 '일괄 처리(Batching)'된다
+이벤트 핸들러 내에서 `setState`가 여러 번 호출되더라도, React는 이를 즉시 처리하지 않고 **하나의 작업으로 묶어 단 한 번의 리렌더링만 수행**합니다. 이는 불필요한 렌더링을 막아 성능을 최적화하고, 상태의 일관성을 유지하기 위함입니다 
+- 브라우저에서 DOM(Document Object Model)을 변경하는 작업은 상대적으로 많은 연산이 필요한, 비용이 비싼 작업입니다.
+```JavaScript
+function handleClick() {
+  setCount(count + 1); // 리렌더링 예약 (count는 아직 이전 값)
+  setCount(count + 1); // 리렌더링 예약 (count는 여전히 이전 값)
+  // 이 함수가 끝나면, React는 count를 한 번만 증가시켜 리렌더링합니다.
+}
+```
+####  올바른 상태 업데이트 방법
+
+##### 1. 다음 상태 값을 직접 전달하기
+
+새로운 상태가 이전 상태와 무관할 때 사용합니다.
+
+```JavaScript
+const [name, setName] = useState('Guest');
+// ...
+setName('John'); // name을 'John'으로 업데이트 예약
+```
+##### 2. 함수를 전달하기 (Functional Update) ✨
+
+**이전 상태 값에 의존**하여 다음 상태를 결정할 때는 반드시 함수를 전달해야 합니다. 이는 '일괄 처리' 시 발생할 수 있는 문제를 방지하는 가장 안전하고 정확한 방법입니다.
+
+```JavaScript
+const [count, setCount] = useState(0);
+
+function handleIncrease() {
+  // 👎 잘못된 방법: setCount(count + 1);
+  
+  // 👍 올바른 방법: 이전 상태(c)를 받아와 새로운 상태를 반환
+  setCount(c => c + 1); 
+  setCount(c => c + 1); // 이렇게 두 번 호출하면 count가 2 증가합니다.
+}
+```
+`setState`에 함수를 전달하면, React는 그 함수를 나중에 실행할 때 최신 상태 값을 인자(위 예제의 `c`)로 넣어줍니다.
+
+---
+#### 주의할 점: 무한 렌더링 ⚠️
+
+`setState` 함수를 컴포넌트의 본문에서 직접 호출하면 **무한 렌더링 루프**에 빠집니다.
+
+```JavaScript
+function MyComponent() {
+  const [name, setName] = useState('');
+  
+  setName('React'); // 렌더링될 때마다 상태 변경을 '예약'함 -> 무한 루프!
+  
+  return <div>{name}</div>;
+}
+```
+- **무한 렌더링 과정**:
+    1. **첫 렌더링**: `setName('React')` 호출 → 다음 렌더링 예약.
+    2. **두 번째 렌더링**: `name`이 'React'가 되지만, 또다시 `setName('React')` 호출 → 다음 렌더링 또 예약.
+    3. **무한 반복**: 이 과정이 반복되다가 "Too many re-renders" 에러가 발생합니다.
+> **결론**: 상태 변경 함수(`setState`)는 반드시 **이벤트 핸들러(`onClick` 등)나 `useEffect` 훅 내부**와 같이, 특정 조건 하에서만 호출해야 합니다.
+
+### 8. React 이벤트 처리: `onChange`와 `onClick`
+
+#### 1. `onChange`: 사용자 입력 실시간 감지 ⌨️
+
+`onChange`는 `<input>`, `<textarea>` 등 입력 요소의 **값이 변경될 때마다** 발생하는 이벤트입니다. 사용자의 키보드 입력 하나하나를 감지하여 React의 **상태(State)와 동기화**하는 데 사용됩니다.
+
+##### 핵심 패턴: 제어 컴포넌트 (Controlled Component)
+
+`onChange`로 입력 값을 상태에 저장하고, 그 상태를 다시 `<input>`의 `value` 속성에 연결하는 방식을 **제어 컴포넌트**라고 합니다. 이 패턴을 통해 데이터의 흐름을 React가 완벽하게 통제하여 예측 가능하고 안정적인 폼(Form)을 만들 수 있습니다.
+
+- **`e.target.value`**: 이벤트 핸들러 함수는 **이벤트 객체(`e`)**를 인자로 받습니다. `e.target`은 이벤트가 발생한 DOM 요소(여기서는 `<input>`)를 가리키며, `e.target.value`는 그 요소의 현재 값을 의미합니다.
+---
+#### 2. `onClick`: 사용자 클릭 액션 실행 🖱️
+
+`onClick`은 `<button>`, `<div>` 등 특정 요소를 사용자가 **마우스로 클릭**했을 때 발생하는 이벤트입니다. 보통 `onChange`를 통해 업데이트된 상태 값을 **사용**하여 특정 액션을 실행하는 데 쓰입니다.
+
+---
+#### 통합 예시: 이름 입력받아 인사하기
+
+아래는 `onChange`로 사용자의 입력을 받아 상태를 업데이트하고, `onClick`으로 그 상태를 사용해 환영 메시지를 띄우는 전체 코드입니다.
+```JavaScript
+import React, { useState } from 'react';
+
+function GreetingComponent() {
+  // 1. 상태(State) 선언
+  const [name, setName] = useState(''); // 사용자가 입력할 이름을 저장하는 상태
+  const [greeting, setGreeting] = useState(''); // 최종 인사 메시지를 저장하는 상태
+
+  // 2. onChange 이벤트 핸들러
+  //    - input 값이 바뀔 때마다 name 상태를 업데이트합니다.
+  const handleNameChange = (e) => {
+    setName(e.target.value);
+  };
+
+  // 3. onClick 이벤트 핸들러
+  //    - 버튼 클릭 시, 현재 name 상태를 사용해 greeting 상태를 업데이트합니다.
+  const handleGreetClick = () => {
+    if (!name) {
+      alert('이름을 입력해주세요!');
+      return;
+    }
+    setGreeting(`${name}님, 환영합니다!`);
+  };
+
+  // 4. JSX 렌더링
+  return (
+    <div>
+      {/* value와 onChange를 연결하여 '제어 컴포넌트'로 만듭니다. */}
+      <input
+        type="text"
+        value={name}
+        onChange={handleNameChange}
+        placeholder="이름을 입력하세요"
+      />
+      
+      <button onClick={handleGreetClick}>인사하기</button>
+
+      {/* greeting 상태에 값이 있을 때만 메시지를 보여줍니다. */}
+      {greeting && <h1>{greeting}</h1>}
+    </div>
+  );
+}
+
+export default GreetingComponent;
+```
+> **핵심 흐름 요약**
+> 1. **`onChange`**: 사용자가 입력창에 글자를 입력하면 `name` 상태가 실시간으로 변경됩니다.
+> 2. **`onClick`**: 사용자가 '인사하기' 버튼을 클릭하면, 현재 `name` 상태에 저장된 값을 가져와 `greeting` 상태를 업데이트합니다.
+> 3. **리렌더링**: `greeting` 상태가 변경되었으므로 컴포넌트가 리렌더링되고, 화면에 환영 메시지가 나타납니다.
+### 9. useEffect로 컴포넌트 초기 동작 제어
+#### React 렌더링의 핵심 원칙: 순수성
+React 컴포넌트의 주된 임무는 `props`와 `state`를 기반으로 UI를 **렌더링**하는 것입니다. 이때 좋은 React 코드는 **"렌더링의 순수성"을** 지켜야 합니다.
+- **순수한 렌더링이란?** 🧪
+	- **입력(`props`, `state`)이 같으면 항상 동일한 출력(JSX)을 반환**해야 합니다.
+	- 렌더링 과정에서 어떠한 **부수 효과(Side Effects)**도 일으키지 않아야 합니다.
+- 렌더링의 순수성이 중요한 이유 (안봐도 됨)
+	1. 렌더링이 순수하면 UI는 오직 `props`와 `state`에 의해서만 결정됩니다. 이는 코드의 동작을 예측하기 쉽게 하고 버그를 찾아 해결하는 것을 용이하게 합니다.
+	2. React는 `props`와 `state`가 변하지 않았을 때, **불필요한 렌더링을 건너뛰는(skip) 최적화**를 수행합니다.
+	3. 최신 React는 여러 개의 렌더링 작업을 동시에 수행하는 등의 복잡한 기능을 위해선, 작업들간의 간섭을 막아야 합니다
+	- 과거 클래스 컴포넌트 시절에는 부수 효과들을 `componentDidMount`(첫 렌더링 후), `componentDidUpdate`(업데이트 후), `componentWillUnmount`(컴포넌트 제거 전) 같은 여러 생명주기 메소드에 흩어져서 작성해야 했습니다. `useEffect`는 이 모든 부수 효과들을 **하나의 통일된 API**로 통합함으로써, 함수형 컴포넌트에서 부수 효과를 더 직관적이고 효율적으로 관리할 수 있게 만들었습니다.
+하지만 실제 애플리케이션에서는 API 요청, 타이머 설정, 이벤트 리스너 등록 등 렌더링과 직접 관련 없는 작업, 즉 **부수 효과**가 반드시 필요합니다.
+
+`useEffect`는 바로 이 **부수 효과를 React의 렌더링 흐름에서 분리하여 처리**하기 위해 탄생한 Hook입니다. 
+
+`useEffect`의 핵심 역할은 **"React 컴포넌트를 외부 시스템과 동기화(synchronize)하는 것"입니다.**
+
+---
+#### `useEffect` 사용법과 동작 원리
+
+`useEffect`는 **셋업(setup) 함수**와 **의존성 배열** 두 인자를 받으며, 컴포넌트가 렌더링된 후(DOM 업데이트가 완료된 직후)에 실행됩니다.
+```JavaScript
+useEffect(() => {
+  // 1. 실행할 동기화(Side Effect) 코드 (셋업)
+  
+  return () => {
+    // 2. 뒷정리(Cleanup) 코드 (선택 사항)
+  }
+}, [/* 3. 의존성 배열 */]);
+```
+- **① 셋업 함수**: 실행하려는 부수 효과 코드를 작성합니다. (예: API 요청, 이벤트 리스너 등록)
+- **② 뒷정리 함수 (Cleanup)**: 셋업 함수가 반환하는 함수로, 부수 효과를 "청소"할 때 사용됩니다. (예: 타이머 해제, 이벤트 리스너 제거)
+- **③ 의존성 배열**: 이 배열에 포함된 값들이 변경될 때만 셋업 함수가 다시 실행됩니다. 
+---
+#### 의존성 배열(Dependency Array) 사용법 3가지
+의존성 배열을 어떻게 설정하느냐에 따라 `useEffect`의 실행 시점이 달라집니다.
+##### 1. 배열을 생략하는 경우 (거의 사용 안 함)
+```JavaScript
+useEffect(() => {
+  // 컴포넌트가 렌더링될 때마다 매번 실행
+});
+```
+- **실행 시점**: 최초 렌더링 및 **모든 리렌더링 시마다** 항상 실행됩니다.
+- **주의**: 상태 변경 코드를 포함하면 무한 루프에 빠질 수 있어 사용을 지양해야 합니다.
+
+##### 2. 빈 배열(`[]`)을 전달하는 경우
+```JavaScript
+useEffect(() => {
+  // 컴포넌트가 처음 렌더링될 때 딱 한 번만 실행
+  console.log('최초 마운트 시 1회 실행됩니다.');
+}, []);
+```
+
+- **실행 시점**: 컴포넌트가 **최초 렌더링(마운트)된 직후, 딱 한 번만** 실행됩니다.
+- **주요 용도**: 처음 한 번만 필요한 초기 데이터 로딩(API 호출), 이벤트 리스너 등록 등 "컴포넌트가 처음 나타날 때"의 로직에 사용됩니다.
+##### 3. 배열에 특정 값(`[name]`)을 전달하는 경우
+```JavaScript
+useEffect(() => {
+  // name 상태가 변경될 때마다 실행
+  console.log(`이름이 ${name}으로 변경되었습니다.`);
+}, [name]);
+```
+- **실행 시점**: 최초 렌더링 시 한 번 실행되고, 그 이후에는 **의존성 배열 안의 `name` 상태가 변경될 때마다** 다시 실행됩니다.
+- **주요 용도**: 특정 `props`나 `state`가 변경될 때마다 관련 작업을 다시 수행해야 할 때 사용됩니다.
+
+#### 뒷정리 함수 (Cleanup Function) 🧹
+
+`useEffect`에서 등록한 부수 효과는 컴포넌트가 사라질 때(unmount) 정리해주지 않으면 메모리 누수나 버그의 원인이 될 수 있습니다.
+
+**뒷정리 함수**는 `useEffect`의 셋업 함수가 **반환하는 함수**이며, 이 역할을 수행합니다.
+
+```JavaScript
+useEffect(() => {
+  // 셋업: 타이머 시작
+  const timerId = setInterval(() => {
+    console.log('타이머 실행 중...');
+  }, 1000);
+
+  // 뒷정리: 컴포넌트가 사라질 때 타이머 해제
+  return () => {
+    clearInterval(timerId);
+    console.log('타이머가 정리되었습니다.');
+  };
+}, []); // 최초 1회만 실행 및 정리
+```
+##### **뒷정리 함수는 언제 실행될까요?**
+1. **컴포넌트가 화면에서 사라질 때 (Unmount)**: 메모리 누수를 방지합니다.
+2. **`useEffect`가 다시 실행되기 직전**: 의존성이 변경되어 새로운 셋업 함수가 실행되기 전에, 이전의 부수 효과를 먼저 정리합니다. 이는 부수 효과가 중복으로 쌓이는 것을 방지합니다.
+
+----
+
+---
+
+여기 아래부터 정리.
+
+---
 
 
 ## React 나중에 볼것
