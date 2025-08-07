@@ -167,6 +167,7 @@ HTML(HyperText Markup Language)은 웹 페이지의 **뼈대**를 만드는 언�
 - `<input>`: 텍스트, 비밀번호, 체크박스 등 다양한 형태의 **입력 필드**를 만듭니다.
 	- 속성 readonly로 직접 키보드로 입력못하게 하고 개발자가 정의한 버튼으로 입력하게 할수있다
 	- 속성 direction: ltr; 은 입력방향을 왼쪽에서 오른쪽으로
+	- 속성 placeholder="빈 필드안에 표시할 메세지"
 - `<button>`: 클릭 가능한 **버튼**을 만듭니다. `type="submit"` 속성은 `<form>`의 내용을 제출하는 역할을 합니다.
 - `<label>`: 입력 필드(`<input>`)에 대한 **이름표**입니다. `for` 속성을 사용하여 `input`의 `id`와 연결하면 사용성이 향상됩니다.
 	- `<label for="ID">`와 `<input id="ID">`를 연결하면 
