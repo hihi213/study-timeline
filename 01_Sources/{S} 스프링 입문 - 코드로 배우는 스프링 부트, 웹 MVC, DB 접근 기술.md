@@ -210,7 +210,7 @@ topics:
 > > return 뒤에있는 hello-template이라는걸로 간다고 했죠
 > 
 > >[!PDF|176, 16, 224] **나의 생각/질문:** 
-> > -.[[00_Inbox/java와 스프링컨트롤러에서의 return의 차이.md|java와 스프링컨트롤러에서의 return의 차이]]
+> > -.[[../00_Inbox/java와 스프링컨트롤러, 리액트에서의 return의 차이|java와 스프링컨트롤러, 리액트에서의 return의 차이]]
 > > -.
 
 >![[01_Sources/스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술.pdf#page=16&rect=34,423,560,718&color=concept|스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술]] 
