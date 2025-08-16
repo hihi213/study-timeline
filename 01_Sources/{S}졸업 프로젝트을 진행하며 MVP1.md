@@ -156,6 +156,7 @@ creation_date: 2025-08-14
 - [ ] **테스트**: 역할별 E2E 시나리오 테스트
     
 - [ ] **배포**:
+	- [ ] DB_HOST, DB_PORT, DB_NAME, DB_USER ,DB_PASSWOR변경하고 tool폴더의 readme의 배포 후(GitHub Actions) 설정/실행부분 참고.
     
     - **백엔드**: `Dockerfile` 작성, **민감 정보 환경 변수 분리** 후 AWS 배포 (**[원칙 0] 적용**)
         
