@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS public.floors (
 ```sql
 -- [TABLE] dorm_rooms: 기숙사 호실 정보를 저장합니다.
 CREATE TABLE IF NOT EXISTS dorm_rooms (
--- PK 자동증가 (호실의 고유 식별자)
+	-- PK 자동증가 (호실의 고유 식별자)
   dorm_room_id bigserial PRIMARY KEY,                                     -- 호실 번호(예: 301)
   room_number  int NOT NULL,           
    -- 소속 층    (`public.floors` 테이블 참조)                              
@@ -217,13 +217,19 @@ FOR EACH ROW EXECUTE FUNCTION public.sync_room_gender_from_floor();
 ```sql
 -- [TABLE] users: 사용자 기본
 CREATE TABLE IF NOT EXISTS users (
-  user_id bigserial PRIMARY KEY,                                       -- PK
+  user_id bigserial PRIMARY KEY,                                       
+  -- PK
   dorm_room_id bigint REFERENCES dorm_rooms(dorm_room_id) ON DELETE SET NULL, -- 배정 호실(삭제 시 NULL)
-  personal_number int,                                                 -- 호실 내 개인 번호
-  login_id public.citext UNIQUE NOT NULL,                              -- 로그인 ID(대소문자 무시)
-  password_hash text NOT NULL,                                         -- 비밀번호 해시
-  email public.citext UNIQUE NOT NULL,                                 -- 이메일(대소문자 무시)
-  role_id bigint REFERENCES roles(role_id),                            -- 레거시 단일 역할
+  personal_number int,                                                
+  -- 호실 내 개인 번호
+  login_id public.citext UNIQUE NOT NULL,                              
+  -- 로그인 ID(대소문자 무시)
+  password_hash text NOT NULL,                                         
+  -- 비밀번호 해시
+  email public.citext UNIQUE NOT NULL,                                 
+  -- 이메일(대소문자 무시)
+  role_id bigint REFERENCES roles(role_id),                            
+  -- 레거시 단일 역할
   email_verified_at timestamptz,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
