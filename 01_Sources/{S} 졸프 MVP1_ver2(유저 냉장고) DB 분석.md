@@ -66,7 +66,7 @@ CREATE TYPE public.inspection_status  AS ENUM ('SCHEDULED','IN_PROGRESS','COMPLE
 
 --검사 시 발견될 수 있는 위반 유형을 정의합니다
 	--유통기한 만료/스티커 없음/포장상태 불량/정보 불일치
-CREATE TYPE public.violation_type     AS ENUM ('EXPIRED','NO_STICKER','packaging_defect','INFO_MISMATCH');
+CREATE TYPE public.violation_type     AS ENUM ('EXPIRED','NO_STICKER','PACKAGING_DEFECT','INFO_MISMATCH');
 
 --검사 결과의 종류를 정의합니다.
 	-- 통과/경고/주인불명 폐기/주인확인 폐기
@@ -104,102 +104,79 @@ CREATE TYPE public.policy_value_type      AS ENUM ('INT','BOOL','TEXT','INTERVAL
 
 ## 2) 권한/역할 (간단 RBAC) — 접근제어 뼈대
 
+시스템의 접근 제어를 위한 간단한 RBAC 모델을 구현
+
 ### 2-1. 권한/역할/매핑
 
+
 ```sql
--- [TABLE] permissions: 권한 코드 마스터
+-- [TABLE] permissions: 시스템 내에서 정의된 개별 권한을 저장 
+	--예) 'read_user_data'
 CREATE TABLE IF NOT EXISTS permissions (
-  permission_code varchar(64) PRIMARY KEY,  -- PK: 권한 식별자
-  description     varchar(255) NOT NULL     -- 권한 설명
+	-- PK: 권한 식별자
+  permission_code varchar(64) PRIMARY KEY,  
+	-- 권한에 대한 설명
+  description     varchar(255) NOT NULL     
 );
 
--- [TABLE] roles: 역할 마스터
+-- [TABLE] roles: 사용자에게 부여될 수 있는 역할을 저장합니다.
+	--예: 'ADMIN', 'USER
 CREATE TABLE IF NOT EXISTS roles (
-  role_id     bigserial PRIMARY KEY,        -- PK
-  role_name   varchar(50) UNIQUE NOT NULL,  -- 역할명(유니크)
-  description varchar(255)
+	-- PK(자동 증가 기본 키)
+  role_id     bigserial PRIMARY KEY,   
+	-- 역할명(유니크)     
+  role_name   varchar(50) UNIQUE NOT NULL,  
+	--역할에 대한 설명
+  description varchar(255) 
 );
 
--- [TABLE] role_permissions: 역할-권한 매핑(M:N)
+-- [TABLE] role_permissions: 특정 역할이 어떤 권한을 가지는지 정의하는 조인 테이블
 CREATE TABLE IF NOT EXISTS role_permissions (
-  role_id         bigint      NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
+	-- 테이블을 참조하여 역할 ID를 지정
+  role_id bigint NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE, 
+   
+	-- 테이블을 참조하여 권한 코드를 지정
   permission_code varchar(64) NOT NULL REFERENCES permissions(permission_code) ON DELETE CASCADE,
-  PRIMARY KEY (role_id, permission_code)    -- 복합 PK(중복 방지)
+
+	-- 복합 PK(중복 방지)
+  PRIMARY KEY (role_id, permission_code)   
 );
 ```
 
 ---
 
-## 3) 층 마스터(floors) — 성별 정책 원천
+## 3) 층 마스터(floors) — 층별 성별 정책, 호실 정의
 
-### 3-1. 테이블 및 시드
 
 ```sql
 -- [TABLE] floors: 층별 성별 정책
 CREATE TABLE IF NOT EXISTS public.floors (
   floor INT PRIMARY KEY,                  -- PK: 층 번호
-  gender public.room_gender_type NOT NULL -- 해당 층의 성별 정책
+  gender public.room_gender_type NOT NULL, -- 해당 층의 성별 정책
+  CONSTRAINT uq_floors_floor_gender UNIQUE (floor, gender)
 );
-
--- [SEED] 기본 정책(2층 남, 3~5층 여)
-INSERT INTO public.floors(floor, gender) VALUES
-  (2,'MALE'), (3,'FEMALE'), (4,'FEMALE'), (5,'FEMALE')
-ON CONFLICT DO NOTHING;                   -- 이미 있으면 무시
 ```
 
----
-
-## 4) 기초 마스터(호실) — 메타데이터/규칙/트리거
-
-### 4-1. 테이블/인덱스
-
 ```sql
--- [TABLE] dorm_rooms: 호실 메타데이터
+-- [TABLE] dorm_rooms: 기숙사 호실 정보를 저장합니다.
 CREATE TABLE IF NOT EXISTS dorm_rooms (
-  dorm_room_id bigserial PRIMARY KEY,                                    -- PK
+  dorm_room_id bigserial PRIMARY KEY,                                    -- PK 자동증가 (호실의 고유 식별자)
   room_number  int NOT NULL,                                             -- 호실 번호(예: 301)
-  floor        int NOT NULL REFERENCES public.floors(floor),             -- 소속 층
-  gender       public.room_gender_type NOT NULL,                         -- 호실 성별
-  capacity     int NOT NULL DEFAULT 3,                                   -- 정원(기본 3)
+  floor        int NOT NULL REFERENCES public.floors(floor),             -- 소속 층    (`public.floors` 테이블 참조)
+  gender       public.room_gender_type NOT NULL,                         -- 호실 성별   (`public.room_gender_type` ENUM 사용)
+  capacity     int NOT NULL DEFAULT 3,                                   -- 정원(기본 3)  
   is_active    boolean NOT NULL DEFAULT true,                            -- 활성 여부
-  CONSTRAINT uk_floor_room UNIQUE (floor, room_number),                  -- 층 내 호실 유니크
-  CONSTRAINT ck_room_number_floor CHECK (room_number >= floor*100 + 1 AND room_number < (floor+1)*100) -- 번호 규칙
+  CONSTRAINT uk_floor_room UNIQUE (floor, room_number),                  -- 층과 호실 번호의 조합은 고유해야 함
+  CONSTRAINT ck_room_number_floor CHECK (room_number >= floor*100 + 1 AND room_number < (floor+1)*100) -- 호실 번호가 해당 층의 범위 내에 있는지확인
 );
 
--- [INDEX] 층 기준 검색 가속
-CREATE INDEX IF NOT EXISTS ix_dorm_rooms_floor ON dorm_rooms (floor);
-```
-
-### 4-2. 층-성별 정책 강제 트리거
-
-```sql
--- [FUNC] enforce_dorm_room_gender_by_floor: 층 정책과 호실 성별 일치 검증
-CREATE OR REPLACE FUNCTION public.enforce_dorm_room_gender_by_floor()
-RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_gender public.room_gender_type;
-BEGIN
-  SELECT gender INTO v_gender FROM public.floors WHERE floor = NEW.floor; -- 층 정책 조회
-  IF v_gender IS NULL THEN
-    RAISE EXCEPTION 'Undefined floor policy for floor %', NEW.floor;      -- 미정의 방지
-  END IF;
-  IF NEW.gender IS DISTINCT FROM v_gender THEN
-    RAISE EXCEPTION 'Room gender % does not match floor % policy %', NEW.gender, NEW.floor, v_gender; -- 불일치 차단
-  END IF;
-  RETURN NEW;
-END$$;
-
--- [TRIGGER] 호실 INSERT/UPDATE 시 정책 강제
-DROP TRIGGER IF EXISTS trg_dorm_room_gender_by_floor ON public.dorm_rooms;
-CREATE TRIGGER trg_dorm_room_gender_by_floor
-BEFORE INSERT OR UPDATE OF floor, gender ON public.dorm_rooms
-FOR EACH ROW EXECUTE FUNCTION public.enforce_dorm_room_gender_by_floor();
 ```
 
 ---
 
-## 5) 사용자/인증 — 사용자, 세션/토큰, 로그인 시도
+## 4) 사용자/인증 — 사용자, 세션/토큰, 로그인 시도
 
-### 5-1. users 및 인덱스
+### 4-1. users 및 인덱스
 
 ```sql
 -- [TABLE] users: 사용자 기본
@@ -232,7 +209,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_users_room_person
   WHERE dorm_room_id IS NOT NULL AND personal_number IS NOT NULL;
 ```
 
-### 5-2. user_roles 및 백필
+### 4-2. user_roles 및 백필
 
 ```sql
 -- [TABLE] user_roles: 사용자-역할 M:N
@@ -250,7 +227,7 @@ SELECT user_id, role_id FROM public.users WHERE role_id IS NOT NULL
 ON CONFLICT DO NOTHING;
 ```
 
-### 5-3. 세션/토큰/로그인 시도
+### 4-3. 세션/토큰/로그인 시도
 
 ```sql
 -- [TABLE] auth_sessions: 리프레시 토큰 세션
@@ -311,9 +288,9 @@ CREATE INDEX IF NOT EXISTS ix_ala_success    ON auth_login_attempts (success);
 
 ---
 
-## 6) 로그/이벤트 — 도메인/감사 이벤트 수집
+## 5) 로그/이벤트 — 도메인/감사 이벤트 수집
 
-### 6-1. 테이블/인덱스/뷰
+### 5-1. 테이블/인덱스/뷰
 
 ```sql
 -- [TABLE] domain_event: 도메인/감사 이벤트 저장
@@ -348,9 +325,9 @@ WHERE de.source = 'ROW_AUDIT';
 
 ---
 
-## 7) 냉장고/칸/접근규칙 — 재고/접근/점검/층별장 전반
+## 6) 냉장고/칸/접근규칙 — 재고/접근/점검/층별장 전반
 
-### 7-1. 냉장고/칸/접근 규칙
+### 6-1. 냉장고/칸/접근 규칙
 
 ```sql
 -- [TABLE] refrigerators: 냉장고 마스터
@@ -398,7 +375,7 @@ CREATE INDEX IF NOT EXISTS ix_access_compartment ON compartment_access_rules (co
 CREATE INDEX IF NOT EXISTS ix_access_gist ON compartment_access_rules USING gist (room_range);
 ```
 
-### 7-2. 묶음/서브아이템
+### 6-2. 묶음/서브아이템
 
 ```sql
 -- [TABLE] item_bundles: 스티커 번호 단위 묶음
@@ -459,7 +436,7 @@ CREATE INDEX IF NOT EXISTS ix_sub_items_bundle_status  ON sub_items (bundle_id, 
 CREATE INDEX IF NOT EXISTS ix_sub_items_bundle_status_exp ON sub_items (bundle_id, status, expiry_date);
 ```
 
-### 7-3. 점검 세션/참여자/결과
+### 6-3. 점검 세션/참여자/결과
 
 ```sql
 -- [TABLE] fridge_inspections: 점검 세션(냉장고당 동시 1개 진행)
@@ -510,7 +487,7 @@ CREATE INDEX IF NOT EXISTS ix_ir_inspection ON public.inspection_results (inspec
 CREATE INDEX IF NOT EXISTS ix_ir_handled_by ON public.inspection_results (handled_by);
 ```
 
-### 7-4. 층별장(층 책임자)
+### 6-4. 층별장(층 책임자)
 
 ```sql
 -- [TABLE] floor_leads: 층별 책임자(활동기간 관리)
@@ -541,9 +518,9 @@ END$$;
 
 ---
 
-## 8) 알림 — 타입/알림/보낸 기록/설정/구독
+## 7) 알림 — 타입/알림/보낸 기록/설정/구독
 
-### 8-1. 알림 타입/알림 본문
+### 7-1. 알림 타입/알림 본문
 
 ```sql
 -- [TABLE] notification_types: 알림 종류 마스터
@@ -582,7 +559,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 ```
 
-### 8-2. 인덱스(알림)
+### 7-2. 인덱스(알림)
 
 ```sql
 -- [INDEX] 다양한 조회/정렬/필터 최적화
@@ -598,7 +575,7 @@ CREATE INDEX IF NOT EXISTS ix_notifications_topic_params_gin ON notifications US
 CREATE INDEX IF NOT EXISTS ix_notifications_content_trgm     ON notifications USING gin (content gin_trgm_ops);
 ```
 
-### 8-3. 발송 로그/사용자 설정/구독
+### 7-3. 발송 로그/사용자 설정/구독
 
 ```sql
 -- [TABLE] sent_notifications_log: 발송 이력(중복 방지)
@@ -640,7 +617,7 @@ CREATE INDEX IF NOT EXISTS ix_uns_user_active ON user_notification_subscriptions
 
 ---
 
-## 9) 정책화 — policy 정의 & 저장소
+## 8) 정책화 — policy 정의 & 저장소
 
 ```sql
 -- [TABLE] app_policies: 실제 적용 정책 값 저장
@@ -669,9 +646,9 @@ CREATE TABLE IF NOT EXISTS app_policy_defs (
 );
 ```
 
-## 10) 공통/업무 함수 — 트리거/정책/검사 로직
+## 9) 공통/업무 함수 — 트리거/정책/검사 로직
 
-### 10-1. 공용: updated_at 자동 갱신
+### 9-1. 공용: updated_at 자동 갱신
 
 ```sql
 -- [FUNC] set_updated_at: DML 시 updated_at을 now()로 갱신
@@ -683,7 +660,7 @@ BEGIN
 END$$;
 ```
 
-### 10-2. 공용 감사: 행 변경을 domain_event(ROW_AUDIT)로 적재
+### 9-2. 공용 감사: 행 변경을 domain_event(ROW_AUDIT)로 적재
 
 ```sql
 -- [FUNC] audit_row_change_to_domain_event_v2: INSERT/UPDATE/DELETE를 감사 이벤트로 기록
@@ -745,7 +722,7 @@ BEGIN
 END$$;
 ```
 
-### 10-3. 사용자: 호실 정원/개인번호 범위 강제
+### 9-3. 사용자: 호실 정원/개인번호 범위 강제
 
 ```sql
 -- [FUNC] enforce_room_capacity_and_range: 개인번호 1..정원, 정원 초과 배정 금지
@@ -777,7 +754,7 @@ BEGIN
 END$$;
 ```
 
-### 10-4. 냉장고/칸: 슬롯 수와 실제 칸 정합성 검증
+### 9-4. 냉장고/칸: 슬롯 수와 실제 칸 정합성 검증
 
 ```sql
 -- [FUNC] validate_compartments_match_slots: 활성 칸 수가 선언된 슬롯 수를 초과하지 않도록 체크
@@ -814,7 +791,7 @@ BEGIN
 END$$;
 ```
 
-### 10-5. 묶음: 상태 전이 시 removed_at 자동세팅
+### 9-5. 묶음: 상태 전이 시 removed_at 자동세팅
 
 ```sql
 -- [FUNC] set_bundle_removed_ts: status 변경에 따라 removed_at 동기화
@@ -837,7 +814,7 @@ BEGIN
 END$$;
 ```
 
-### 10-6. 묶음: 칸 접근 규칙 위반 차단
+### 9-6. 묶음: 칸 접근 규칙 위반 차단
 
 ```sql
 -- [FUNC] enforce_bundle_access: 사용자 호실이 칸 접근 범위에 속하는지 검증
@@ -867,7 +844,7 @@ BEGIN
 END$$;
 ```
 
-### 10-7. 정책 조회 유틸리티 (json/bool/int/interval)
+### 9-7. 정책 조회 유틸리티 (json/bool/int/interval)
 
 ```sql
 -- [FUNC] policy_json: 정책 실제값→없으면 디폴트 반환
@@ -935,26 +912,604 @@ BEGIN
 END$$;
 ```
 
-### 10-8. 정책 upsert + 검증(타입/범위/스키마)
+### 9-8. 정책 upsert + 검증(타입/범위/스키마)
 
 ```sql
 -- [FUNC] upsert_policy: 정책값 검증 후 app_policies upsert + 도메인이벤트 기록
+
+CREATE OR REPLACE FUNCTION public.policy_json(pkey text)
+RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE v jsonb;
+BEGIN
+  SELECT policy_value INTO v FROM public.app_policies WHERE policy_key = pkey;
+  IF v IS NULL THEN
+    SELECT default_value INTO v FROM public.app_policy_defs WHERE policy_key = pkey;
+  END IF;
+  RETURN v;
+END$$;
+
+CREATE OR REPLACE FUNCTION public.policy_bool(pkey text, pdefault boolean)
+RETURNS boolean LANGUAGE plpgsql AS $$
+DECLARE v jsonb; t text;
+BEGIN
+  v := public.policy_json(pkey);
+  IF v IS NULL THEN RETURN pdefault; END IF;
+  IF jsonb_typeof(v) = 'boolean' THEN
+    RETURN (v::text)::boolean;
+  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
+    t := v->>'value'; RETURN NULLIF(t,'')::boolean;
+  END IF;
+  RETURN pdefault;
+END$$;
+
+CREATE OR REPLACE FUNCTION public.policy_int(pkey text, pdefault int)
+RETURNS int LANGUAGE plpgsql AS $$
+DECLARE v jsonb; t text; n int;
+BEGIN
+  v := public.policy_json(pkey);
+  IF v IS NULL THEN RETURN pdefault; END IF;
+  IF jsonb_typeof(v) = 'number' THEN
+    RETURN (v::text)::int;
+  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
+    t := v->>'value'; n := NULLIF(t,'')::int; RETURN COALESCE(n, pdefault);
+  END IF;
+  RETURN pdefault;
+END$$;
+
+CREATE OR REPLACE FUNCTION public.policy_interval(pkey text, pdefault interval)
+RETURNS interval LANGUAGE plpgsql AS $$
+DECLARE v jsonb; t text; iv interval;
+BEGIN
+  v := public.policy_json(pkey);
+  IF v IS NULL THEN RETURN pdefault; END IF;
+  IF jsonb_typeof(v) = 'string' THEN
+    t := v::text;
+    t := trim(both '"' FROM t);
+    iv := t::interval; RETURN iv;
+  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
+    t := v->>'value'; RETURN t::interval;
+  END IF;
+  RETURN pdefault;
+END$$;
+
 CREATE OR REPLACE FUNCTION public.upsert_policy(pkey text, pvalue jsonb, pactor bigint DEFAULT NULL)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
   def   public.app_policy_defs%ROWTYPE;
-  vtype text; vtxt  text; vint  int; iv interval;
+  vtype text;
+  vtxt  text;
+  vint  int;
+  iv    interval;
 BEGIN
   SELECT * INTO def FROM public.app_policy_defs WHERE policy_key = pkey;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Unknown policy_key: %', pkey; END IF;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Unknown policy_key: %', pkey;
+  END IF;
 
   vtype := def.value_type::text;
 
   IF vtype='INT' THEN
-    IF jsonb_typeof(pvalue) <> 'number' THEN RAISE EXCEPTION 'Policy % expects INT, got %', pkey, jsonb_typeof(pvalue); END IF;
+    IF jsonb_typeof(pvalue) <> 'number' THEN
+      RAISE EXCEPTION 'Policy % expects INT, got %', pkey, jsonb_typeof(pvalue);
+    END IF;
     vint := (pvalue::text)::int;
-    IF def.min_int IS NOT NULL AND vint < def.min_int THEN RAISE EXCEPTION 'Policy % value % < min %', pkey, vint, def.min_int; END IF;
-    IF def.max_int IS NOT NULL AND vint > def.max_int THEN RAISE EXCEPTION 'Policy % value % >
+    IF def.min_int IS NOT NULL AND vint < def.min_int THEN
+      RAISE EXCEPTION 'Policy % value % < min %', pkey, vint, def.min_int;
+    END IF;
+    IF def.max_int IS NOT NULL AND vint > def.max_int THEN
+      RAISE EXCEPTION 'Policy % value % > max %', pkey, vint, def.max_int;
+    END IF;
+
+  ELSIF vtype='BOOL' THEN
+    IF jsonb_typeof(pvalue) <> 'boolean' THEN
+      RAISE EXCEPTION 'Policy % expects BOOL, got %', pkey, jsonb_typeof(pvalue);
+    END IF;
+
+  ELSIF vtype='TEXT' THEN
+    IF jsonb_typeof(pvalue) <> 'string' THEN
+      RAISE EXCEPTION 'Policy % expects TEXT, got %', pkey, jsonb_typeof(pvalue);
+    END IF;
+
+  ELSIF vtype='INTERVAL' THEN
+    IF jsonb_typeof(pvalue) <> 'string' THEN
+      RAISE EXCEPTION 'Policy % expects INTERVAL as string json', pkey;
+    END IF;
+    vtxt := trim(both '"' FROM pvalue::text);
+    iv := vtxt::interval;
+    IF def.min_interval IS NOT NULL AND iv < def.min_interval THEN
+      RAISE EXCEPTION 'Policy % interval % < min %', pkey, iv, def.min_interval;
+    END IF;
+    IF def.max_interval IS NOT NULL AND iv > def.max_interval THEN
+      RAISE EXCEPTION 'Policy % interval % > max %', pkey, iv, def.max_interval;
+    END IF;
+
+  ELSIF vtype='JSON' THEN
+    -- (스키마 검증은 필요 최소만 유지; 고도화는 추후)
+    IF def.json_schema IS NOT NULL THEN
+      IF (def.json_schema ? 'required') THEN
+        PERFORM 1 FROM jsonb_array_elements_text(def.json_schema->'required') req
+         WHERE NOT (pvalue ? req);
+        IF FOUND THEN
+          RAISE EXCEPTION 'Policy % missing required keys', pkey;
+        END IF;
+      END IF;
+    END IF;
+
+  ELSE
+    RAISE EXCEPTION 'Unsupported policy type: %', vtype;
+  END IF;
+
+  INSERT INTO public.app_policies(policy_key, policy_value, updated_at, updated_by)
+  VALUES (pkey, pvalue, now(), pactor)
+  ON CONFLICT (policy_key) DO UPDATE
+    SET policy_value = EXCLUDED.policy_value,
+        updated_at   = now(),
+        updated_by   = EXCLUDED.updated_by;
+
+  INSERT INTO public.domain_event(entity_type, entity_id, actor_user_id, action, details, occurred_at, source)
+  VALUES ('app_policy', 0, pactor, 'POLICY_UPSERT',
+          jsonb_build_object('policy_key', pkey, 'new_value', pvalue),
+          now(), 'SYSTEM');
+END$$;
+
+CREATE OR REPLACE FUNCTION enforce_inspection_freeze_fridge()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
+  v_compartment_id bigint;
+  v_refrigerator_id bigint;
+  v_inspection_id bigint;
+  v_freeze boolean;
+  v_is_participant boolean;
+BEGIN
+  v_freeze := public.policy_bool('inspection_freeze_enabled', true);
+  IF NOT v_freeze THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  IF TG_TABLE_NAME = 'item_bundles' THEN
+    v_compartment_id := COALESCE(NEW.compartment_id, OLD.compartment_id);
+  ELSIF TG_TABLE_NAME = 'sub_items' THEN
+    SELECT b.compartment_id INTO v_compartment_id
+      FROM public.item_bundles b
+     WHERE b.bundle_id = COALESCE(NEW.bundle_id, OLD.bundle_id);
+  ELSE
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  SELECT c.refrigerator_id INTO v_refrigerator_id
+    FROM public.compartments c
+   WHERE c.compartment_id = v_compartment_id;
+
+  SELECT fi.inspection_id INTO v_inspection_id
+    FROM public.fridge_inspections fi
+   WHERE fi.refrigerator_id = v_refrigerator_id
+     AND fi.status = 'IN_PROGRESS'
+   LIMIT 1;
+
+  IF v_inspection_id IS NULL THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  v_is_participant := EXISTS (
+    SELECT 1
+      FROM public.fridge_inspection_participants p
+     WHERE p.inspection_id = v_inspection_id
+       AND p.user_id = v_actor
+  );
+
+  IF NOT v_is_participant THEN
+    RAISE EXCEPTION 'Inspection in progress: only participants may modify (fridge %, inspection %, actor %)',
+      v_refrigerator_id, v_inspection_id, v_actor;
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END$$;
+
+CREATE OR REPLACE FUNCTION enforce_inspector_is_active_floor_lead()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
+  v_floor int; v_ok boolean;
+BEGIN
+  IF (TG_OP='INSERT' AND NEW.status='IN_PROGRESS')
+     OR (TG_OP='UPDATE' AND NEW.status='IN_PROGRESS' AND NEW.status IS DISTINCT FROM OLD.status)
+  THEN
+    SELECT r.floor INTO v_floor
+      FROM refrigerators r
+     WHERE r.refrigerator_id = NEW.refrigerator_id;
+
+    -- active_period( [starts_at, ends_at) ) 가 now()를 포함하는지로 판단
+    v_ok := EXISTS (
+      SELECT 1 FROM floor_leads fl
+       WHERE fl.floor = v_floor
+         AND fl.active_period @> now()
+         AND fl.user_id = v_actor
+    );
+    IF NOT v_ok THEN
+      RAISE EXCEPTION 'Only active floor leads of floor % may start inspections (actor %)', v_floor, v_actor;
+    END IF;
+
+    IF NEW.initiated_by IS NULL THEN
+      NEW.initiated_by := v_actor;
+    ELSIF NEW.initiated_by <> v_actor THEN
+      RAISE EXCEPTION 'initiated_by(%) must equal actor(%)', NEW.initiated_by, v_actor;
+    END IF;
+
+    INSERT INTO public.fridge_inspection_participants(inspection_id, user_id)
+    VALUES (NEW.inspection_id, v_actor)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END$$;
+
+
+CREATE OR REPLACE FUNCTION set_ir_handled_by_from_ctx()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
+BEGIN
+  IF NEW.handled_by IS NULL THEN
+    NEW.handled_by := v_actor;
+  END IF;
+  RETURN NEW;
+END$$;
+
+CREATE OR REPLACE FUNCTION apply_inspection_result_side_effects()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_bid bigint := NEW.bundle_id;
+  v_sid bigint := NEW.sub_item_id;
+BEGIN
+  IF NEW.outcome IN ('DISCARD','DISCARD_WITH_PENALTY') THEN
+    IF v_sid IS NOT NULL THEN
+      UPDATE public.sub_items
+         SET status='CONSUMED', updated_at=now()
+       WHERE sub_item_id = v_sid AND status='STORED';
+    ELSIF v_bid IS NOT NULL THEN
+      UPDATE public.sub_items
+         SET status='CONSUMED', updated_at=now()
+       WHERE bundle_id = v_bid AND status='STORED';
+    END IF;
+  END IF;
+  RETURN NEW;
+END$$;
+
+CREATE OR REPLACE FUNCTION maintain_bundle_remaining_count_delta()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status = 'STORED' THEN
+      UPDATE public.item_bundles
+         SET remaining_count = remaining_count + 1, updated_at = now()
+       WHERE bundle_id = NEW.bundle_id;
+    END IF;
+    RETURN NEW;
+
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF OLD.status <> NEW.status THEN
+      IF OLD.status = 'STORED' AND NEW.status <> 'STORED' THEN
+        UPDATE public.item_bundles
+           SET remaining_count = GREATEST(0, remaining_count - 1), updated_at = now()
+         WHERE bundle_id = NEW.bundle_id;
+      ELSIF OLD.status <> 'STORED' AND NEW.status = 'STORED' THEN
+        UPDATE public.item_bundles
+           SET remaining_count = remaining_count + 1, updated_at = now()
+         WHERE bundle_id = NEW.bundle_id;
+      END IF;
+    END IF;
+    RETURN NEW;
+
+  ELSIF TG_OP = 'DELETE' THEN
+    IF OLD.status = 'STORED' THEN
+      UPDATE public.item_bundles
+         SET remaining_count = GREATEST(0, remaining_count - 1), updated_at = now()
+       WHERE bundle_id = OLD.bundle_id;
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END$$;
+
+CREATE OR REPLACE FUNCTION public.autoset_bundle_removed_when_empty()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.remaining_count = 0 AND NEW.status <> 'REMOVED' THEN
+    NEW.status := 'REMOVED';
+    NEW.removed_at := COALESCE(NEW.removed_at, now());
+  END IF;
+  IF NEW.remaining_count > 0 AND NEW.status = 'REMOVED' THEN
+    NEW.status := 'ACTIVE';
+    NEW.removed_at := NULL;
+  END IF;
+  RETURN NEW;
+END$$;
+
+CREATE OR REPLACE FUNCTION enforce_floor_lead_quota()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_max int := public.policy_int('max_active_floor_leads_per_floor', 1);
+  v_cnt int := 0;
+  v_floor int := COALESCE(NEW.floor, OLD.floor);
+BEGIN
+  PERFORM 1 FROM public.floors WHERE floor = v_floor FOR UPDATE;
+
+  SELECT count(*) INTO v_cnt
+    FROM public.floor_leads
+   WHERE floor = v_floor
+     AND ends_at IS NULL
+     AND (TG_OP='UPDATE' AND floor_lead_id <> NEW.floor_lead_id OR TG_OP <> 'UPDATE');
+
+  IF (TG_OP <> 'UPDATE' OR (TG_OP='UPDATE' AND NEW.ends_at IS NULL)) THEN
+    v_cnt := v_cnt + 1;
+  END IF;
+
+  IF v_cnt > v_max THEN
+    RAISE EXCEPTION 'Active floor leads for floor % exceed quota (%/%). Update policy max_active_floor_leads_per_floor.',
+      v_floor, v_cnt, v_max;
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END$$;
+
+CREATE OR REPLACE FUNCTION public.prune_notifications()
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE ttl_hours int := public.policy_int('notif.default_ttl_hours', 168);
+BEGIN
+  DELETE FROM notifications
+   WHERE created_at < (now() - make_interval(hours => ttl_hours))
+      OR (expires_at IS NOT NULL AND expires_at < now());
+END$$;
+
+CREATE OR REPLACE FUNCTION public.prune_domain_event(p_keep_days int DEFAULT 90)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  DELETE FROM domain_event
+   WHERE occurred_at < (now() - make_interval(days => p_keep_days));
+END$$;
+
+-- =========================================================
+-- 11) 트리거
+-- =========================================================
+-- users
+CREATE TRIGGER trg_users_updated_at
+BEFORE UPDATE ON users
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE CONSTRAINT TRIGGER ctrg_users_capacity_check
+AFTER INSERT OR UPDATE OF dorm_room_id, personal_number ON users
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION enforce_room_capacity_and_range();
+
+-- 냉장고/칸 수 정합성
+CREATE CONSTRAINT TRIGGER ctrg_validate_compartments_on_refrigerators
+AFTER INSERT OR UPDATE OF refrigerated_slots, freezer_slots ON refrigerators
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION validate_compartments_match_slots();
+
+CREATE CONSTRAINT TRIGGER ctrg_validate_compartments_on_compartments
+AFTER INSERT OR DELETE OR UPDATE ON compartments
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION validate_compartments_match_slots();
+
+-- bundles/sub_items: 접근/검사잠금/타임스탬프/남은수/자동상태
+CREATE CONSTRAINT TRIGGER ctrg_bundles_access
+AFTER INSERT OR UPDATE OF user_id, compartment_id ON item_bundles
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION enforce_bundle_access();
+
+CREATE TRIGGER trg_bundles_inspection_freeze_iud
+BEFORE INSERT OR UPDATE OR DELETE ON item_bundles
+FOR EACH ROW EXECUTE FUNCTION enforce_inspection_freeze_fridge();
+
+CREATE TRIGGER trg_sub_items_inspection_freeze_iud
+BEFORE INSERT OR UPDATE OR DELETE ON sub_items
+FOR EACH ROW EXECUTE FUNCTION enforce_inspection_freeze_fridge();
+
+CREATE TRIGGER trg_bundles_removed_ts
+BEFORE INSERT OR UPDATE OF status ON item_bundles
+FOR EACH ROW EXECUTE FUNCTION set_bundle_removed_ts();
+
+CREATE TRIGGER trg_bundles_updated_at
+BEFORE UPDATE ON item_bundles
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_sub_items_updated_at
+BEFORE UPDATE ON sub_items
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_sub_items_rc_delta_insupddel
+AFTER INSERT OR UPDATE OF status OR DELETE ON sub_items
+FOR EACH ROW EXECUTE FUNCTION maintain_bundle_remaining_count_delta();
+
+CREATE TRIGGER trg_bundles_autoremoved
+BEFORE UPDATE OF remaining_count, status ON item_bundles
+FOR EACH ROW EXECUTE FUNCTION autoset_bundle_removed_when_empty();
+
+-- 검사자 유효성(활성 층별장), 시작자 자동 참가
+CREATE TRIGGER trg_fridge_inspector_is_floor_lead_ins
+BEFORE INSERT ON fridge_inspections
+FOR EACH ROW EXECUTE FUNCTION enforce_inspector_is_active_floor_lead();
+
+CREATE TRIGGER trg_fridge_inspector_is_floor_lead_upd
+BEFORE UPDATE OF status ON fridge_inspections
+FOR EACH ROW EXECUTE FUNCTION enforce_inspector_is_active_floor_lead();
+
+-- 검사 결과: handled_by 세팅 + 부수효과
+CREATE TRIGGER trg_ir_set_handled_by
+BEFORE INSERT ON inspection_results
+FOR EACH ROW EXECUTE FUNCTION set_ir_handled_by_from_ctx();
+
+CREATE TRIGGER trg_ir_side_effects
+AFTER INSERT ON inspection_results
+FOR EACH ROW EXECUTE FUNCTION apply_inspection_result_side_effects();
+
+-- 감사 트리거(ROW_AUDIT → domain_event v2)
+CREATE TRIGGER trg_audit_users
+AFTER INSERT OR UPDATE OR DELETE ON users
+FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['user_id']);
+
+CREATE TRIGGER trg_audit_bundles
+AFTER INSERT OR UPDATE OR DELETE ON item_bundles
+FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['bundle_id']);
+
+CREATE TRIGGER trg_audit_sub_items
+AFTER INSERT OR UPDATE OR DELETE ON sub_items
+FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['sub_item_id']);
+
+CREATE TRIGGER trg_audit_fridge_inspections
+AFTER INSERT OR UPDATE OR DELETE ON fridge_inspections
+FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['inspection_id']);
+
+CREATE TRIGGER trg_audit_inspection_results
+AFTER INSERT OR UPDATE OR DELETE ON inspection_results
+FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['inspection_result_id']);
+
+CREATE TRIGGER trg_audit_inspection_participants
+AFTER INSERT OR UPDATE OR DELETE ON fridge_inspection_participants
+FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['inspection_id','user_id']);
+
+CREATE TRIGGER trg_audit_notifications
+AFTER INSERT OR UPDATE OR DELETE ON notifications
+FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['notification_id']);
+
+-- 층별장 쿼터
+CREATE TRIGGER trg_floor_leads_quota_ins
+BEFORE INSERT ON floor_leads
+FOR EACH ROW EXECUTE FUNCTION enforce_floor_lead_quota();
+
+CREATE TRIGGER trg_floor_leads_quota_upd
+BEFORE UPDATE OF ends_at, floor ON floor_leads
+FOR EACH ROW EXECUTE FUNCTION enforce_floor_lead_quota();
+
+-- =========================================================
+-- 12) 뷰
+-- =========================================================
+CREATE OR REPLACE VIEW effective_permissions AS
+SELECT ur.user_id, rp.permission_code
+FROM public.user_roles ur
+JOIN public.role_permissions rp ON rp.role_id = ur.role_id
+UNION
+SELECT u.user_id, rp.permission_code
+FROM public.users u
+JOIN public.role_permissions rp ON rp.role_id = u.role_id;
+
+CREATE OR REPLACE VIEW users_with_room_no AS
+SELECT u.user_id, r.room_number, r.floor, u.personal_number
+FROM users u
+LEFT JOIN dorm_rooms r ON r.dorm_room_id = u.dorm_room_id;
+
+CREATE OR REPLACE VIEW fridge_inspection_report AS
+SELECT
+  fi.inspection_id,
+  fi.refrigerator_id,
+  fi.status,
+  fi.scheduled_at, fi.started_at, fi.completed_at, fi.note,
+  count(ir.inspection_result_id) AS items_processed,
+  count(*) FILTER (WHERE ir.outcome='PASS')    AS pass_count,
+  count(*) FILTER (WHERE ir.outcome='WARNING') AS warning_count,
+  count(*) FILTER (WHERE ir.outcome IN ('DISCARD_ANONYMOUS','DISCARD_IDENTIFIED')) AS discarded_count
+FROM fridge_inspections fi
+LEFT JOIN inspection_results ir ON ir.inspection_id = fi.inspection_id
+GROUP BY fi.inspection_id;
+
+-- =========================================================
+-- 13) 테이블 저장/청소 파라미터 (운영 권장값)
+-- =========================================================
+ALTER TABLE domain_event
+  SET (fillfactor=90, autovacuum_vacuum_scale_factor=0.05, autovacuum_analyze_scale_factor=0.02,
+       autovacuum_vacuum_threshold=1000, autovacuum_analyze_threshold=500);
+
+ALTER TABLE notifications
+  SET (fillfactor=90, autovacuum_vacuum_scale_factor=0.05, autovacuum_analyze_scale_factor=0.02,
+       autovacuum_vacuum_threshold=1000, autovacuum_analyze_threshold=500);
+
+ALTER TABLE auth_login_attempts
+  SET (fillfactor=90, autovacuum_vacuum_scale_factor=0.05, autovacuum_analyze_scale_factor=0.02,
+       autovacuum_vacuum_threshold=500, autovacuum_analyze_threshold=250);
+
+-- 유효 토큰 인덱스(선택)
+DROP INDEX IF EXISTS ix_evt_valid;
+CREATE INDEX IF NOT EXISTS ix_evt_valid
+  ON email_verification_tokens (user_id, expires_at)
+  WHERE used_at IS NULL;
+
+DROP INDEX IF EXISTS ix_prt_valid;
+CREATE INDEX IF NOT EXISTS ix_prt_valid
+  ON password_reset_tokens (user_id, expires_at)
+  WHERE used_at IS NULL;
+
+-- =========================================================
+-- 14) 시드 데이터
+-- =========================================================
+INSERT INTO roles(role_id, role_name, description) VALUES
+  (1,'SUPER_ADMIN','최고 관리자'),
+  (2,'ADMIN','일반 관리자'),
+  (3,'FLOOR_LEAD','층별장'),
+  (4,'USER','일반 사용자')
+ON CONFLICT (role_id) DO NOTHING;
+
+INSERT INTO notification_types(type_code, description, is_user_configurable) VALUES
+  ('SYS_ANNOUNCE','시스템 공지', true),
+  ('SYS_SCORE','상/벌점 부여', true),
+  ('SYS_ROLE_CHANGE','역할/권한 변경', true),
+  ('SYS_ADMIN_APPROVED','관리자 계정 승인', false),
+  ('WASH_DONE','내 세탁/건조 완료', true),
+  ('WASH_AVAILABLE','감시 중 기기 사용가능', true),
+  ('WASH_WATCHED_BY_OTHERS','내 기기에 종료알림 신청 발생', true),
+  ('WASH_TIME_ADJUSTED','남은시간 수정됨', true),
+  ('WASH_NEXT_USER_REQUEST','다음 사용자 요청', true),
+  ('WASH_STATE_FORCED','관리자에 의해 상태 변경', true),
+  ('WASH_REPAIR_DONE','내 신고 기기 수리완료', true),
+  ('FRIDGE_EXPIRE_SOON','유통기한 임박', true),
+  ('FRIDGE_VIOLATION','검사 경고/폐기/벌점', true),
+  ('FRIDGE_INSPECTION_CHANGED','정기 점검 일정 변경/취소', true),
+  ('LIB_DUE_TOMORROW','반납일 D-1', true),
+  ('LIB_OVERDUE','연체 발생', true),
+  ('LIB_AVAILABLE','예약 도서 대출 가능', true),
+  ('LIB_RESERVE_LASTDAY','예약 대출 마감일 D-0', true),
+  ('LIB_RESERVE_CANCELED','예약 자동 취소', true),
+  ('SR_START_SOON','시작 15분 전', true)
+ON CONFLICT (type_code) DO NOTHING;
+
+INSERT INTO public.app_policy_defs(policy_key, value_type, description, default_value,
+                                   min_int, max_int, min_interval, max_interval, json_schema)
+VALUES
+  ('max_active_floor_leads_per_floor','INT','층별장 동시 활성 최대 인원(층별)', to_jsonb(1), 1, 5, NULL, NULL, NULL),
+  ('inspection_freeze_enabled','BOOL','검사 진행 중 냉장고 쓰기 잠금 활성화', to_jsonb(true), NULL, NULL, NULL, NULL, NULL),
+  ('notif.default_ttl_hours','INT','알림 기본 만료시간(시간 단위)', to_jsonb(168), 1, 720, NULL, NULL, NULL),
+  ('fridge.expiry_prealert_days','INT','유통기한 임박 알림 사전 일수', to_jsonb(1), 0, 7, NULL, NULL, NULL),
+  ('wash.default_minutes','JSON','세탁/건조 기본 시간(분)',
+     '{"washer":38,"dryer":50,"blanket_dryer":60}'::jsonb, NULL, NULL, NULL, NULL,
+     '{"required":["washer","dryer"],"types":{"washer":"number","dryer":"number","blanket_dryer":"number"}}'::jsonb),
+  ('wash.done_to_available_grace_minutes','INT','세탁 완료 후 자동 AVAILABLE 전환 유예(분)', to_jsonb(5), 0, 30, NULL, NULL, NULL),
+  ('studyroom.start_prealert_minutes','INT','스터디룸 시작 전 알림(분)', to_jsonb(15), 0, 120, NULL, NULL, NULL),
+  ('library.due_prealert_days','INT','도서 반납일 사전 알림(일)', to_jsonb(1), 0, 7, NULL, NULL, NULL),
+  ('notifications.auto_read_enabled','BOOL','페이지 진입 시 토픽 자동 읽음', to_jsonb(true), NULL, NULL, NULL, NULL, NULL),
+  ('closure.reset_days_before_end','INT','휴관 종료 N일 전 초기화 기준(일)', to_jsonb(3), 1, 5, NULL, NULL, NULL)
+ON CONFLICT (policy_key) DO UPDATE
+  SET default_value=EXCLUDED.default_value,
+      value_type=EXCLUDED.value_type,
+      description=EXCLUDED.description;
+
+INSERT INTO public.app_policies(policy_key, policy_value, category, description) VALUES
+  ('max_active_floor_leads_per_floor', to_jsonb(1),    'floor','층별장 동시 활성 최대 인원(층별)'),
+  ('inspection_freeze_enabled',        to_jsonb(true), 'inspection','검사 진행 중 쓰기 잠금'),
+  ('notif.default_ttl_hours',          to_jsonb(168),  'notification','알림 기본 TTL(7일)'),
+  ('fridge.expiry_prealert_days',      to_jsonb(1),    'fridge','유통기한 임박 알림 D-1'),
+  ('wash.default_minutes',             '{"washer":38,"dryer":50,"blanket_dryer":60}'::jsonb, 'wash','세탁/건조 기본(분)'),
+  ('wash.done_to_available_grace_minutes', to_jsonb(5), 'wash','세탁 DONE→AVAILABLE 유예'),
+  ('studyroom.start_prealert_minutes', to_jsonb(15),   'studyroom','스터디룸 시작 전 알림(분)'),
+  ('library.due_prealert_days',        to_jsonb(1),    'library','반납일 D-1 알림'),
+  ('notifications.auto_read_enabled',  to_jsonb(true), 'notification','페이지 진입 자동 읽음'),
+  ('closure.reset_days_before_end',    to_jsonb(3),    'closure','휴관 종료 N일 전 초기화')
+ON CONFLICT (policy_key) DO UPDATE
+  SET policy_value=EXCLUDED.policy_value,
+      category=EXCLUDED.category,
+      description=EXCLUDED.description;
+
+COMMIT;
 ```
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
 - 
