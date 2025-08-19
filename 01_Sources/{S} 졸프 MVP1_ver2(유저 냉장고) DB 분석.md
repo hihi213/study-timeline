@@ -72,7 +72,6 @@ CREATE TYPE public.violation_type     AS ENUM ('EXPIRED','NO_STICKER','PACKAGING
 	-- 통과/경고/주인불명 폐기/주인확인 폐기
 CREATE TYPE public.inspection_outcome AS ENUM ('PASS','WARNING','DISCARD_ANONYMOUS','DISCARD_IDENTIFIED');
 
-
 --[방]
 -- 방의 성별 유형을 정의합니다. 
 	--남성/여성
@@ -107,7 +106,6 @@ CREATE TYPE public.policy_value_type      AS ENUM ('INT','BOOL','TEXT','INTERVAL
 시스템의 접근 제어를 위한 간단한 RBAC 모델을 구현
 
 ### 2-1. 권한/역할/매핑
-
 
 ```sql
 -- [TABLE] permissions: 시스템 내에서 정의된 개별 권한을 저장 
@@ -147,7 +145,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 
 ## 3) 층 마스터(floors) — 층별 성별 정책, 호실 정의
 
-
 ```sql
 -- [TABLE] floors: 층별 성별 정책
 CREATE TABLE IF NOT EXISTS public.floors (
@@ -160,16 +157,55 @@ CREATE TABLE IF NOT EXISTS public.floors (
 ```sql
 -- [TABLE] dorm_rooms: 기숙사 호실 정보를 저장합니다.
 CREATE TABLE IF NOT EXISTS dorm_rooms (
-  dorm_room_id bigserial PRIMARY KEY,                                    -- PK 자동증가 (호실의 고유 식별자)
-  room_number  int NOT NULL,                                             -- 호실 번호(예: 301)
-  floor        int NOT NULL REFERENCES public.floors(floor),             -- 소속 층    (`public.floors` 테이블 참조)
-  gender       public.room_gender_type NOT NULL,                         -- 호실 성별   (`public.room_gender_type` ENUM 사용)
-  capacity     int NOT NULL DEFAULT 3,                                   -- 정원(기본 3)  
-  is_active    boolean NOT NULL DEFAULT true,                            -- 활성 여부
-  CONSTRAINT uk_floor_room UNIQUE (floor, room_number),                  -- 층과 호실 번호의 조합은 고유해야 함
-  CONSTRAINT ck_room_number_floor CHECK (room_number >= floor*100 + 1 AND room_number < (floor+1)*100) -- 호실 번호가 해당 층의 범위 내에 있는지확인
+-- PK 자동증가 (호실의 고유 식별자)
+  dorm_room_id bigserial PRIMARY KEY,                                     -- 호실 번호(예: 301)
+  room_number  int NOT NULL,           
+   -- 소속 층    (`public.floors` 테이블 참조)                              
+  floor        int NOT NULL,
+   -- 호실 성별   (`public.room_gender_type` ENUM 사용)           
+  gender       public.room_gender_type NOT NULL, 
+   -- 정원(기본 3)                         
+  capacity     int NOT NULL DEFAULT 3,      
+   -- 활성 여부                            
+  is_active    boolean NOT NULL DEFAULT true,      
+   -- 층과 호실 번호의 조합은 고유해야 함                     
+  CONSTRAINT uk_floor_room UNIQUE (floor, room_number),                 
+   -- 호실 번호가 해당 층의 범위 내에 있는지확인
+  CONSTRAINT ck_room_number_floor CHECK (room_number >= floor*100 + 1 AND room_number < (floor+1)*100),
+ 
+-- 층 정책과 호실 성별이 항상 일치하도록 복합 FK 강제
+  CONSTRAINT fk_dorm_rooms_floor_gender
+    FOREIGN KEY (floor, gender)
+    REFERENCES public.floors (floor, gender)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
 );
 
+--[인덱스] 복합 FK 성능/락 방지 
+CREATE INDEX IF NOT EXISTS ix_dorm_rooms_floor_gender ON public.dorm_rooms (floor, gender);
+
+-- [트리거] 층 성별을 자동으로 room.gender에 세팅
+CREATE OR REPLACE FUNCTION public.sync_room_gender_from_floor()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.floor IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- 없는 층이면 깔끔히 에러
+  SELECT f.gender INTO STRICT NEW.gender
+  FROM public.floors f
+  WHERE f.floor = NEW.floor;
+
+  RETURN NEW;
+END$$;
+
+DROP TRIGGER IF EXISTS trg_dorm_rooms_sync_gender ON public.dorm_rooms;
+CREATE TRIGGER trg_dorm_rooms_sync_gender
+BEFORE INSERT OR UPDATE OF floor ON public.dorm_rooms
+FOR EACH ROW EXECUTE FUNCTION public.sync_room_gender_from_floor();
+
+  
 ```
 
 ---
@@ -257,8 +293,6 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
   CONSTRAINT ux_evt_token UNIQUE (token_hash),
   CONSTRAINT ck_evt_exp CHECK (expires_at > sent_at)
 );
-CREATE INDEX IF NOT EXISTS ix_evt_user ON email_verification_tokens (user_id);
-CREATE INDEX IF NOT EXISTS ix_evt_exp  ON email_verification_tokens (expires_at);
 
 -- [TABLE] password_reset_tokens: 비밀번호 재설정
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -271,8 +305,6 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   CONSTRAINT ux_prt_token UNIQUE (token_hash),
   CONSTRAINT ck_prt_exp CHECK (expires_at > requested_at)
 );
-CREATE INDEX IF NOT EXISTS ix_prt_user ON password_reset_tokens (user_id);
-CREATE INDEX IF NOT EXISTS ix_prt_exp  ON password_reset_tokens (expires_at);
 
 -- [TABLE] auth_login_attempts: 로그인 시도 로그
 CREATE TABLE IF NOT EXISTS auth_login_attempts (
@@ -308,7 +340,6 @@ CREATE TABLE IF NOT EXISTS domain_event (
 );
 CREATE INDEX IF NOT EXISTS ix_domain_event_time ON domain_event (occurred_at);
 CREATE INDEX IF NOT EXISTS ix_domain_event_src  ON domain_event (source);
-CREATE INDEX IF NOT EXISTS ix_domain_event_ent  ON domain_event (entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS ix_domain_event_entity_time ON domain_event (entity_type, entity_id, occurred_at DESC);
 
 -- [VIEW] activity_logs: ROW_AUDIT만 필터링하여 조회 단순화
@@ -563,7 +594,6 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 ```sql
 -- [INDEX] 다양한 조회/정렬/필터 최적화
-CREATE INDEX IF NOT EXISTS ix_notifications_user_read        ON notifications (recipient_id, is_read);
 CREATE INDEX IF NOT EXISTS ix_notifications_user_read_time   ON notifications (recipient_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_notifications_type             ON notifications (notification_type_code);
 CREATE INDEX IF NOT EXISTS ix_notifications_unread           ON notifications (recipient_id, created_at DESC) WHERE is_read=false;
@@ -917,61 +947,6 @@ END$$;
 ```sql
 -- [FUNC] upsert_policy: 정책값 검증 후 app_policies upsert + 도메인이벤트 기록
 
-CREATE OR REPLACE FUNCTION public.policy_json(pkey text)
-RETURNS jsonb LANGUAGE plpgsql AS $$
-DECLARE v jsonb;
-BEGIN
-  SELECT policy_value INTO v FROM public.app_policies WHERE policy_key = pkey;
-  IF v IS NULL THEN
-    SELECT default_value INTO v FROM public.app_policy_defs WHERE policy_key = pkey;
-  END IF;
-  RETURN v;
-END$$;
-
-CREATE OR REPLACE FUNCTION public.policy_bool(pkey text, pdefault boolean)
-RETURNS boolean LANGUAGE plpgsql AS $$
-DECLARE v jsonb; t text;
-BEGIN
-  v := public.policy_json(pkey);
-  IF v IS NULL THEN RETURN pdefault; END IF;
-  IF jsonb_typeof(v) = 'boolean' THEN
-    RETURN (v::text)::boolean;
-  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
-    t := v->>'value'; RETURN NULLIF(t,'')::boolean;
-  END IF;
-  RETURN pdefault;
-END$$;
-
-CREATE OR REPLACE FUNCTION public.policy_int(pkey text, pdefault int)
-RETURNS int LANGUAGE plpgsql AS $$
-DECLARE v jsonb; t text; n int;
-BEGIN
-  v := public.policy_json(pkey);
-  IF v IS NULL THEN RETURN pdefault; END IF;
-  IF jsonb_typeof(v) = 'number' THEN
-    RETURN (v::text)::int;
-  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
-    t := v->>'value'; n := NULLIF(t,'')::int; RETURN COALESCE(n, pdefault);
-  END IF;
-  RETURN pdefault;
-END$$;
-
-CREATE OR REPLACE FUNCTION public.policy_interval(pkey text, pdefault interval)
-RETURNS interval LANGUAGE plpgsql AS $$
-DECLARE v jsonb; t text; iv interval;
-BEGIN
-  v := public.policy_json(pkey);
-  IF v IS NULL THEN RETURN pdefault; END IF;
-  IF jsonb_typeof(v) = 'string' THEN
-    t := v::text;
-    t := trim(both '"' FROM t);
-    iv := t::interval; RETURN iv;
-  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
-    t := v->>'value'; RETURN t::interval;
-  END IF;
-  RETURN pdefault;
-END$$;
-
 CREATE OR REPLACE FUNCTION public.upsert_policy(pkey text, pvalue jsonb, pactor bigint DEFAULT NULL)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
@@ -1112,6 +1087,12 @@ DECLARE
   v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
   v_floor int; v_ok boolean;
 BEGIN
+  -- INSERT 시 initiated_by가 없으면 항상 채움
+  IF TG_OP = 'INSERT' AND NEW.initiated_by IS NULL THEN
+    NEW.initiated_by := v_actor;
+  END IF;
+
+  -- 'IN_PROGRESS'로 전환(또는 그 상태로 INSERT) 때만 층별장 여부 검사 + 자동 참가
   IF (TG_OP='INSERT' AND NEW.status='IN_PROGRESS')
      OR (TG_OP='UPDATE' AND NEW.status='IN_PROGRESS' AND NEW.status IS DISTINCT FROM OLD.status)
   THEN
@@ -1119,7 +1100,6 @@ BEGIN
       FROM refrigerators r
      WHERE r.refrigerator_id = NEW.refrigerator_id;
 
-    -- active_period( [starts_at, ends_at) ) 가 now()를 포함하는지로 판단
     v_ok := EXISTS (
       SELECT 1 FROM floor_leads fl
        WHERE fl.floor = v_floor
@@ -1130,9 +1110,7 @@ BEGIN
       RAISE EXCEPTION 'Only active floor leads of floor % may start inspections (actor %)', v_floor, v_actor;
     END IF;
 
-    IF NEW.initiated_by IS NULL THEN
-      NEW.initiated_by := v_actor;
-    ELSIF NEW.initiated_by <> v_actor THEN
+    IF NEW.initiated_by <> v_actor THEN
       RAISE EXCEPTION 'initiated_by(%) must equal actor(%)', NEW.initiated_by, v_actor;
     END IF;
 
@@ -1143,7 +1121,6 @@ BEGIN
 
   RETURN NEW;
 END$$;
-
 
 CREATE OR REPLACE FUNCTION set_ir_handled_by_from_ctx()
 RETURNS trigger LANGUAGE plpgsql AS $$
@@ -1161,7 +1138,7 @@ DECLARE
   v_bid bigint := NEW.bundle_id;
   v_sid bigint := NEW.sub_item_id;
 BEGIN
-  IF NEW.outcome IN ('DISCARD','DISCARD_WITH_PENALTY') THEN
+  IF NEW.outcome IN ('DISCARD_ANONYMOUS','DISCARD_IDENTIFIED') THEN
     IF v_sid IS NOT NULL THEN
       UPDATE public.sub_items
          SET status='CONSUMED', updated_at=now()
@@ -1429,7 +1406,7 @@ ALTER TABLE auth_login_attempts
   SET (fillfactor=90, autovacuum_vacuum_scale_factor=0.05, autovacuum_analyze_scale_factor=0.02,
        autovacuum_vacuum_threshold=500, autovacuum_analyze_threshold=250);
 
--- 유효 토큰 인덱스(선택)
+-- 유효 토큰 인덱스
 DROP INDEX IF EXISTS ix_evt_valid;
 CREATE INDEX IF NOT EXISTS ix_evt_valid
   ON email_verification_tokens (user_id, expires_at)
@@ -1511,5 +1488,3 @@ ON CONFLICT (policy_key) DO UPDATE
 
 COMMIT;
 ```
-## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
-- 
