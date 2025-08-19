@@ -13,39 +13,90 @@ creation_date: 2025-08-19
 
 ```sql
 -- [기능] 기본 스키마/검색경로 설정
-BEGIN;                                                   -- 트랜잭션 시작
-CREATE SCHEMA IF NOT EXISTS public AUTHORIZATION pg_database_owner; -- public 스키마 생성(없을 시), 소유자 설정
-SET search_path = public;                                -- 기본 검색경로를 public으로 설정
+BEGIN;   -- 하나의 트랜잭션으로 실행하여 중간 실패 시 전체 롤백 보장
+
+-- public 스키마가 없으면 생성하고 소유자를 DB 소유자(pg_database_owner)로 설정
+	--`pg_database_owner`는 현재 데이터베이스의 소유자 계정을 의미
+CREATE SCHEMA IF NOT EXISTS public AUTHORIZATION pg_database_owner; 
+
+--데이터베이스 객체를 검색할 때 사용할 검색 경로를 public으로 설정
+	-- 스키마 접두어 없이 테이블/함수 등을 바로 참조 가능하게 함
+SET search_path = public;                                
 ```
 
-### 0-2. 확장 설치
+- ### 0-2. 확장 설치 ^qwwkv7
+	```sql 
+	-- [기능] 확장 설치: citext/btree_gist/pg_trgm
+	
+	--대소문자를 구분하지 않는 텍스트 문자열 타입 citext 제공
+		--로그인 ID나 이메일 주소 같은 필드에서 대소문자 구별 없이 검색 및 비교를 가능하게 함
+	CREATE EXTENSION IF NOT EXISTS citext  WITH SCHEMA public; 
+	
+	--GiST 인덱스에 B-tree 인덱스의 기능을 추가해주는 btree-gis라는 확장을 설치합니다
+	CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
+	
+	--`pg_trgm` 확장을 설치합니다: 텍스트 유사도 검색 및 정규 표현식 검색을 위한 trigram 인덱스
+		--기본 인덱스인 B-tree는 중간이나 끝에 포함된 단어를 찾는 데 도움안됨
+	CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;   -- trigram 기반 유사 검색 가속
+	```
 
-```sql
--- [기능] 확장 설치: citext/btree_gist/pg_trgm
-CREATE EXTENSION IF NOT EXISTS citext  WITH SCHEMA public;   -- 대소문자 구분 없는 문자열 타입
-CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;-- 배타 제약/범위 겹침 검사용 인덱스 연산자군
-CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;   -- trigram 기반 유사 검색 가속
-```
+[[00_Inbox/DB테이블의 index.md|DB테이블의 index]]
 
----
+--- 
 
 ## 1) ENUM 타입 — 도메인 상태 강제
-
+- 시스템에서 사용될 고정된 값의 집합을 정의하는 열거형(ENUM) 데이터 타입
 ```sql
--- [기능] 냉장칸/묶음/서브아이템 상태
+--[냉장EMUM]
+-- 냉장고 칸의 종류를 정의합니다
+	-- 냉장/냉동
 CREATE TYPE public.compartment_type   AS ENUM ('REFRIGERATED','FREEZER');
+
+-- 묶음(스티커 번호 단위의 아이템 묶음)의 상태 
+	--활성/제거됨
 CREATE TYPE public.bundle_status      AS ENUM ('ACTIVE','REMOVED');
+
+-- 묶음 내 개별 품목(서브 아이템)의 상태를 정의합니다. 
+	--보관됨/소비됨
 CREATE TYPE public.sub_item_status    AS ENUM ('STORED','CONSUMED');
 
--- [기능] 점검 상태/위반유형/결과
+-- 냉장고 검사의 진행 상태를 정의합니다.
+	--예정됨/진행중/완료됨/취소됨
 CREATE TYPE public.inspection_status  AS ENUM ('SCHEDULED','IN_PROGRESS','COMPLETED','CANCELED');
-CREATE TYPE public.violation_type     AS ENUM ('EXPIRED','NO_STICKER','POOR_CONDITION','INFO_MISMATCH');
-CREATE TYPE public.inspection_outcome AS ENUM ('PASS','WARNING','DISCARD','DISCARD_WITH_PENALTY');
 
--- [기능] 층/호실 성별, 알림 읽힘 처리, 이벤트 소스, 정책 값 타입
+--검사 시 발견될 수 있는 위반 유형을 정의합니다
+	--유통기한 만료/스티커 없음/포장상태 불량/정보 불일치
+CREATE TYPE public.violation_type     AS ENUM ('EXPIRED','NO_STICKER','packaging_defect','INFO_MISMATCH');
+
+--검사 결과의 종류를 정의합니다.
+	-- 통과/경고/주인불명 폐기/주인확인 폐기
+CREATE TYPE public.inspection_outcome AS ENUM ('PASS','WARNING','DISCARD_ANONYMOUS','DISCARD_IDENTIFIED');
+
+
+--[방]
+-- 방의 성별 유형을 정의합니다. 
+	--남성/여성
 CREATE TYPE public.room_gender_type       AS ENUM ('MALE','FEMALE');
+--알림이 읽힌 방식을 정의합니다
+	--수동 : 알림 목록으로 직접 이동해 상세내용확인
+	--토픽자동 : 토픽단위로 읽음처리 (정책 기반 자동 읽기,세탁 알림(토픽) 전부 읽음” 버튼, 토픽이 특정 엔티티와 1:1이 아닌 FLOOR=3 전체 냉장고 경고 같은 설계) 
+	--엔티티자동: 엔티티 단위 상세 페이지나 모달창을 열었을때 (도서상세팝업)
+	--페이지자동: 화면에 실제로 렌더링된 범위만 읽음처리
 CREATE TYPE public.notification_read_via  AS ENUM ('MANUAL','AUTO_TOPIC','AUTO_ENTITY','AUTO_PAGE');
+
+--도메인 이벤트의 발생 출처를 정의합니다
+	--도메인로직, 서비스 로직 내부에서 발생한 이벤트
+	-- 행감사, DB 트리거 등 데이터베이스 레벨에서 직접 발생한 이벤트
+	-- API호출, 외부 시스템과의 연동 등 API 호출을 통해 발생한 이벤트
+	-- 시스템작업, 시스템이 자동으로 실행하는 작업에서 발생한 이벤트
 CREATE TYPE public.domain_event_source    AS ENUM ('DOMAIN','ROW_AUDIT','API','SYSTEM');
+
+--애플리케이션 정책 값의 데이터 타입을 정의
+	--INT 정수형 정책
+	--BOOL 참/거짓 정책
+	--TEXT 문자열 정책
+	--INTERVAL 시간 간격 정책.
+	--JSON 복합 객체 정책
 CREATE TYPE public.policy_value_type      AS ENUM ('INT','BOOL','TEXT','INTERVAL','JSON');
 ```
 
@@ -618,6 +669,292 @@ CREATE TABLE IF NOT EXISTS app_policy_defs (
 );
 ```
 
-> **다음 문서(파트 2/2)** 에서 섹션 10) 공통/업무 함수 ~ 14) 시드 데이터까지 같은 형식으로 이어집니다.
+## 10) 공통/업무 함수 — 트리거/정책/검사 로직
+
+### 10-1. 공용: updated_at 자동 갱신
+
+```sql
+-- [FUNC] set_updated_at: DML 시 updated_at을 now()로 갱신
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END$$;
+```
+
+### 10-2. 공용 감사: 행 변경을 domain_event(ROW_AUDIT)로 적재
+
+```sql
+-- [FUNC] audit_row_change_to_domain_event_v2: INSERT/UPDATE/DELETE를 감사 이벤트로 기록
+--   - pk_fields: PK 컬럼명 배열(엔터티 식별/요약용)
+--   - 민감키(password_hash 등)는 old/new JSON에서 제거
+CREATE OR REPLACE FUNCTION public.audit_row_change_to_domain_event_v2(pk_fields text[] DEFAULT ARRAY[]::text[])
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT; -- 컨텍스트의 actor
+  v_action TEXT := 'ROW_' || TG_OP;                                           -- 동작명
+  v_entity_type TEXT := TG_TABLE_NAME;                                        -- 테이블명
+  v_entity_id BIGINT := 0;                                                    -- 1차 PK 추출 시도
+  v_pk JSONB := '{}'::jsonb;                                                  -- PK 요약 JSON
+  col TEXT; val TEXT;
+  jnew JSONB := CASE WHEN TG_OP <> 'DELETE' THEN to_jsonb(NEW) ELSE NULL END; -- after 이미지
+  jold JSONB := CASE WHEN TG_OP  = 'DELETE' THEN to_jsonb(OLD) ELSE NULL END; -- before 이미지
+  v_details JSONB;
+  sensitive_keys TEXT[] := ARRAY['password_hash','refresh_token_hash','token_hash','auth','p256dh'];
+BEGIN
+  -- PK 요약 구성
+  FOREACH col IN ARRAY pk_fields LOOP
+    val := COALESCE(jnew->>col, jold->>col);
+    v_pk := v_pk || jsonb_build_object(col, val);
+  END LOOP;
+
+  -- entity_id(숫자형 PK 가정) 추출 시도
+  IF array_length(pk_fields,1) IS NOT NULL THEN
+    BEGIN
+      v_entity_id := NULLIF(COALESCE(jnew->>pk_fields[1], jold->>pk_fields[1], ''), '')::bigint;
+    EXCEPTION WHEN others THEN
+      v_entity_id := 0; -- 숫자 변환 실패 시 0
+    END;
+  END IF;
+
+  -- 민감 키 제거
+  IF jnew IS NOT NULL THEN
+    FOREACH col IN ARRAY sensitive_keys LOOP
+      jnew := jnew - col;
+    END LOOP;
+  END IF;
+  IF jold IS NOT NULL THEN
+    FOREACH col IN ARRAY sensitive_keys LOOP
+      jold := jold - col;
+    END LOOP;
+  END IF;
+
+  -- details 구성(DELETE는 old만)
+  IF TG_OP = 'DELETE' THEN
+    v_details := jsonb_build_object('pk', v_pk, 'old', jold);
+  ELSE
+    v_details := jsonb_build_object('pk', v_pk, 'old', jold, 'new', jnew);
+  END IF;
+
+  -- domain_event 적재
+  INSERT INTO domain_event(entity_type, entity_id, actor_user_id, action, details, occurred_at, source)
+  VALUES (v_entity_type, v_entity_id, v_actor, v_action, v_details, now(), 'ROW_AUDIT');
+
+  IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END$$;
+```
+
+### 10-3. 사용자: 호실 정원/개인번호 범위 강제
+
+```sql
+-- [FUNC] enforce_room_capacity_and_range: 개인번호 1..정원, 정원 초과 배정 금지
+CREATE OR REPLACE FUNCTION enforce_room_capacity_and_range()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_capacity int; v_assigned_count int;
+BEGIN
+  IF NEW.dorm_room_id IS NULL OR NEW.personal_number IS NULL THEN
+    RETURN NEW; -- 배정/개인번호 없으면 스킵
+  END IF;
+
+  PERFORM 1 FROM dorm_rooms WHERE dorm_room_id = NEW.dorm_room_id FOR UPDATE; -- 동시성 보호
+
+  SELECT capacity INTO v_capacity FROM dorm_rooms WHERE dorm_room_id = NEW.dorm_room_id;
+  IF v_capacity IS NULL THEN RAISE EXCEPTION 'Room(%) not found', NEW.dorm_room_id; END IF;
+
+  IF NEW.personal_number < 1 OR NEW.personal_number > v_capacity THEN
+    RAISE EXCEPTION 'personal_number(%) must be between 1 and capacity(%)', NEW.personal_number, v_capacity;
+  END IF;
+
+  SELECT count(*) INTO v_assigned_count
+  FROM users
+  WHERE dorm_room_id = NEW.dorm_room_id AND personal_number IS NOT NULL AND user_id <> COALESCE(NEW.user_id, -1);
+
+  IF (v_assigned_count + 1) > v_capacity THEN
+    RAISE EXCEPTION 'Room(%) capacity exceeded: %/%', NEW.dorm_room_id, v_assigned_count + 1, v_capacity;
+  END IF;
+  RETURN NEW;
+END$$;
+```
+
+### 10-4. 냉장고/칸: 슬롯 수와 실제 칸 정합성 검증
+
+```sql
+-- [FUNC] validate_compartments_match_slots: 활성 칸 수가 선언된 슬롯 수를 초과하지 않도록 체크
+CREATE OR REPLACE FUNCTION validate_compartments_match_slots()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_fridge_id bigint;
+  v_ref_slots int; v_frz_slots int;
+  v_ref_count int; v_frz_count int;
+BEGIN
+  v_fridge_id := COALESCE(NEW.refrigerator_id, OLD.refrigerator_id);
+
+  SELECT refrigerated_slots, freezer_slots INTO v_ref_slots, v_frz_slots
+  FROM refrigerators WHERE refrigerator_id = v_fridge_id;
+
+  IF v_ref_slots IS NULL THEN
+    RETURN COALESCE(NEW, OLD); -- 냉장고 없음(비정상 경로)이면 패스
+  END IF;
+
+  SELECT
+    COALESCE(sum(CASE WHEN type='REFRIGERATED' AND is_active THEN 1 ELSE 0 END),0),
+    COALESCE(sum(CASE WHEN type='FREEZER'      AND is_active THEN 1 ELSE 0 END),0)
+  INTO v_ref_count, v_frz_count
+  FROM compartments WHERE refrigerator_id = v_fridge_id;
+
+  IF v_ref_count > v_ref_slots THEN
+    RAISE EXCEPTION 'Fridge %: refrigerated slots exceeded (have %, limit %)', v_fridge_id, v_ref_count, v_ref_slots;
+  END IF;
+  IF v_frz_count > v_frz_slots THEN
+    RAISE EXCEPTION 'Fridge %: freezer slots exceeded (have %, limit %)', v_fridge_id, v_frz_count, v_frz_slots;
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END$$;
+```
+
+### 10-5. 묶음: 상태 전이 시 removed_at 자동세팅
+
+```sql
+-- [FUNC] set_bundle_removed_ts: status 변경에 따라 removed_at 동기화
+CREATE OR REPLACE FUNCTION set_bundle_removed_ts()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status = 'REMOVED' AND NEW.removed_at IS NULL THEN
+      NEW.removed_at := now();
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status = 'REMOVED' AND (OLD.status IS DISTINCT FROM NEW.status OR NEW.removed_at IS NULL) THEN
+    NEW.removed_at := COALESCE(NEW.removed_at, now());
+  ELSIF NEW.status = 'ACTIVE' THEN
+    NEW.removed_at := NULL;
+  END IF;
+  RETURN NEW;
+END$$;
+```
+
+### 10-6. 묶음: 칸 접근 규칙 위반 차단
+
+```sql
+-- [FUNC] enforce_bundle_access: 사용자 호실이 칸 접근 범위에 속하는지 검증
+CREATE OR REPLACE FUNCTION enforce_bundle_access()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_room_no int;
+  v_allowed boolean := false;
+BEGIN
+  SELECT dr.room_number INTO v_room_no
+  FROM users u LEFT JOIN dorm_rooms dr ON dr.dorm_room_id = u.dorm_room_id
+  WHERE u.user_id = NEW.user_id;
+
+  IF v_room_no IS NULL THEN
+    RAISE EXCEPTION 'User % has no assigned room; cannot place bundle in compartment %', NEW.user_id, NEW.compartment_id;
+  END IF;
+
+  v_allowed := EXISTS (
+    SELECT 1 FROM compartment_access_rules r
+    WHERE r.compartment_id = NEW.compartment_id
+      AND v_room_no BETWEEN r.start_room_number AND r.end_room_number
+  );
+  IF NOT v_allowed THEN
+    RAISE EXCEPTION 'User % (room %) is not allowed to use compartment %', NEW.user_id, v_room_no, NEW.compartment_id;
+  END IF;
+  RETURN NEW;
+END$$;
+```
+
+### 10-7. 정책 조회 유틸리티 (json/bool/int/interval)
+
+```sql
+-- [FUNC] policy_json: 정책 실제값→없으면 디폴트 반환
+CREATE OR REPLACE FUNCTION public.policy_json(pkey text)
+RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE v jsonb;
+BEGIN
+  SELECT policy_value INTO v FROM public.app_policies WHERE policy_key = pkey;
+  IF v IS NULL THEN
+    SELECT default_value INTO v FROM public.app_policy_defs WHERE policy_key = pkey;
+  END IF;
+  RETURN v;
+END$$;
+```
+
+```sql
+-- [FUNC] policy_bool: jsonb → boolean (object{'value':...}도 지원)
+CREATE OR REPLACE FUNCTION public.policy_bool(pkey text, pdefault boolean)
+RETURNS boolean LANGUAGE plpgsql AS $$
+DECLARE v jsonb; t text;
+BEGIN
+  v := public.policy_json(pkey);
+  IF v IS NULL THEN RETURN pdefault; END IF;
+  IF jsonb_typeof(v) = 'boolean' THEN
+    RETURN (v::text)::boolean;
+  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
+    t := v->>'value'; RETURN NULLIF(t,'')::boolean;
+  END IF;
+  RETURN pdefault;
+END$$;
+```
+
+```sql
+-- [FUNC] policy_int: jsonb → int (object{'value':...}도 지원)
+CREATE OR REPLACE FUNCTION public.policy_int(pkey text, pdefault int)
+RETURNS int LANGUAGE plpgsql AS $$
+DECLARE v jsonb; t text; n int;
+BEGIN
+  v := public.policy_json(pkey);
+  IF v IS NULL THEN RETURN pdefault; END IF;
+  IF jsonb_typeof(v) = 'number' THEN
+    RETURN (v::text)::int;
+  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
+    t := v->>'value'; n := NULLIF(t,'')::int; RETURN COALESCE(n, pdefault);
+  END IF;
+  RETURN pdefault;
+END$$;
+```
+
+```sql
+-- [FUNC] policy_interval: jsonb/string → interval (object{'value':...}도 지원)
+CREATE OR REPLACE FUNCTION public.policy_interval(pkey text, pdefault interval)
+RETURNS interval LANGUAGE plpgsql AS $$
+DECLARE v jsonb; t text; iv interval;
+BEGIN
+  v := public.policy_json(pkey);
+  IF v IS NULL THEN RETURN pdefault; END IF;
+  IF jsonb_typeof(v) = 'string' THEN
+    t := trim(both '"' FROM v::text);
+    iv := t::interval; RETURN iv;
+  ELSIF jsonb_typeof(v) = 'object' AND (v ? 'value') THEN
+    t := v->>'value'; RETURN t::interval;
+  END IF;
+  RETURN pdefault;
+END$$;
+```
+
+### 10-8. 정책 upsert + 검증(타입/범위/스키마)
+
+```sql
+-- [FUNC] upsert_policy: 정책값 검증 후 app_policies upsert + 도메인이벤트 기록
+CREATE OR REPLACE FUNCTION public.upsert_policy(pkey text, pvalue jsonb, pactor bigint DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+  def   public.app_policy_defs%ROWTYPE;
+  vtype text; vtxt  text; vint  int; iv interval;
+BEGIN
+  SELECT * INTO def FROM public.app_policy_defs WHERE policy_key = pkey;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Unknown policy_key: %', pkey; END IF;
+
+  vtype := def.value_type::text;
+
+  IF vtype='INT' THEN
+    IF jsonb_typeof(pvalue) <> 'number' THEN RAISE EXCEPTION 'Policy % expects INT, got %', pkey, jsonb_typeof(pvalue); END IF;
+    vint := (pvalue::text)::int;
+    IF def.min_int IS NOT NULL AND vint < def.min_int THEN RAISE EXCEPTION 'Policy % value % < min %', pkey, vint, def.min_int; END IF;
+    IF def.max_int IS NOT NULL AND vint > def.max_int THEN RAISE EXCEPTION 'Policy % value % >
+```
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
 - 
