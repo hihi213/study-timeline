@@ -97,6 +97,11 @@ CREATE TYPE public.domain_event_source    AS ENUM ('DOMAIN','ROW_AUDIT','API','S
 	--INTERVAL 시간 간격 정책.
 	--JSON 복합 객체 정책
 CREATE TYPE public.policy_value_type      AS ENUM ('INT','BOOL','TEXT','INTERVAL','JSON');
+
+
+-- [ENUM] 유저 이벤트 타입
+CREATE TYPE public.user_event_type AS ENUM  ('CREATED','LOGIN_SUCCESS','PASSWORD_CHANGED','EMAIL_VERIFIED','DEACTIVATED','REACTIVATED');
+  END IF;
 ```
 
 ---
@@ -146,53 +151,64 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 ## 3) 층 마스터(floors) — 층별 성별 정책, 호실 정의
 
 ```sql
--- [TABLE] floors: 층별 성별 정책
+-- [TABLE] floors: 층별 성별 정책 + 최대 호실 수
 CREATE TABLE IF NOT EXISTS public.floors (
   floor INT PRIMARY KEY,                  -- PK: 층 번호
   gender public.room_gender_type NOT NULL, -- 해당 층의 성별 정책
+  max_room_no INT NOT NULL DEFAULT 24,         -- 해당 층의 허용 최대 호실 번호(층 내부 번호: 1..N)
   CONSTRAINT uq_floors_floor_gender UNIQUE (floor, gender)
 );
 ```
 
 ```sql
--- [TABLE] dorm_rooms: 기숙사 호실 정보를 저장합니다.
-CREATE TABLE IF NOT EXISTS dorm_rooms (
-	-- PK 자동증가 (호실의 고유 식별자)
-  dorm_room_id bigserial PRIMARY KEY,                                     -- 호실 번호(예: 301)
-  room_number  int NOT NULL,           
-   -- 소속 층    (`public.floors` 테이블 참조)                              
-  floor        int NOT NULL,
-   -- 호실 성별   (`public.room_gender_type` ENUM 사용)           
-  gender       public.room_gender_type NOT NULL, 
-   -- 정원(기본 3)                         
-  capacity     int NOT NULL DEFAULT 3,      
-   -- 활성 여부                            
-  is_active    boolean NOT NULL DEFAULT true,      
-   -- 층과 호실 번호의 조합은 고유해야 함                     
-  CONSTRAINT uk_floor_room UNIQUE (floor, room_number),                 
-   -- 호실 번호가 해당 층의 범위 내에 있는지확인
-  CONSTRAINT ck_room_number_floor CHECK (room_number >= floor*100 + 1 AND room_number < (floor+1)*100),
- 
--- 층 정책과 호실 성별이 항상 일치하도록 복합 FK 강제
+-- [TABLE] dorm_rooms: 기숙사 호실
+CREATE TABLE IF NOT EXISTS public.dorm_rooms (
+  dorm_room_id bigserial PRIMARY KEY,                     -- 호실 고유 ID
+  room_number  int NOT NULL,                              -- 층 내부 호실 번호 (예: 1..24)
+  floor        int NOT NULL,                              -- 소속 층
+  gender       public.room_gender_type NOT NULL,          -- 호실 성별 (층 정책과 일치)
+  capacity     int NOT NULL DEFAULT 3,                    -- 정원
+  is_active    boolean NOT NULL DEFAULT true,
+
+  -- 층 내 중복 방지
+  CONSTRAINT uk_floor_room UNIQUE (floor, room_number),
+
+  -- 층 내부 번호 기본 범위 1차 체크(상한은 층 정책에서 추가 검증)
+  CONSTRAINT ck_room_no_local CHECK (room_number BETWEEN 1 AND 99),
+
+  -- 층 정책과 호실 성별 일치 강제(복합 FK)
   CONSTRAINT fk_dorm_rooms_floor_gender
     FOREIGN KEY (floor, gender)
     REFERENCES public.floors (floor, gender)
     ON UPDATE CASCADE
-    ON DELETE RESTRICT
+    ON DELETE RESTRICT,
+
+  -- 전역 표기용 코드: floor*100 + room_number (예: 3층 24호 → 324)
+  room_code int GENERATED ALWAYS AS (floor*100 + room_number) STORED
 );
 
---[인덱스] 복합 FK 성능/락 방지 
+-- [인덱스] 전역 유니크(선택: 건물 전체에서 room_code 중복 방지)
+CREATE UNIQUE INDEX IF NOT EXISTS ux_dorm_rooms_room_code ON public.dorm_rooms(room_code);
+
+--[인덱스] 복합 FK 조회 성능 최적화하고 잠금(lock) 발생을 방지
 CREATE INDEX IF NOT EXISTS ix_dorm_rooms_floor_gender ON public.dorm_rooms (floor, gender);
 
--- [트리거] 층 성별을 자동으로 room.gender에 세팅
+
+-- [TRIGGER] 호실 INSERT/층 변경 시 gender 자동 세팅
+DROP TRIGGER IF EXISTS trg_dorm_rooms_sync_gender ON public.dorm_rooms;
+CREATE TRIGGER trg_dorm_rooms_sync_gender
+BEFORE INSERT OR UPDATE OF floor ON public.dorm_rooms
+FOR EACH ROW EXECUTE FUNCTION public.sync_room_gender_from_floor();
+;
+
+-- [FUNC] 층 성별을 자동으로 room.gender에 세팅
 CREATE OR REPLACE FUNCTION public.sync_room_gender_from_floor()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.floor IS NULL THEN
     RETURN NEW;
   END IF;
-
-  -- 없는 층이면 깔끔히 에러
+--없는층이면 에러내기
   SELECT f.gender INTO STRICT NEW.gender
   FROM public.floors f
   WHERE f.floor = NEW.floor;
@@ -200,12 +216,34 @@ BEGIN
   RETURN NEW;
 END$$;
 
-DROP TRIGGER IF EXISTS trg_dorm_rooms_sync_gender ON public.dorm_rooms;
-CREATE TRIGGER trg_dorm_rooms_sync_gender
-BEFORE INSERT OR UPDATE OF floor ON public.dorm_rooms
-FOR EACH ROW EXECUTE FUNCTION public.sync_room_gender_from_floor();
+-- [FUNC] 층별 max_room_no 기반 호실 범위 검증(커밋 시점에 검사)
+CREATE OR REPLACE FUNCTION public.enforce_room_no_within_floor_max()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_max int;
+BEGIN
+  SELECT max_room_no INTO v_max
+  FROM public.floors
+  WHERE floor = NEW.floor;
 
-  
+  IF v_max IS NULL THEN
+    RAISE EXCEPTION 'Floor % not found or max_room_no unset', NEW.floor;
+  END IF;
+
+  IF NEW.room_number < 1 OR NEW.room_number > v_max THEN
+    RAISE EXCEPTION 'room_number % out of range 1..% for floor %',
+      NEW.room_number, v_max, NEW.floor;
+  END IF;
+
+  RETURN NEW;
+END$$;
+
+-- [TRIGGER] 호실 INSERT/UPDATE 시 층별 허용 범위 검증(지연 제약)
+DROP TRIGGER IF EXISTS ctrg_room_no_range ON public.dorm_rooms;
+CREATE CONSTRAINT TRIGGER ctrg_room_no_range
+AFTER INSERT OR UPDATE OF room_number, floor ON public.dorm_rooms
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION public.enforce_room_no_within_floor_max();
+
 ```
 
 ---
@@ -217,29 +255,53 @@ FOR EACH ROW EXECUTE FUNCTION public.sync_room_gender_from_floor();
 ```sql
 -- [TABLE] users: 사용자 기본
 CREATE TABLE IF NOT EXISTS users (
-  user_id bigserial PRIMARY KEY,                                       
-  -- PK
-  dorm_room_id bigint REFERENCES dorm_rooms(dorm_room_id) ON DELETE SET NULL, -- 배정 호실(삭제 시 NULL)
-  personal_number int,                                                
+  user_id bigserial PRIMARY KEY,            
+  -- 배정 호실(삭제 시 NULL)                           
+  dorm_room_id bigint REFERENCES dorm_rooms(dorm_room_id) ON DELETE SET NULL, 
   -- 호실 내 개인 번호
+  personal_number int,     
+  -- 로그인 ID(대소문자 무시, 고유, NULL금지)
   login_id public.citext UNIQUE NOT NULL,                              
-  -- 로그인 ID(대소문자 무시)
-  password_hash text NOT NULL,                                         
   -- 비밀번호 해시
-  email public.citext UNIQUE NOT NULL,                                 
+  password_hash text NOT NULL,                                         
   -- 이메일(대소문자 무시)
-  role_id bigint REFERENCES roles(role_id),                            
+  email public.citext UNIQUE NOT NULL,                                 
   -- 레거시 단일 역할
+  role_id bigint REFERENCES roles(role_id),                            
+ --이메일 인증 완료 시각
   email_verified_at timestamptz,
+  --사용자 계정의 활성 여부이며, 기본값은 `true`
   is_active boolean NOT NULL DEFAULT true,
+  --생성시간
   created_at timestamptz NOT NULL DEFAULT now(),
+  --수정시간
   updated_at timestamptz NOT NULL DEFAULT now(),
+  --최근 로그인시간
   last_login_at timestamptz,
+  --비번 수정시간
   password_updated_at timestamptz,
+  --비활성화된 시각
   deactivated_at timestamptz,
+  --`NULL`이 아닌 경우 양수여야 함을 강제
   CONSTRAINT chk_users_personal_number_positive CHECK (personal_number IS NULL OR personal_number > 0)
 );
+-- [TABLE] 유저 이벤트 타임라인(단일 진실원)
+CREATE TABLE IF NOT EXISTS public.user_events (
+  user_event_id  bigserial PRIMARY KEY,
+  user_id        bigint NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
+  event_type     public.user_event_type NOT NULL,
+  occurred_at    timestamptz NOT NULL DEFAULT now(),
+  actor_user_id  bigint REFERENCES public.users(user_id) ON DELETE SET NULL,
+  ip             inet,
+  meta           jsonb,
+  CONSTRAINT ck_meta_json CHECK (meta IS NULL OR jsonb_typeof(meta) IN ('object','array'))
+);
 
+-- [INDEX]조회 최적화
+CREATE INDEX IF NOT EXISTS ix_user_events_user_type_time
+  ON public.user_events (user_id, event_type, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS ix_user_events_time
+  ON public.user_events (occurred_at DESC);
 -- [INDEX] 활성/호실/역할
 CREATE INDEX IF NOT EXISTS ix_users_active  ON users (is_active);
 CREATE INDEX IF NOT EXISTS ix_users_room    ON users (dorm_room_id);
@@ -322,6 +384,38 @@ CREATE TABLE IF NOT EXISTS auth_login_attempts (
 );
 CREATE INDEX IF NOT EXISTS ix_ala_login_time ON auth_login_attempts (login_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS ix_ala_success    ON auth_login_attempts (success);
+
+-- [FUNC] 이메일 인증 토큰이 '사용 처리'되면 users.email_verified_at 자동 세팅
+CREATE OR REPLACE FUNCTION public.mark_user_verified_when_token_used()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  -- used_at이 막 채워졌고, 토큰이 유효기간 내에 사용된 경우에만 인증 처리
+  IF OLD.used_at IS NULL AND NEW.used_at IS NOT NULL AND NEW.used_at <= NEW.expires_at THEN
+    UPDATE public.users
+       SET email_verified_at = COALESCE(email_verified_at, NEW.used_at)
+     WHERE user_id = NEW.user_id;
+  END IF;
+  RETURN NEW;
+END$$;
+
+-- [TRIGGER] 이메일 인증 토큰 사용 시점에 위 함수 실행
+DROP TRIGGER IF EXISTS trg_evt_mark_user_verified ON public.email_verification_tokens;
+CREATE TRIGGER trg_evt_mark_user_verified
+AFTER UPDATE OF used_at ON public.email_verification_tokens
+FOR EACH ROW
+EXECUTE FUNCTION public.mark_user_verified_when_token_used();
+
+-- 오래된 토큰 정리(감사 보관기간 p_keep_days 이후 폐기)
+CREATE OR REPLACE FUNCTION public.prune_auth_tokens(p_keep_days int DEFAULT 30)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  DELETE FROM public.email_verification_tokens
+   WHERE COALESCE(used_at, expires_at) < (now() - make_interval(days => p_keep_days));
+
+  DELETE FROM public.password_reset_tokens
+   WHERE COALESCE(used_at, expires_at) < (now() - make_interval(days => p_keep_days));
+END$$;
+
 ```
 
 ---
@@ -1379,7 +1473,8 @@ FROM public.users u
 JOIN public.role_permissions rp ON rp.role_id = u.role_id;
 
 CREATE OR REPLACE VIEW users_with_room_no AS
-SELECT u.user_id, r.room_number, r.floor, u.personal_number
+SELECT u.user_id, r.room_number, r.floor, u.personal_number, COALESCE(r.room_code, r.floor*100 + r.room_number) AS room_code
+
 FROM users u
 LEFT JOIN dorm_rooms r ON r.dorm_room_id = u.dorm_room_id;
 
