@@ -99,9 +99,17 @@ CREATE TYPE public.domain_event_source    AS ENUM ('DOMAIN','ROW_AUDIT','API','S
 CREATE TYPE public.policy_value_type      AS ENUM ('INT','BOOL','TEXT','INTERVAL','JSON');
 
 
--- [ENUM] 유저 이벤트 타입
-CREATE TYPE public.user_event_type AS ENUM  ('CREATED','LOGIN_SUCCESS','PASSWORD_CHANGED','EMAIL_VERIFIED','DEACTIVATED','REACTIVATED');
+-- [ENUM] 유저 이벤트 타입(멱등)
+-- [ENUM] 유저 이벤트 타입(멱등)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_event_type') THEN
+    CREATE TYPE public.user_event_type AS ENUM
+      ('CREATED','LOGIN_SUCCESS','PASSWORD_CHANGED','EMAIL_VERIFIED','DEACTIVATED','REACTIVATED');
   END IF;
+END$$;
+
+ 
 ```
 
 ---
@@ -194,12 +202,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_dorm_rooms_room_code ON public.dorm_rooms(r
 CREATE INDEX IF NOT EXISTS ix_dorm_rooms_floor_gender ON public.dorm_rooms (floor, gender);
 
 
--- [TRIGGER] 호실 INSERT/층 변경 시 gender 자동 세팅
-DROP TRIGGER IF EXISTS trg_dorm_rooms_sync_gender ON public.dorm_rooms;
-CREATE TRIGGER trg_dorm_rooms_sync_gender
-BEFORE INSERT OR UPDATE OF floor ON public.dorm_rooms
-FOR EACH ROW EXECUTE FUNCTION public.sync_room_gender_from_floor();
-;
 
 -- [FUNC] 층 성별을 자동으로 room.gender에 세팅
 CREATE OR REPLACE FUNCTION public.sync_room_gender_from_floor()
@@ -215,6 +217,13 @@ BEGIN
 
   RETURN NEW;
 END$$;
+
+-- [TRIGGER] 호실 INSERT/층 변경 시 gender 자동 세팅
+DROP TRIGGER IF EXISTS trg_dorm_rooms_sync_gender ON public.dorm_rooms;
+CREATE TRIGGER trg_dorm_rooms_sync_gender
+BEFORE INSERT OR UPDATE OF floor ON public.dorm_rooms
+FOR EACH ROW EXECUTE FUNCTION public.sync_room_gender_from_floor();
+;
 
 -- [FUNC] 층별 max_room_no 기반 호실 범위 검증(커밋 시점에 검사)
 CREATE OR REPLACE FUNCTION public.enforce_room_no_within_floor_max()
@@ -302,6 +311,105 @@ CREATE INDEX IF NOT EXISTS ix_user_events_user_type_time
   ON public.user_events (user_id, event_type, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS ix_user_events_time
   ON public.user_events (occurred_at DESC);
+-- [TABLE] 공용로거
+CREATE OR REPLACE FUNCTION public.log_user_event(
+  p_user_id bigint,
+  p_type public.user_event_type,
+  p_when timestamptz DEFAULT now(),
+  p_actor bigint DEFAULT NULL,
+  p_ip inet DEFAULT NULL,
+  p_meta jsonb DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO public.user_events(user_id, event_type, occurred_at, actor_user_id, ip, meta)
+  VALUES (p_user_id, p_type, p_when, p_actor, p_ip, p_meta);
+END$$;
+
+
+-- 이메일 인증 토큰 사용 → 이벤트까지 기록 (기존 함수 교체)
+CREATE OR REPLACE FUNCTION public.mark_user_verified_when_token_used()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.used_at IS NULL AND NEW.used_at IS NOT NULL AND NEW.used_at <= NEW.expires_at THEN
+    UPDATE public.users
+       SET email_verified_at = COALESCE(email_verified_at, NEW.used_at)
+     WHERE user_id = NEW.user_id;
+
+    PERFORM public.log_user_event(
+      NEW.user_id, 'EMAIL_VERIFIED', NEW.used_at, NULL, NULL,
+      jsonb_build_object('token_id', NEW.token_id)
+    );
+  END IF;
+  RETURN NEW;
+END$$;
+
+
+-- 로그인 성공 시 → `last_login_at` 캐시 + 이벤트 기록
+CREATE OR REPLACE FUNCTION public.on_login_attempt_logged()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_user_id bigint;
+BEGIN
+  IF NEW.success THEN
+    SELECT u.user_id INTO v_user_id
+    FROM public.users u
+    WHERE u.login_id = NEW.login_id;
+
+    IF v_user_id IS NOT NULL THEN
+      UPDATE public.users
+         SET last_login_at = GREATEST(COALESCE(last_login_at, NEW.occurred_at), NEW.occurred_at)
+       WHERE user_id = v_user_id;
+
+      PERFORM public.log_user_event(v_user_id, 'LOGIN_SUCCESS', NEW.occurred_at, NULL, NEW.ip, NULL);
+    END IF;
+  END IF;
+  RETURN NEW;
+END$$;
+
+-- 비번 변경/활성 전환 → 이벤트 기록
+CREATE OR REPLACE FUNCTION public.on_users_security_side_effects()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
+BEGIN
+  -- 비밀번호 변경 감지
+  IF TG_OP='UPDATE' AND NEW.password_hash IS DISTINCT FROM OLD.password_hash THEN
+    NEW.password_updated_at := COALESCE(NEW.password_updated_at, now());
+    PERFORM public.log_user_event(NEW.user_id, 'PASSWORD_CHANGED', NEW.password_updated_at, v_actor, NULL, NULL);
+  END IF;
+
+  -- 활성/비활성 전환 감지
+  IF TG_OP='UPDATE' AND NEW.is_active IS DISTINCT FROM OLD.is_active THEN
+    IF NEW.is_active = false THEN
+      NEW.deactivated_at := COALESCE(NEW.deactivated_at, now());
+      PERFORM public.log_user_event(NEW.user_id, 'DEACTIVATED', NEW.deactivated_at, v_actor, NULL, NULL);
+    ELSE
+      NEW.deactivated_at := NULL;
+      PERFORM public.log_user_event(NEW.user_id, 'REACTIVATED', now(), v_actor, NULL, NULL);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END$$;
+
+DROP TRIGGER IF EXISTS trg_users_security_side_effects ON public.users;
+CREATE TRIGGER trg_users_security_side_effects
+BEFORE UPDATE OF password_hash, is_active ON public.users
+FOR EACH ROW EXECUTE FUNCTION public.on_users_security_side_effects();
+
+-- 생성 이벤트
+CREATE OR REPLACE FUNCTION public.on_users_created_event()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
+BEGIN
+  PERFORM public.log_user_event(NEW.user_id, 'CREATED', COALESCE(NEW.created_at, now()), v_actor, NULL, NULL);
+  RETURN NEW;
+END$$;
+
+DROP TRIGGER IF EXISTS trg_users_created_event ON public.users;
+CREATE TRIGGER trg_users_created_event
+AFTER INSERT ON public.users
+FOR EACH ROW EXECUTE FUNCTION public.on_users_created_event();
+
+
 -- [INDEX] 활성/호실/역할
 CREATE INDEX IF NOT EXISTS ix_users_active  ON users (is_active);
 CREATE INDEX IF NOT EXISTS ix_users_room    ON users (dorm_room_id);
@@ -311,6 +419,38 @@ CREATE INDEX IF NOT EXISTS ix_users_role    ON users (role_id);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_room_person
   ON users (dorm_room_id, personal_number)
   WHERE dorm_room_id IS NOT NULL AND personal_number IS NOT NULL;
+
+
+
+-- “최신 시각” 조회용 뷰
+CREATE OR REPLACE VIEW public.user_latest_timestamps AS
+WITH last_login AS (
+  SELECT user_id, max(occurred_at) AS last_login_at
+  FROM public.user_events WHERE event_type='LOGIN_SUCCESS' GROUP BY user_id
+),
+last_pw AS (
+  SELECT user_id, max(occurred_at) AS password_updated_at
+  FROM public.user_events WHERE event_type='PASSWORD_CHANGED' GROUP BY user_id
+),
+last_verified AS (
+  SELECT user_id, max(occurred_at) AS email_verified_at
+  FROM public.user_events WHERE event_type='EMAIL_VERIFIED' GROUP BY user_id
+),
+last_deact AS (
+  SELECT user_id, max(occurred_at) AS deactivated_at
+  FROM public.user_events WHERE event_type='DEACTIVATED' GROUP BY user_id
+)
+SELECT u.user_id,
+       COALESCE(ll.last_login_at, u.last_login_at)             AS last_login_at,
+       COALESCE(lp.password_updated_at, u.password_updated_at) AS password_updated_at,
+       COALESCE(lv.email_verified_at, u.email_verified_at)     AS email_verified_at,
+       COALESCE(ld.deactivated_at, u.deactivated_at)           AS deactivated_at
+FROM public.users u
+LEFT JOIN last_login   ll ON ll.user_id = u.user_id
+LEFT JOIN last_pw      lp ON lp.user_id = u.user_id
+LEFT JOIN last_verified lv ON lv.user_id = u.user_id
+LEFT JOIN last_deact   ld ON ld.user_id = u.user_id;
+
 ```
 
 ### 4-2. user_roles 및 백필
@@ -385,25 +525,6 @@ CREATE TABLE IF NOT EXISTS auth_login_attempts (
 CREATE INDEX IF NOT EXISTS ix_ala_login_time ON auth_login_attempts (login_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS ix_ala_success    ON auth_login_attempts (success);
 
--- [FUNC] 이메일 인증 토큰이 '사용 처리'되면 users.email_verified_at 자동 세팅
-CREATE OR REPLACE FUNCTION public.mark_user_verified_when_token_used()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  -- used_at이 막 채워졌고, 토큰이 유효기간 내에 사용된 경우에만 인증 처리
-  IF OLD.used_at IS NULL AND NEW.used_at IS NOT NULL AND NEW.used_at <= NEW.expires_at THEN
-    UPDATE public.users
-       SET email_verified_at = COALESCE(email_verified_at, NEW.used_at)
-     WHERE user_id = NEW.user_id;
-  END IF;
-  RETURN NEW;
-END$$;
-
--- [TRIGGER] 이메일 인증 토큰 사용 시점에 위 함수 실행
-DROP TRIGGER IF EXISTS trg_evt_mark_user_verified ON public.email_verification_tokens;
-CREATE TRIGGER trg_evt_mark_user_verified
-AFTER UPDATE OF used_at ON public.email_verification_tokens
-FOR EACH ROW
-EXECUTE FUNCTION public.mark_user_verified_when_token_used();
 
 -- 오래된 토큰 정리(감사 보관기간 p_keep_days 이후 폐기)
 CREATE OR REPLACE FUNCTION public.prune_auth_tokens(p_keep_days int DEFAULT 30)
@@ -415,6 +536,19 @@ BEGIN
   DELETE FROM public.password_reset_tokens
    WHERE COALESCE(used_at, expires_at) < (now() - make_interval(days => p_keep_days));
 END$$;
+
+-- [TRIGGER] 이메일 인증 토큰 사용 시점에 위 함수 실행
+DROP TRIGGER IF EXISTS trg_evt_mark_user_verified ON public.email_verification_tokens;
+CREATE TRIGGER trg_evt_mark_user_verified
+AFTER UPDATE OF used_at ON public.email_verification_tokens
+FOR EACH ROW
+EXECUTE FUNCTION public.mark_user_verified_when_token_used();
+
+-- [TRIGGER] 로그인 성공 시 last_login_at 캐시 + 이벤트 기록
+DROP TRIGGER IF EXISTS trg_auth_login_attempts_after_ins ON public.auth_login_attempts;
+CREATE TRIGGER trg_auth_login_attempts_after_ins
+AFTER INSERT ON public.auth_login_attempts
+FOR EACH ROW EXECUTE FUNCTION public.on_login_attempt_logged();
 
 ```
 
@@ -1187,6 +1321,10 @@ DECLARE
   v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
   v_floor int; v_ok boolean;
 BEGIN
+IF v_actor IS NULL THEN
+  RAISE EXCEPTION 'app.user_id is not set; call set_config(''app.user_id'', <actor_user_id>::text, true) before this operation';
+END IF;
+
   -- INSERT 시 initiated_by가 없으면 항상 채움
   IF TG_OP = 'INSERT' AND NEW.initiated_by IS NULL THEN
     NEW.initiated_by := v_actor;
