@@ -152,6 +152,11 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 	-- 복합 PK(중복 방지)
   PRIMARY KEY (role_id, permission_code)   
 );
+
+-- floors: 허용 호실 수 1..99
+ALTER TABLE public.floors
+  ADD CONSTRAINT ck_floors_max_room_no CHECK (max_room_no BETWEEN 1 AND 99);
+
 ```
 
 ---
@@ -177,6 +182,10 @@ CREATE TABLE IF NOT EXISTS public.dorm_rooms (
   gender       public.room_gender_type NOT NULL,          -- 호실 성별 (층 정책과 일치)
   capacity     int NOT NULL DEFAULT 3,                    -- 정원
   is_active    boolean NOT NULL DEFAULT true,
+  
+-- dorm_rooms: 정원은 최소 1
+ALTER TABLE public.dorm_rooms
+  ADD CONSTRAINT ck_dorm_rooms_capacity CHECK (capacity >= 1
 
   -- 층 내 중복 방지
   CONSTRAINT uk_floor_room UNIQUE (floor, room_number),
@@ -721,6 +730,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_active_inspection_per_fridge
 CREATE INDEX IF NOT EXISTS ix_inspections_ref_status ON fridge_inspections (refrigerator_id, status);
 CREATE INDEX IF NOT EXISTS ix_inspections_times      ON fridge_inspections (scheduled_at, started_at, completed_at);
 
+-- fridge_inspections: 시간 순서 무결성
+ALTER TABLE public.fridge_inspections
+  ADD CONSTRAINT ck_inspection_times CHECK (
+    (started_at   IS NULL OR scheduled_at IS NULL OR started_at   >= scheduled_at) AND
+    (completed_at IS NULL OR started_at   IS NULL OR completed_at >= started_at)
+  );
+
 -- [TABLE] fridge_inspection_participants: 점검 참여자
 CREATE TABLE IF NOT EXISTS fridge_inspection_participants (
   inspection_id  bigint NOT NULL REFERENCES fridge_inspections(inspection_id) ON DELETE CASCADE,
@@ -750,6 +766,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_ir_unique_per_bundle
   WHERE sub_item_id IS NULL AND bundle_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_ir_inspection ON public.inspection_results (inspection_id);
 CREATE INDEX IF NOT EXISTS ix_ir_handled_by ON public.inspection_results (handled_by);
+
+
+-- inspection_results: 대상 지정 규칙(+ 경고/폐기면 위반 유형 필수)
+ALTER TABLE public.inspection_results
+  ADD CONSTRAINT ck_ir_target_xor CHECK (
+    (bundle_id IS NOT NULL AND sub_item_id IS NULL) OR
+    (bundle_id IS NULL AND sub_item_id IS NOT NULL)
+  ),
+  ADD CONSTRAINT ck_ir_violation_when_needed CHECK (
+    outcome = 'PASS' OR violation_type IS NOT NULL
+  );
+
 ```
 
 ### 6-4. 층별장(층 책임자)
@@ -822,6 +850,12 @@ CREATE TABLE IF NOT EXISTS notifications (
     OR (topic_key IS NOT NULL AND topic_params IS NOT NULL)
   )
 );
+-- notifications: 읽음 상태/시각 정합성
+ALTER TABLE public.notifications
+  ADD CONSTRAINT ck_notifications_read_consistency CHECK (
+    (is_read = false AND read_at IS NULL) OR
+    (is_read = true  AND read_at IS NOT NULL)
+  );
 ```
 
 ### 7-2. 인덱스(알림)
@@ -1015,7 +1049,10 @@ BEGIN
     RAISE EXCEPTION 'Room(%) capacity exceeded: %/%', NEW.dorm_room_id, v_assigned_count + 1, v_capacity;
   END IF;
   RETURN NEW;
-END$$;
+END$$;CREATE UNIQUE INDEX IF NOT EXISTS ux_domain_event_idem
+  ON public.domain_event (source, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
+
 ```
 
 ### 9-4. 냉장고/칸: 슬롯 수와 실제 칸 정합성 검증
@@ -1085,25 +1122,45 @@ END$$;
 CREATE OR REPLACE FUNCTION enforce_bundle_access()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
+  v_user_floor int;
   v_room_no int;
+  v_fridge_floor int;
   v_allowed boolean := false;
 BEGIN
-  SELECT dr.room_number INTO v_room_no
-  FROM users u LEFT JOIN dorm_rooms dr ON dr.dorm_room_id = u.dorm_room_id
+  SELECT dr.floor, dr.room_number
+    INTO v_user_floor, v_room_no
+  FROM users u
+  JOIN dorm_rooms dr ON dr.dorm_room_id = u.dorm_room_id
   WHERE u.user_id = NEW.user_id;
 
   IF v_room_no IS NULL THEN
-    RAISE EXCEPTION 'User % has no assigned room; cannot place bundle in compartment %', NEW.user_id, NEW.compartment_id;
+    RAISE EXCEPTION 'User % has no assigned room; cannot place bundle in compartment %',
+      NEW.user_id, NEW.compartment_id;
+  END IF;
+
+  SELECT r.floor
+    INTO v_fridge_floor
+  FROM compartments c
+  JOIN refrigerators r ON r.refrigerator_id = c.refrigerator_id
+  WHERE c.compartment_id = NEW.compartment_id;
+
+  -- 같은 층만 허용(교차층 허용 정책을 쓸 거면 여기에 policy_bool로 분기 추가)
+  IF v_user_floor <> v_fridge_floor THEN
+    RAISE EXCEPTION 'User floor(%) != fridge floor(%): not allowed',
+      v_user_floor, v_fridge_floor;
   END IF;
 
   v_allowed := EXISTS (
-    SELECT 1 FROM compartment_access_rules r
+    SELECT 1
+    FROM compartment_access_rules r
     WHERE r.compartment_id = NEW.compartment_id
       AND v_room_no BETWEEN r.start_room_number AND r.end_room_number
   );
   IF NOT v_allowed THEN
-    RAISE EXCEPTION 'User % (room %) is not allowed to use compartment %', NEW.user_id, v_room_no, NEW.compartment_id;
+    RAISE EXCEPTION 'Room % is not in allowed range for compartment %',
+      v_room_no, NEW.compartment_id;
   END IF;
+
   RETURN NEW;
 END$$;
 ```
