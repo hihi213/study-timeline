@@ -9,15 +9,19 @@ creation_date: 2025-08-19
 
 ```SQL
 -- =========================================================
--- 0) 스키마 & 확장 — 실행환경 준비
+-- Dormitory Resource Management — Final DDL (v1.2, patched)
+--  - Patch A: max_active_floor_leads_per_floor default/seed = 2
+--  - Patch B: inspection_results.ck_ir_target_xor relaxed for anonymous NO_STICKER discard
 -- =========================================================
+
 BEGIN;
 
--- 기본 스키마/검색경로
+-- =========================================================
+-- 0) 스키마 & 확장 — 실행환경 준비
+-- =========================================================
 CREATE SCHEMA IF NOT EXISTS public AUTHORIZATION pg_database_owner;
 SET search_path = public;
 
--- 확장 설치
 CREATE EXTENSION IF NOT EXISTS citext     WITH SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS pg_trgm    WITH SCHEMA public;
@@ -25,16 +29,16 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm    WITH SCHEMA public;
 -- =========================================================
 -- 1) ENUM 타입 — 도메인 상태 강제
 -- =========================================================
-CREATE TYPE public.compartment_type      AS ENUM ('REFRIGERATED','FREEZER');
-CREATE TYPE public.bundle_status         AS ENUM ('ACTIVE','REMOVED');
-CREATE TYPE public.sub_item_status       AS ENUM ('STORED','CONSUMED');
-CREATE TYPE public.inspection_status     AS ENUM ('SCHEDULED','IN_PROGRESS','COMPLETED','CANCELED');
-CREATE TYPE public.violation_type        AS ENUM ('EXPIRED','NO_STICKER','PACKAGING_DEFECT','INFO_MISMATCH');
-CREATE TYPE public.inspection_outcome    AS ENUM ('PASS','WARNING','DISCARD_ANONYMOUS','DISCARD_IDENTIFIED');
-CREATE TYPE public.room_gender_type      AS ENUM ('MALE','FEMALE');
-CREATE TYPE public.notification_read_via AS ENUM ('MANUAL','AUTO_TOPIC','AUTO_ENTITY','AUTO_PAGE');
-CREATE TYPE public.domain_event_source   AS ENUM ('DOMAIN','ROW_AUDIT','API','SYSTEM');
-CREATE TYPE public.policy_value_type     AS ENUM ('INT','BOOL','TEXT','INTERVAL','JSON');
+CREATE TYPE IF NOT EXISTS public.compartment_type      AS ENUM ('REFRIGERATED','FREEZER');
+CREATE TYPE IF NOT EXISTS public.bundle_status         AS ENUM ('ACTIVE','REMOVED');
+CREATE TYPE IF NOT EXISTS public.sub_item_status       AS ENUM ('STORED','CONSUMED');
+CREATE TYPE IF NOT EXISTS public.inspection_status     AS ENUM ('SCHEDULED','IN_PROGRESS','COMPLETED','CANCELED');
+CREATE TYPE IF NOT EXISTS public.violation_type        AS ENUM ('EXPIRED','NO_STICKER','PACKAGING_DEFECT','INFO_MISMATCH');
+CREATE TYPE IF NOT EXISTS public.inspection_outcome    AS ENUM ('PASS','WARNING','DISCARD_ANONYMOUS','DISCARD_IDENTIFIED');
+CREATE TYPE IF NOT EXISTS public.room_gender_type      AS ENUM ('MALE','FEMALE');
+CREATE TYPE IF NOT EXISTS public.notification_read_via AS ENUM ('MANUAL','AUTO_TOPIC','AUTO_ENTITY','AUTO_PAGE');
+CREATE TYPE IF NOT EXISTS public.domain_event_source   AS ENUM ('DOMAIN','ROW_AUDIT','API','SYSTEM');
+CREATE TYPE IF NOT EXISTS public.policy_value_type     AS ENUM ('INT','BOOL','TEXT','INTERVAL','JSON');
 
 DO $$
 BEGIN
@@ -63,6 +67,9 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   permission_code varchar(64) NOT NULL REFERENCES permissions(permission_code) ON DELETE CASCADE,
   PRIMARY KEY (role_id, permission_code)
 );
+
+CREATE INDEX IF NOT EXISTS ix_role_permissions_permission
+  ON public.role_permissions (permission_code);
 
 -- =========================================================
 -- 3) 층 마스터(floors) — 층별 성별 정책, 호실 정의
@@ -101,7 +108,6 @@ ALTER TABLE public.dorm_rooms
 CREATE UNIQUE INDEX IF NOT EXISTS ux_dorm_rooms_room_code ON public.dorm_rooms(room_code);
 CREATE INDEX        IF NOT EXISTS ix_dorm_rooms_floor_gender ON public.dorm_rooms (floor, gender);
 
--- room.gender 자동 동기화
 CREATE OR REPLACE FUNCTION public.sync_room_gender_from_floor()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -119,7 +125,6 @@ CREATE TRIGGER trg_dorm_rooms_sync_gender
 BEFORE INSERT OR UPDATE OF floor ON public.dorm_rooms
 FOR EACH ROW EXECUTE FUNCTION public.sync_room_gender_from_floor();
 
--- 층 max_room_no 범위 검증(지연 제약)
 CREATE OR REPLACE FUNCTION public.enforce_room_no_within_floor_max()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE v_max int;
@@ -162,6 +167,15 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT chk_users_personal_number_positive CHECK (personal_number IS NULL OR personal_number > 0)
 );
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_users_login_id_format') THEN
+    ALTER TABLE public.users
+      ADD CONSTRAINT ck_users_login_id_format
+      CHECK (login_id ~ '^[a-z0-9._-]{4,32}$') NOT VALID;
+  END IF;
+END$$;
+
 CREATE TABLE IF NOT EXISTS public.user_events (
   user_event_id  bigserial PRIMARY KEY,
   user_id        bigint NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
@@ -189,7 +203,6 @@ BEGIN
   VALUES (p_user_id, p_type, p_when, p_actor, p_ip, p_meta);
 END$$;
 
--- 이메일 인증 토큰 사용 시 검증/기록
 CREATE OR REPLACE FUNCTION public.mark_user_verified_when_token_used()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -206,7 +219,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- 로그인 성공 시 캐시/이벤트
 CREATE OR REPLACE FUNCTION public.on_login_attempt_logged()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE v_user_id bigint;
@@ -223,7 +235,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- 비번 변경/활성 전환 이벤트
 CREATE OR REPLACE FUNCTION public.on_users_security_side_effects()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
@@ -250,7 +261,6 @@ CREATE TRIGGER trg_users_security_side_effects
 BEFORE UPDATE OF password_hash, is_active ON public.users
 FOR EACH ROW EXECUTE FUNCTION public.on_users_security_side_effects();
 
--- 생성 이벤트
 CREATE OR REPLACE FUNCTION public.on_users_created_event()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
@@ -264,17 +274,17 @@ CREATE TRIGGER trg_users_created_event
 AFTER INSERT ON public.users
 FOR EACH ROW EXECUTE FUNCTION public.on_users_created_event();
 
--- 인덱스
 CREATE INDEX IF NOT EXISTS ix_users_active ON users (is_active);
 CREATE INDEX IF NOT EXISTS ix_users_room   ON users (dorm_room_id);
 CREATE INDEX IF NOT EXISTS ix_users_role   ON users (role_id);
 
--- 동일 호실 개인번호 유니크(NULL 제외)
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_room_person
   ON users (dorm_room_id, personal_number)
   WHERE dorm_room_id IS NOT NULL AND personal_number IS NOT NULL;
 
--- 최신 시각 뷰
+CREATE INDEX IF NOT EXISTS ix_users_email_verified
+  ON public.users (email) WHERE email_verified_at IS NOT NULL;
+
 CREATE OR REPLACE VIEW public.user_latest_timestamps AS
 WITH last_login AS (
   SELECT user_id, max(occurred_at) AS last_login_at
@@ -298,12 +308,11 @@ SELECT u.user_id,
        COALESCE(lv.email_verified_at, u.email_verified_at)     AS email_verified_at,
        COALESCE(ld.deactivated_at, u.deactivated_at)           AS deactivated_at
 FROM public.users u
-LEFT JOIN last_login   ll ON ll.user_id = u.user_id
-LEFT JOIN last_pw      lp ON lp.user_id = u.user_id
+LEFT JOIN last_login    ll ON ll.user_id = u.user_id
+LEFT JOIN last_pw       lp ON lp.user_id = u.user_id
 LEFT JOIN last_verified lv ON lv.user_id = u.user_id
-LEFT JOIN last_deact   ld ON ld.user_id = u.user_id;
+LEFT JOIN last_deact    ld ON ld.user_id = u.user_id;
 
--- M:N 역할
 CREATE TABLE IF NOT EXISTS public.user_roles (
   user_id BIGINT NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
   role_id BIGINT NOT NULL REFERENCES public.roles(role_id) ON DELETE CASCADE,
@@ -331,6 +340,8 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_auth_sessions_user_token ON auth_sessions (user_id, refresh_token_hash);
 CREATE INDEX        IF NOT EXISTS ix_auth_sessions_user ON auth_sessions (user_id);
 CREATE INDEX        IF NOT EXISTS ix_auth_sessions_exp  ON auth_sessions (expires_at);
+CREATE INDEX IF NOT EXISTS ix_auth_sessions_user_active
+  ON public.auth_sessions (user_id) WHERE revoked_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS email_verification_tokens (
   token_id bigserial PRIMARY KEY,
@@ -388,21 +399,22 @@ FOR EACH ROW EXECUTE FUNCTION public.on_login_attempt_logged();
 -- 5) 로그/이벤트 — 도메인/감사 이벤트 수집
 -- =========================================================
 CREATE TABLE IF NOT EXISTS domain_event (
-  id              bigserial PRIMARY KEY,
-  entity_type     text NOT NULL,
-  entity_id       bigint NOT NULL,
-  actor_user_id   bigint,
-  action          text NOT NULL,
-  details         jsonb,
-  occurred_at     timestamptz NOT NULL DEFAULT now(),
-  source          public.domain_event_source NOT NULL DEFAULT 'DOMAIN',
-  request_id      text,
-  idempotency_key text
+  id               bigserial PRIMARY KEY,
+  entity_type      text NOT NULL,
+  entity_id        bigint NOT NULL,
+  actor_user_id    bigint,
+  action           text NOT NULL,
+  details          jsonb,
+  occurred_at      timestamptz NOT NULL DEFAULT now(),
+  source           public.domain_event_source NOT NULL DEFAULT 'DOMAIN',
+  request_id       text,
+  idempotency_key  text
 );
-CREATE INDEX IF NOT EXISTS ix_domain_event_time        ON domain_event (occurred_at);
-CREATE INDEX IF NOT EXISTS ix_domain_event_src         ON domain_event (source);
-CREATE INDEX IF NOT EXISTS ix_domain_event_entity_time ON domain_event (entity_type, entity_id, occurred_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_domain_event_idem ON public.domain_event (source, idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_domain_event_time         ON domain_event (occurred_at);
+CREATE INDEX IF NOT EXISTS ix_domain_event_src          ON domain_event (source);
+CREATE INDEX IF NOT EXISTS ix_domain_event_entity_time  ON domain_event (entity_type, entity_id, occurred_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_domain_event_idem  ON public.domain_event (source, idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_domain_event_actor_time   ON public.domain_event (actor_user_id, occurred_at DESC);
 
 CREATE OR REPLACE VIEW activity_logs AS
 SELECT
@@ -473,11 +485,11 @@ CREATE TABLE IF NOT EXISTS item_bundles (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_bundle_active_number
   ON item_bundles (compartment_id, item_number) WHERE status='ACTIVE';
-CREATE INDEX IF NOT EXISTS ix_bundles_user        ON item_bundles (user_id);
-CREATE INDEX IF NOT EXISTS ix_bundles_compartment ON item_bundles (compartment_id);
-CREATE INDEX IF NOT EXISTS ix_bundles_status      ON item_bundles (status);
-CREATE INDEX IF NOT EXISTS ix_bundles_comp_status ON item_bundles (compartment_id, status);
-CREATE INDEX IF NOT EXISTS ix_bundles_user_status ON item_bundles (user_id, status);
+CREATE INDEX IF NOT EXISTS ix_bundles_user         ON item_bundles (user_id);
+CREATE INDEX IF NOT EXISTS ix_bundles_compartment  ON item_bundles (compartment_id);
+CREATE INDEX IF NOT EXISTS ix_bundles_status       ON item_bundles (status);
+CREATE INDEX IF NOT EXISTS ix_bundles_comp_status  ON item_bundles (compartment_id, status);
+CREATE INDEX IF NOT EXISTS ix_bundles_user_status  ON item_bundles (user_id, status);
 
 DO $$
 BEGIN
@@ -497,11 +509,11 @@ CREATE TABLE IF NOT EXISTS sub_items (
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS ix_sub_items_bundle            ON sub_items (bundle_id);
-CREATE INDEX IF NOT EXISTS ix_sub_items_status            ON sub_items (status);
-CREATE INDEX IF NOT EXISTS ix_sub_items_exp_stored        ON sub_items (expiry_date) WHERE status='STORED';
-CREATE INDEX IF NOT EXISTS ix_sub_items_bundle_status     ON sub_items (bundle_id, status);
-CREATE INDEX IF NOT EXISTS ix_sub_items_bundle_status_exp ON sub_items (bundle_id, status, expiry_date);
+CREATE INDEX IF NOT EXISTS ix_sub_items_bundle             ON sub_items (bundle_id);
+CREATE INDEX IF NOT EXISTS ix_sub_items_status             ON sub_items (status);
+CREATE INDEX IF NOT EXISTS ix_sub_items_exp_stored         ON sub_items (expiry_date) WHERE status='STORED';
+CREATE INDEX IF NOT EXISTS ix_sub_items_bundle_status      ON sub_items (bundle_id, status);
+CREATE INDEX IF NOT EXISTS ix_sub_items_bundle_status_exp  ON sub_items (bundle_id, status, expiry_date);
 
 CREATE TABLE IF NOT EXISTS fridge_inspections (
   inspection_id   bigserial PRIMARY KEY,
@@ -523,6 +535,8 @@ ALTER TABLE public.fridge_inspections
     (started_at   IS NULL OR scheduled_at IS NULL OR started_at   >= scheduled_at) AND
     (completed_at IS NULL OR started_at   IS NULL OR completed_at >= started_at)
   );
+CREATE INDEX IF NOT EXISTS ix_fridge_inspections_initiator
+  ON public.fridge_inspections (initiated_by, status, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS fridge_inspection_participants (
   inspection_id  bigint NOT NULL REFERENCES fridge_inspections(inspection_id) ON DELETE CASCADE,
@@ -543,6 +557,30 @@ CREATE TABLE IF NOT EXISTS inspection_results (
   handled_by     bigint REFERENCES users(user_id) ON DELETE SET NULL,
   created_at     timestamptz NOT NULL DEFAULT now()
 );
+
+-- Unique constraints per-target
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ir_unique_per_subitem
+  ON public.inspection_results (inspection_id, sub_item_id) WHERE sub_item_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ir_unique_per_bundle
+  ON public.inspection_results (inspection_id, bundle_id) WHERE sub_item_id IS NULL AND bundle_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_ir_inspection ON public.inspection_results (inspection_id);
+CREATE INDEX IF NOT EXISTS ix_ir_handled_by ON public.inspection_results (handled_by);
+
+-- [Patch B] 제약 재정의: 익명 NO_STICKER 폐기 시 bundle_id/sub_item_id 모두 NULL 허용
+ALTER TABLE public.inspection_results
+  DROP CONSTRAINT IF EXISTS ck_ir_target_xor,
+  ADD  CONSTRAINT ck_ir_target_xor CHECK (
+    (bundle_id IS NOT NULL AND sub_item_id IS NULL) OR
+    (bundle_id IS NULL AND sub_item_id IS NOT NULL) OR
+    (bundle_id IS NULL AND sub_item_id IS NULL
+       AND outcome='DISCARD_ANONYMOUS' AND violation_type='NO_STICKER')
+  );
+
+ALTER TABLE public.inspection_results
+  ADD CONSTRAINT ck_ir_violation_when_needed CHECK (outcome = 'PASS' OR violation_type IS NOT NULL)
+  -- IF NOT EXISTS 호환을 위해 존재하면 무시
+  ;
+
 -- 6-4) 층별장(층 책임자)
 CREATE TABLE IF NOT EXISTS public.floor_leads (
   floor     int NOT NULL REFERENCES public.floors(floor),
@@ -554,12 +592,11 @@ CREATE TABLE IF NOT EXISTS public.floor_leads (
     tstzrange(starts_at, COALESCE(ends_at, 'infinity'::timestamptz), '[)')
   ) STORED
 );
-
 CREATE INDEX IF NOT EXISTS ix_floor_leads_user         ON public.floor_leads (user_id);
 CREATE INDEX IF NOT EXISTS ix_floor_leads_floor        ON public.floor_leads (floor);
 CREATE INDEX IF NOT EXISTS ix_floor_leads_period_gist  ON public.floor_leads USING gist (active_period);
+CREATE INDEX IF NOT EXISTS ix_floor_leads_user_active  ON public.floor_leads (user_id) WHERE ends_at IS NULL;
 
--- 동일 사용자 활동기간 겹침 금지 (멱등)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -571,22 +608,8 @@ BEGIN
   END IF;
 END$$;
 
--- (선택) 활성 레코드 빠른 조회 인덱스: v1 섹션 13에도 동일 라인이 있으니 중복이면 하나만 남기세요
--- CREATE INDEX IF NOT EXISTS ix_floor_leads_active ON public.floor_leads (floor) WHERE ends_at IS NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS ux_ir_unique_per_subitem
-  ON public.inspection_results (inspection_id, sub_item_id) WHERE sub_item_id IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS ux_ir_unique_per_bundle
-  ON public.inspection_results (inspection_id, bundle_id) WHERE sub_item_id IS NULL AND bundle_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS ix_ir_inspection ON public.inspection_results (inspection_id);
-CREATE INDEX IF NOT EXISTS ix_ir_handled_by ON public.inspection_results (handled_by);
-
-ALTER TABLE public.inspection_results
-  ADD CONSTRAINT ck_ir_target_xor CHECK (
-    (bundle_id IS NOT NULL AND sub_item_id IS NULL) OR
-    (bundle_id IS NULL AND sub_item_id IS NOT NULL)
-  ),
-  ADD CONSTRAINT ck_ir_violation_when_needed CHECK (outcome = 'PASS' OR violation_type IS NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_floor_leads_active
+  ON public.floor_leads (floor) WHERE ends_at IS NULL;
 
 -- =========================================================
 -- 7) 알림 — 타입/알림/보낸 기록/설정/구독
@@ -708,7 +731,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- 감사 공통 함수
 CREATE OR REPLACE FUNCTION public.audit_row_change_to_domain_event_v2(pk_fields text[] DEFAULT ARRAY[]::text[])
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -759,7 +781,6 @@ BEGIN
   IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
 END$$;
 
--- 사용자: 정원/개인번호 범위 강제
 CREATE OR REPLACE FUNCTION enforce_room_capacity_and_range()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE v_capacity int; v_assigned_count int;
@@ -787,7 +808,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- 냉장고 슬롯 정합성
 CREATE OR REPLACE FUNCTION validate_compartments_match_slots()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -820,7 +840,6 @@ BEGIN
   RETURN COALESCE(NEW, OLD);
 END$$;
 
--- 묶음 상태 전이 removed_at 동기화
 CREATE OR REPLACE FUNCTION set_bundle_removed_ts()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -839,7 +858,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- (교체) 칸 접근 규칙 + 층 일치 검증
 CREATE OR REPLACE FUNCTION enforce_bundle_access()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -881,7 +899,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- 정책 조회 유틸
 CREATE OR REPLACE FUNCTION public.policy_json(pkey text)
 RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE v jsonb;
@@ -936,7 +953,6 @@ BEGIN
   RETURN pdefault;
 END$$;
 
--- 정책 upsert + 도메인이벤트
 CREATE OR REPLACE FUNCTION public.upsert_policy(pkey text, pvalue jsonb, pactor bigint DEFAULT NULL)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
@@ -964,8 +980,6 @@ BEGIN
     IF jsonb_typeof(pvalue) <> 'string' THEN RAISE EXCEPTION 'Policy % expects INTERVAL as string json', pkey; END IF;
     vtxt := trim(both '"' FROM pvalue::text);
     iv := vtxt::interval;
-    IF def.min_interval IS NOT NULL AND iv < def.min_interval THEN RAISE EXCEPTION 'Policy % interval % < min %', pkey, iv, def.min_interval; END IF;
-    IF def.max_interval IS NOT NULL AND iv > def.max_interval THEN RAISE EXCEPTION 'Policy % interval % > max %', pkey, iv, def.max_interval; END IF;
 
   ELSIF vtype='JSON' THEN
     IF def.json_schema IS NOT NULL AND (def.json_schema ? 'required') THEN
@@ -989,7 +1003,6 @@ BEGIN
   VALUES ('app_policy', 0, pactor, 'POLICY_UPSERT', jsonb_build_object('policy_key', pkey, 'new_value', pvalue), now(), 'SYSTEM');
 END$$;
 
--- 검사 중 쓰기 잠금
 CREATE OR REPLACE FUNCTION enforce_inspection_freeze_fridge()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -1028,7 +1041,6 @@ BEGIN
   RETURN COALESCE(NEW, OLD);
 END$$;
 
--- 검사 시작 권한(활성 층별장)
 CREATE OR REPLACE FUNCTION enforce_inspector_is_active_floor_lead()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -1068,7 +1080,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- 검사 결과 부수효과
 CREATE OR REPLACE FUNCTION set_ir_handled_by_from_ctx()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE v_actor BIGINT := NULLIF(current_setting('app.user_id', true), '')::BIGINT;
@@ -1093,7 +1104,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- 남은 수량 유지
 CREATE OR REPLACE FUNCTION maintain_bundle_remaining_count_delta()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -1141,7 +1151,6 @@ BEGIN
   RETURN NEW;
 END$$;
 
--- 층별장 쿼터
 CREATE OR REPLACE FUNCTION enforce_floor_lead_quota()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -1188,7 +1197,6 @@ END$$;
 -- =========================================================
 -- 11) 트리거 묶음
 -- =========================================================
--- users
 CREATE TRIGGER trg_users_updated_at
 BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -1198,7 +1206,6 @@ AFTER INSERT OR UPDATE OF dorm_room_id, personal_number ON users
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION enforce_room_capacity_and_range();
 
--- 냉장고/칸 수 정합성
 CREATE CONSTRAINT TRIGGER ctrg_validate_compartments_on_refrigerators
 AFTER INSERT OR UPDATE OF refrigerated_slots, freezer_slots ON refrigerators
 DEFERRABLE INITIALLY DEFERRED
@@ -1209,7 +1216,6 @@ AFTER INSERT OR DELETE OR UPDATE ON compartments
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION validate_compartments_match_slots();
 
--- bundles/sub_items: 접근/검사잠금/타임스탬프/남은수/자동상태
 CREATE CONSTRAINT TRIGGER ctrg_bundles_access
 AFTER INSERT OR UPDATE OF user_id, compartment_id ON item_bundles
 DEFERRABLE INITIALLY DEFERRED
@@ -1243,7 +1249,6 @@ CREATE TRIGGER trg_bundles_autoremoved
 BEFORE UPDATE OF remaining_count, status ON item_bundles
 FOR EACH ROW EXECUTE FUNCTION autoset_bundle_removed_when_empty();
 
--- 검사자 유효성/자동 참가
 CREATE TRIGGER trg_fridge_inspector_is_floor_lead_ins
 BEFORE INSERT ON fridge_inspections
 FOR EACH ROW EXECUTE FUNCTION enforce_inspector_is_active_floor_lead();
@@ -1252,7 +1257,6 @@ CREATE TRIGGER trg_fridge_inspector_is_floor_lead_upd
 BEFORE UPDATE OF status ON fridge_inspections
 FOR EACH ROW EXECUTE FUNCTION enforce_inspector_is_active_floor_lead();
 
--- 검사 결과: handled_by + 부수효과
 CREATE TRIGGER trg_ir_set_handled_by
 BEFORE INSERT ON inspection_results
 FOR EACH ROW EXECUTE FUNCTION set_ir_handled_by_from_ctx();
@@ -1261,7 +1265,6 @@ CREATE TRIGGER trg_ir_side_effects
 AFTER INSERT ON inspection_results
 FOR EACH ROW EXECUTE FUNCTION apply_inspection_result_side_effects();
 
--- 감사 트리거(ROW_AUDIT)
 CREATE TRIGGER trg_audit_users
 AFTER INSERT OR UPDATE OR DELETE ON users
 FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['user_id']);
@@ -1290,7 +1293,6 @@ CREATE TRIGGER trg_audit_notifications
 AFTER INSERT OR UPDATE OR DELETE ON notifications
 FOR EACH ROW EXECUTE FUNCTION public.audit_row_change_to_domain_event_v2(ARRAY['notification_id']);
 
--- 층별장 쿼터 트리거 (멱등)
 DROP TRIGGER IF EXISTS trg_floor_leads_quota_ins ON public.floor_leads;
 CREATE TRIGGER trg_floor_leads_quota_ins
 BEFORE INSERT ON public.floor_leads
@@ -1333,6 +1335,30 @@ FROM fridge_inspections fi
 LEFT JOIN inspection_results ir ON ir.inspection_id = fi.inspection_id
 GROUP BY fi.inspection_id;
 
+-- (편의) 라벨 표준 뷰
+CREATE OR REPLACE VIEW public.bundle_labels AS
+SELECT b.bundle_id,
+       r.floor,
+       c.label AS compartment_label,
+       LPAD(b.item_number::text, 3, '0') AS num3,
+       (c.label || '-' || LPAD(b.item_number::text,3,'0')) AS sticker_code
+FROM public.item_bundles b
+JOIN public.compartments c  ON c.compartment_id = b.compartment_id
+JOIN public.refrigerators r ON r.refrigerator_id = c.refrigerator_id;
+
+-- (편의) 검사자별 요약 뷰
+CREATE OR REPLACE VIEW public.inspection_result_by_inspector AS
+SELECT ir.inspection_id,
+       ir.handled_by,
+       u.login_id,
+       COUNT(*)                                           AS processed,
+       COUNT(*) FILTER (WHERE outcome='PASS')             AS pass_cnt,
+       COUNT(*) FILTER (WHERE outcome='WARNING')          AS warn_cnt,
+       COUNT(*) FILTER (WHERE outcome IN ('DISCARD_ANONYMOUS','DISCARD_IDENTIFIED')) AS discard_cnt
+FROM public.inspection_results ir
+LEFT JOIN public.users u ON u.user_id = ir.handled_by
+GROUP BY ir.inspection_id, ir.handled_by, u.login_id;
+
 -- =========================================================
 -- 13) 테이블 저장/청소 파라미터 & 운영 인덱스
 -- =========================================================
@@ -1348,22 +1374,36 @@ ALTER TABLE auth_login_attempts
   SET (fillfactor=90, autovacuum_vacuum_scale_factor=0.05, autovacuum_analyze_scale_factor=0.02,
        autovacuum_vacuum_threshold=500, autovacuum_analyze_threshold=250);
 
-DROP INDEX IF EXISTS ix_evt_valid;
-CREATE INDEX IF NOT EXISTS ix_evt_valid
-  ON email_verification_tokens (user_id, expires_at)
-  WHERE used_at IS NULL;
+ALTER TABLE public.user_events
+  SET (fillfactor=90,
+       autovacuum_vacuum_scale_factor=0.05,
+       autovacuum_analyze_scale_factor=0.02,
+       autovacuum_vacuum_threshold=500,
+       autovacuum_analyze_threshold=250);
 
-DROP INDEX IF EXISTS ix_prt_valid;
-CREATE INDEX IF NOT EXISTS ix_prt_valid
-  ON password_reset_tokens (user_id, expires_at)
-  WHERE used_at IS NULL;
+ALTER TABLE public.item_bundles
+  SET (fillfactor=90,
+       autovacuum_vacuum_scale_factor=0.05,
+       autovacuum_analyze_scale_factor=0.02,
+       autovacuum_vacuum_threshold=500,
+       autovacuum_analyze_threshold=250);
 
--- (선택) 층별장 활성 조회 최적화
-CREATE INDEX IF NOT EXISTS ix_floor_leads_active
-  ON public.floor_leads (floor) WHERE ends_at IS NULL;
+ALTER TABLE public.sub_items
+  SET (fillfactor=90,
+       autovacuum_vacuum_scale_factor=0.05,
+       autovacuum_analyze_scale_factor=0.02,
+       autovacuum_vacuum_threshold=500,
+       autovacuum_analyze_threshold=250);
+
+ALTER TABLE public.fridge_inspections
+  SET (fillfactor=90,
+       autovacuum_vacuum_scale_factor=0.05,
+       autovacuum_analyze_scale_factor=0.02,
+       autovacuum_vacuum_threshold=300,
+       autovacuum_analyze_threshold=150);
 
 -- =========================================================
--- 14) 시드 데이터
+-- 14) 시드 데이터 (Patch A 반영)
 -- =========================================================
 INSERT INTO roles(role_id, role_name, description) VALUES
   (1,'SUPER_ADMIN','최고 관리자'),
@@ -1395,10 +1435,11 @@ INSERT INTO notification_types(type_code, description, is_user_configurable) VAL
   ('SR_START_SOON','시작 15분 전', true)
 ON CONFLICT (type_code) DO NOTHING;
 
+-- [Patch A] 기본값(defs)과 시드(policies)를 2로 설정
 INSERT INTO public.app_policy_defs(policy_key, value_type, description, default_value,
                                    min_int, max_int, min_interval, max_interval, json_schema)
 VALUES
-  ('max_active_floor_leads_per_floor','INT','층별장 동시 활성 최대 인원(층별)', to_jsonb(1), 1, 5, NULL, NULL, NULL),
+  ('max_active_floor_leads_per_floor','INT','층별장 동시 활성 최대 인원(층별)', to_jsonb(2), 1, 5, NULL, NULL, NULL),
   ('inspection_freeze_enabled','BOOL','검사 진행 중 냉장고 쓰기 잠금 활성화', to_jsonb(true), NULL, NULL, NULL, NULL, NULL),
   ('notif.default_ttl_hours','INT','알림 기본 만료시간(시간)', to_jsonb(168), 1, 720, NULL, NULL, NULL),
   ('fridge.expiry_prealert_days','INT','유통기한 임박 알림 사전 일수', to_jsonb(1), 0, 7, NULL, NULL, NULL),
@@ -1416,7 +1457,7 @@ ON CONFLICT (policy_key) DO UPDATE
       description=EXCLUDED.description;
 
 INSERT INTO public.app_policies(policy_key, policy_value, category, description) VALUES
-  ('max_active_floor_leads_per_floor', to_jsonb(1),    'floor','층별장 동시 활성 최대 인원(층별)'),
+  ('max_active_floor_leads_per_floor', to_jsonb(2),    'floor','층별장 동시 활성 최대 인원(층별)'), -- Patch A
   ('inspection_freeze_enabled',        to_jsonb(true), 'inspection','검사 진행 중 쓰기 잠금'),
   ('notif.default_ttl_hours',          to_jsonb(168),  'notification','알림 기본 TTL(7일)'),
   ('fridge.expiry_prealert_days',      to_jsonb(1),    'fridge','유통기한 임박 알림 D-1'),
@@ -1432,6 +1473,7 @@ ON CONFLICT (policy_key) DO UPDATE
       description=EXCLUDED.description;
 
 COMMIT;
+
 
 
 ```
