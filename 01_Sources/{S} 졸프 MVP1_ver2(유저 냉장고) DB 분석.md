@@ -99,7 +99,7 @@ CREATE TYPE public.domain_event_source    AS ENUM ('DOMAIN','ROW_AUDIT','API','S
 CREATE TYPE public.policy_value_type      AS ENUM ('INT','BOOL','TEXT','INTERVAL','JSON');
 
 
--- [ENUM] 유저 이벤트 타입(멱등)
+
 -- [ENUM] 유저 이벤트 타입(멱등)
 DO $$
 BEGIN

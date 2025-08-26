@@ -8,12 +8,6 @@ creation_date: 2025-08-19
 ---
 
 ```SQL
--- =========================================================
--- Dormitory Resource Management — Final DDL (v1.2, patched)
---  - Patch A: max_active_floor_leads_per_floor default/seed = 2
---  - Patch B: inspection_results.ck_ir_target_xor relaxed for anonymous NO_STICKER discard
--- =========================================================
-
 BEGIN;
 
 -- =========================================================
