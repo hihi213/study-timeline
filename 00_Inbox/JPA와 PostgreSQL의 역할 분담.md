@@ -7,7 +7,7 @@ creation_date: 2025-08-14
 
 
 ## 📜 원본 맥락
-![[01_Sources/{S}졸업 프로젝트을 진행하며 MVP1.md#^e2xutc]]
+![[../01_Sources/{S} 졸프- 10주계획 상세#^e2xutc]]
 
 ---
 ## 정리
