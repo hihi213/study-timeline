@@ -100,7 +100,7 @@ creation_date: 2025-08-14
             
         - [ ] 물품 수정/삭제 API (`PUT /api/items/{id}`, `DELETE /api/items/{id}`)
             
-        - [x] 물품 검색 API (`GET /api/items/search?identifier=...`): 검색 컬럼에 **DB 인덱스** 적용
+        - [ ] 물품 검색 API (`GET /api/items/search?identifier=...`): 검색 컬럼에 **DB 인덱스** 적용
             
 - **프론트엔드**:
     
