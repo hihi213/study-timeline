@@ -10,161 +10,283 @@ creation_date: 2025-09-01
 2. 그후 **하드닝/리팩터링 스프린트**로 품질을 끌어오른다
 
 
-# MVP 10주 기능 정리
 
-## 1) 인증 · 권한
+# MVP 10주 기능 정리 (최종)
 
-* 이메일/비밀번호 로그인(**JWT**), `/me` 프로필
-* **RBAC** 3역할: `ADMIN / INSPECTOR / USER`
-* 권한 밖 요청은 403, 비활성 사용자 로그인 차단
+## 0) 핵심 목표
 
-## 2) 자원(냉장칸) · 물품 관리
+* 로그인(로컬) → 냉장칸 자원/물품 등록·조회 → **2인 검사**(동시 2명, 자원당 진행 1건) → **단일 제출**
+  → **벌점 원본 자동 생성 + 조정 합산** → 화면은 **SSE 실시간 반영**.
+* **라이트 스키마**: 공간모델(층/방/존)·예약공통은 제외, 확장 여지 보존.
 
-* 자원 타입: `FRIDGE_COMP` 목록 조회(예: 냉장1/냉동1)
-* 물품 등록/조회/검색
+---
 
-  * 라벨 번호(`label_no`) 자동/수동
-  * **활성 상태에서 (resource\_id, label\_no) 유일**
-  * 전량 제거(`removed_at`) 후 **번호 재사용 가능**
+## 1) 인증/권한 (로컬 계정)
+
+* **아이디(=username) + 비밀번호** 로그인, `Argon2id`(권장) 또는 `bcrypt(cost≥12)` 해시.
+* **JWT Access(짧은 TTL 15–30m)**, 리프레시는 MVP 범위 밖. `token_version` 컬럼으로 추후 무효화 준비.
+* **RBAC 3역할**: `ADMIN / INSPECTOR / USER` 미들웨어 가드.
+* **계정상태**: `is_active=false` 차단, 실패 누적 **쿨다운**(429)로 브루트포스 완화.
+
+---
+
+## 2) 냉장칸 자원·물품
+
+* 자원: `FRIDGE_COMP` 목록/상태. **비즈니스 키는 `resource_id`(공개 불변)**, `label`은 표시용.
+* 물품: 등록/조회/검색/수정/전량제거.
+
+  * **활성 상태에서 (resource\_id, label\_no) 유일**, 제거 후 번호 재사용 OK.
+  * 교체 시 원본 `removed_at` 필수(번호 유지 교체 플로우 지원).
 * 물품 변경
 
   * `:adjust`(수량/유통기한/메모), `:remove-all`(전량 제거)
+---
 
 ## 3) 검사(Inspection) — **2인 세션 + 단일 제출**
 
-* 세션 열기/참여/나가기
+* 세션 열기/참여/나가기, **동일 자원 진행 1건**(인덱스 보장), 참가자 **최대 2명**.
+* 검사 중 해당 자원 쓰기 요청은 **423 Locked** (서버/클라 UX 포함).
+* 조치: `PASS / WARNING / DISCARD / DISCARD_WITH_PENALTY`
 
-  * **동일 자원 진행 세션 1건 제한**
-  * 세션 참가자 **최대 2명**
-* 검사 중 해당 자원에 일반 사용자 쓰기 요청 시 **423 Locked**
-* 조치 기록: `PASS / WARNING / DISCARD / DISCARD_WITH_PENALTY`
+  * **NO\_STICKER**일 때만 미등록 폐기(`bundle_id` NULL) 허용.
+* **제출 1회(멱등)**, 제출 후 결과 **INSERT/DELETE 금지**, UPDATE 시 리비전 적재(+버전 증가).
 
-  * **NO\_STICKER**일 때만 `bundle_id` 없이 폐기 가능
-* **제출 1회(멱등)**, 제출 후 결과 불변
-
-  * INSERT/DELETE 금지, UPDATE 시 **리비전 기록 + 버전 증가**
+---
 
 ## 4) 벌점
 
-* 제출 시 **원본 벌점** 자동 생성(UPDATE/DELETE 차단)
-* **조정 벌점**(+/-, 사유 필수) 등록
-* 집계 뷰 `v_penalties_totals`로 **최종 점수** 제공
-
-## 5) 실시간(**SSE**)
-
-* 클라이언트: `EventSource` 기반, **자동 재연결 + Last-Event-ID**
-* 대표 이벤트 스트림
-
-  * `items.created/updated/removed/adjusted`
-  * `inspection.opened/joined/left/locked/action_recorded/submitted`
-  * (선택) `penalties.adjusted`
-* 역프록시/서버 튜닝: 하트비트, 타임아웃, 버퍼링 Off
-
-## 6) 운영 · 품질
-
-* 헬스체크: `/healthz`, `/readyz`
-* 구조화 로그(JSON) + `correlation_id` 전파
-* **OpenAPI 스냅샷/계약 테스트**, E2E(SSE 포함)
-* 충돌/경합 응답 표준화: `409/422/423`
-* **간단 멱등**: 주요 작성계에 `Idempotency-Key` 수용(10주 내 도입)
-* 성능 목표: 샘플 부하 **p95 < 300ms**
-
-## 7) 데이터 무결성(핵심 제약)
-
-* `item_bundles` : **(resource\_id, label\_no) 활성 유니크**
-* `inspection_sessions` : **자원당 진행 1건**
-* `inspection_participants` : **세션당 최대 2명**
-* 제출 후 결과 **불변**(+리비전)
-* `resource_locks` : **자원당 1개 논리 락**(423 근거)
-
-## 8) 사용자/역할별 시나리오
-
-* **입주자(USER)**: 로그인 → 내 물품 등록/조회/수정/제거(실시간 반영) → 검사 중 칸 쓰기 시 423 피드백 → 벌점 조회
-* **검사자(INSPECTOR)**: 칸별 세션 열기/참여(동시 2인) → 조치 기록 → **단일 제출**(사유 포함 수정 이력 보존)
-* **관리자(ADMIN)**: 자원 관리/락 해제, 벌점 조정, 기본 운영 점검
-
-## 9) 의도적 제외(10주 이후로 이관)
-
-* **PWA + Web Push(FCM/VAPID)**, 백그라운드 알림
-* 세탁/스터디룸/도서관 공통 예약(`allocations`)
-* 공간 모델(층/방/존/거주), append-only `activity_logs`
-* 정식 `idempotency_store`, Outbox/DueTasks/DomainEvents
-
-
-
-# 10주 이후 추가 기능 정리
-
-## A. 실시간/알림 체계
-
-* **PWA + Web Push 도입**: Service Worker, 구독/해지 API, 구독 만료 정리(job)
-* **iOS 사파리 안내**: 홈 화면(PWA) 추가 조건/권한 UX
-* **알림 파이프라인**: `outbox / due_tasks / domain_events` + 워커(재시도/백오프/멱등키)
-* **알림 센터**: 헤더 배지·목록·딥링크, 읽음 처리
-* **규칙 예시**: 유통기한 D-1, 세탁 종료 5분 전, 예약 확정/취소, 연체 발생 등
-
-## B. 자원 예약/사용(Allocations) 계층
-
-* **공통 모델 도입**: `allocations(kind=RESERVATION|USAGE|LOAN)` + 시간 겹침 EXCLUDE
-* **세탁실 v1**: 사용 시작/완료, 동시 사용 금지, 진행바
-* **세탁실 v2**: 미등록 사용 타임아웃 복귀, 종료 5분 전 리마인더, 고장 신고→`OUT_OF_SERVICE`
-* **스터디룸 v1**: 주간 오픈(10분 슬롯), 예약/취소, 타임라인 뷰
-* **스터디룸 v2**: 합석 옵션, 관리자 강제예약, 블록 휴무
-* **도서관 v1**: 대출/반납/연장/예약, 반납 D-3 알림, **연체 벌점 원본** 자동 적재
-
-## C. 권한/공간 모델
-
-* **공간 테이블 추가**: `floors / dorm_rooms / zones / user_zone_assignments / stays`
-* **존 기반 접근제어**: 목록/검사/예약/대출이 존 필터를 통과해야 함
-* **운영 화면**: 존/층 배정·변경, 권역 이동 시 즉시 반영
-
-## D. 보안/신뢰성 강화
-
-* **멱등 저장소**: `idempotency_store`(요청 해시·응답 스냅샷·TTL)
-* **레이트리밋 고도화**: 사용자/엔드포인트·버스트 제어
-* **토큰 보안**: 토큰 버전 무효화(권한 변경 즉시), **JWKS 키 회전**
-* **로그/감사**: `activity_logs`(append-only), 고위험 액션 이중 확인(추가)
-* **SSE 운영값**: 하트비트/타임아웃/동시 연결 제한·모니터링
-
-## E. PWA 품질
-
-* **오프라인 캐시**(핵심 조회 뷰), 설치 프로프트
-* **푸시 구독 위생**: 410 Gone/만료 구독 정리, 백오프/재시도 전략
-* **딥링크 라우팅**: 푸시 탭 시 대상 화면으로 이동
-
-## F. 관측/운영
-
-* **대시보드(라이트)**: 에러율, SSE 커넥션 수, 워커 큐 길이, 알림 실패율/지연
-* **런북**: 알림 지연/실패·락 해제·키 회전·슬롯 재생성 절차
-* **성능 목표**: p95 < 300ms 유지, 알림 실패율 < 1%
-
-## G. 데이터/마이그 전략
-
-* **확장→백필→전환→수축** 원칙으로 순차 반영
-* **리소스 라벨 정책 전환**: (전역 유일 → 층/냉장고 스코프 유일)로 마이그 문서화
-* **백업/복구 리허설** 정례화
+* 제출 시 **원본 벌점** 자동 생성(UPDATE/DELETE **차단 트리거**).
+* **조정 벌점**(±, 사유 필수), 최종점수 = **원본 합 + Σ조정**(뷰 제공).
 
 ---
 
-### 산출물/엔드포인트 예시(증가분)
+## 5) 실시간 (**SSE-first**)
 
-* `POST /push/subscriptions` / `DELETE /push/subscriptions/{id}`
-* `GET/POST /outbox`(운영 조회용), 워커 내부 전용 큐 처리
-* `POST /laundry/{id}:start|finish|report-error`
-* `POST /studyrooms/reservations` / `DELETE /.../{id}` / `POST /studyrooms:open-slots`
-* `POST /library/loans` / `POST /library/loans/{id}:return|extend`
-* `GET /zones` / `POST /zones/assignments`
+* **인증된 SSE**(`Authorization: Bearer <JWT>`), 자동 재연결 + **Last-Event-ID** 재전송.
+* 최소 하트비트(`:\n`)·`retry`·아이들 타임아웃. **사용자당 동시 1–2커넥션 제한**.
+* 대표 이벤트:
+  `items.created/updated/removed`,
+  `inspection.opened/joined/left/locked/action_recorded/submitted`,
+  (선택) `penalties.adjusted`.
 
 ---
 
-### 요약
+## 6) 운영·품질·계약
 
-* **포그라운드 실시간 = SSE 유지**, \*\*백그라운드 알림 = PWA+Web Push(FCM/VAPID)\*\*로 이원화.
-* **Allocations**와 **공간/권한**을 “추가만으로” 붙일 수 있게 현재 스키마를 존중.
-* 운영 신뢰성(멱등/워크플로/감사)과 보안을 릴리스별로 점진 강화.
+* 헬스 체크 `/healthz`·`/readyz`(미마이그/미설정 503).
+* **OpenAPI 스냅샷/계약 테스트**, E2E(SSE 수신 포함).
+* 구조화 로그(JSON) + **`correlation_id` 전파**, 토큰/비번 등 **민감정보 마스킹**.
+* **레이트리밋**(사용자/IP, SSE 별도), **응답 표준화**(RFC7807 + 409/422/423/429).
+* 성능 목표: 샘플 부하 **p95 < 300ms**.
 
+---
 
+## 7) DB 라이트 스키마(핵심 제약)
 
+* `resources(type='FRIDGE_COMP')`, **`resource_id` 공개 불변**.
+* `item_bundles`: **(resource\_id, label\_no) WHERE removed\_at IS NULL** 유니크.
+* `inspection_sessions`: **자원당 진행 1건** 유니크.
+* `inspection_participants`: 세션당 **최대 2명**(seat\_no·user 중복 금지).
+* `inspection_results`: 제출 후 **INSERT/DELETE 금지**, UPDATE 시 **리비전 적재**(+버전).
+* `resource_locks`: 자원당 단일 락(423 근거).
+* `penalties_original`: **UPDATE/DELETE 차단** 트리거, `v_penalties_totals` 제공.
 
+---
+
+## 8) 네트워크/보안 베이스라인 (MVP에서 실제 적용)
+
+* **HTTPS/HSTS** 강제, Helmet류 보안헤더(CSP 라이트, XFO DENY, XCTO nosniff, Referrer-Policy).
+* **CORS 화이트리스트**(허용 도메인만).
+* **입력 스키마 검증** + 본문 크기 제한(예: 256KB).
+* **비밀 관리**: env/CI 시크릿, 저장소 커밋 금지.
+* **백업 스냅샷 일 1회 + 복구 리허설 1회**.
+* 공개 상용 전 보강 항목(다음 릴리스): 리프레시 토큰, 2FA/SSO, JWKS 키 회전, append-only 감사 로그, 세밀 권한(층/존), 정식 `idempotency_store`, Outbox/DueTasks, PWA/푸시 하드닝.
+
+---
+
+## 9) 주차별 핵심 산출물(요약)
+
+* **Day0**: DB 베이스라인, `/healthz`·`/readyz`, **SSE 골격**(하트비트/재연결), OpenAPI 골격.
+* **W1**: 로컬 로그인(아이디/비번) + JWT + RBAC, SSE 인증/재연결.
+* **W2**: 자원/아이템 CRUD + **SSE: items.\***.
+* **W3**: 번호 교체/충돌 UX + 요청 로그 + **SSE: items.adjusted**.
+* **W4**: **2인 검사 세션 + 423 락** + **SSE: inspection.opened/…/locked**.
+* **W5**: 조치 기록 + **단일 제출** → 벌점 원본 생성 + **SSE: submitted**.
+* **W6**: 벌점 조정/집계(뷰) (+선택 SSE).
+* **W7**: 프론트 E2E 플로우 + **Last-Event-ID 유실 복구** + 단일 탭 연결.
+* **W8**: 계약 리그레션 + **SSE E2E**(재연결/유실 테스트).
+* **W9**: 멱등 키(라이트), 레이트리밋, **SSE 연결 보호**, p95 기록.
+* **W10**: 문서/런북(락·SSE·오류), 1분 데모, 태그 `v0.1.0-mvp`, 롤백 리허설.
+
+---
+
+## 10) 의도적 제외(다음 단계로 이관)
+
+* Outbox/DueTasks/DomainEvents(알림 파이프라인), Allocations(예약/사용/대여).
+* Floors/Rooms/Zones/Stays(세밀 권한/거주), append-only `activity_logs`, 정식 `idempotency_store`.
+* PWA 오프라인/푸시(Web Push). *(포그라운드 실시간은 계속 SSE)*
+
+---
+
+## 11) 데모 증빙물(출고 시)
+
+* Swagger/OpenAPI(+스냅샷), E2E 스크립트(SSE 수신 검증 포함), 1분 데모 영상,
+* README(아키텍처/ERD/시퀀스/실행가이드), **Runbook(SSE/락/오류 대응)**.
+
+---
+
+# 10주 이후 기능 정리(최종)
+
+## 공통 운영 원칙
+
+* **피처 플래그**: 기본 Off → 카나리(관리자/내 계정) → 전원 On
+* **마이그**: 확장(ADD) → 백필 → 전환(코드 스위치) → 수축(삭제)
+* **SLO**: p95 < 300ms, 알림 실패율 < 1%, 워커 평균 재시도 < 3
+* **실시간 전략**: 포그라운드(SSE) 지속 / 백그라운드(Web Push) 단계 도입
+* **보안 베이스라인 유지** + 릴리스별 보강(아래 각 R에 명시)
+
+---
+
+## R1 — 하드닝① (v0.2.0)
+
+**목표**: 멱등·오류 표준화로 “실수해도 안전한” 상태 만들기
+
+* DB: `idempotency_store(key, request_hash, response_snapshot, status_code, expires_at)`
+* 서버: 작성계(아이템 생성/수정/삭제, 검사 조치/제출) **Idempotency-Key** 수용
+* 에러 카탈로그 표준화(409/422/423/429 + RFC7807 본문)
+* **SSE 커넥션 메트릭**(현재 연결/하트비트/최근 전송) 노출
+* DoD: 중복 요청 시 **동일 응답 스냅샷** 반환, p95 < 300ms 유지
+
+---
+
+## R2 — 알림 파이프라인(Outbox + DueTasks + DomainEvents) (v0.3.0)
+
+**목표**: 푸시/예약성 작업의 “신뢰 가능한 파이프라인” 마련(아직 푸시 발사 최소화)
+
+* DB: `outbox(type, dedup_key, payload, status, attempts, sent_at)`,
+  `due_tasks(run_at, kind, payload, status)`,
+  `domain_events(type, payload)`
+* 워커: READY→SENT, **멱등(dedup\_key)**, 백오프/재시도
+* 이벤트: 검사 제출 시 `Fridge.InspectionSubmitted.v1` 적재
+* UI: **알림 센터(헤더 배지/목록)** 1차(로그/배지만, 푸시는 다음 R에서)
+* DoD: 제출→outbox 적재→워커 **SENT** 로그 확인
+
+---
+
+## R3 — PWA + Web Push(FCM/VAPID) (v0.4.0)
+
+**목표**: **백그라운드 알림** 도입. 포그라운드는 계속 SSE.
+
+* PWA: Service Worker 등록, 구독/해지 API(`POST /push/subscriptions`)
+* 서버: **VAPID 표준** + **FCM 경유** 모두 지원(브라우저/플랫폼별 엔드포인트)
+* iOS 안내: **홈 화면(PWA) 설치 + iOS 16.4+** 필요(가이드 배포)
+* 구독 만료 정리(410 Gone), 권한 프롬프트 지연 UX
+* 맵핑:
+
+  * 포그라운드 변화 ⇒ **SSE**
+  * 백그라운드 리마인더/딥링크 ⇒ **Web Push**
+* DoD: 포그라운드=SSE, **백그라운드=Web Push** 동작/딥링크 확인
+
+---
+
+## R4 — 세탁실 ① (기본 사용/완료) (v0.5.0)
+
+**목표**: 최소 사용 흐름(겹침 금지, 진행바)
+
+* DB: `resources.type`에 `WASHER`,`DRYER` 추가
+* DB: `allocations(kind=USAGE, starts_at, ends_at)` + **EXCLUDE(시간 겹침 금지)**
+* API: `GET /laundry/devices`, `POST /laundry/{id}:start|finish`
+* SSE: `laundry.started|finished`
+* DoD: 동시 시작 409, 시작→완료 정상
+
+---
+
+## R5 — 세탁실 ② (미등록 사용/종료 알림/고장 신고) (v0.6.0)
+
+**목표**: 현장 이슈 처리 + 리마인더
+
+* DueTasks: `LAUNDRY_FINISH_MINUS_5M`, `UNAUTHORIZED_TIMEOUT`
+* API: `report-unauthorized`, `report-error`, (선택)`schedule-finish-reminder`
+* 상태: 고장 신고 시 `resources.status=OUT_OF_SERVICE`
+* SSE: 미등록/오류 이벤트 반영, Web Push: **종료 5분 전 리마인더**
+* DoD: 미등록 사용 자동 복귀, 리마인더 큐잉/전송
+
+---
+
+## R6 — 스터디룸 ① (주간 오픈/10분 슬롯) (v0.7.0)
+
+**목표**: 예약 기본기(슬롯 생성, 겹침 금지)
+
+* DB: `resources.type='STUDYROOM'`, `allocations(kind=RESERVATION)`(EXCLUDE)
+* API: 예약 생성/취소, 관리 `:open-slots`(매주 월 09:00 자동 생성)
+* UI: 주간 타임라인, 내 예약 강조
+* SSE: `studyroom.slot.created|reserved|canceled`
+* DoD: 동일 시간대 이중 예약 409, 타임라인 실시간 반영
+
+---
+
+## R7 — 스터디룸 ② (합석/강제예약/블록) (v0.8.0)
+
+**목표**: 운영 편의 고도화
+
+* (옵션) DB: `reservation_meta(reservation_id, allow_coshare boolean)`
+* API: 합석 토글, **관리자 강제예약**, 블록 휴무
+* SSE/푸시: 강제변경/블록 반영
+* DoD: 운영 화면에서 블록/강제예약 관리 가능
+
+---
+
+## R8 — 도서관 ① (대출/반납/연장/예약 + 연체 벌점) (v0.9.0)
+
+**목표**: 최소 도서 흐름 + 벌점 연계
+
+* DB: `resources.type='BOOK'`, `allocations(kind=LOAN|RESERVATION)`
+* 벌점: `penalties_original.source='BOOK_OVERDUE'`
+* API: 대출/반납/연장, 예약/취소
+* DueTasks: **반납 D-3 알림**, 연체 시 벌점 원본 자동 적재
+* SSE/푸시: 대출/반납/예약 이벤트 + 리마인더
+* DoD: 연체 시 벌점 원본 생성, D-3 알림 전송
+
+---
+
+## R9 — 권한 확장(층/거주/검사 권역화) (v0.10.0)
+
+**목표**: 실제 공간 단위 운영 권한
+
+* DB: `floors / dorm_rooms / zones / user_zone_assignments / stays`
+* `/me` 응답에 `zones[]` 포함, 목록/검사/예약 **zone 필터** 적용
+* SSE/푸시: 서버에서 **대상자(zone) 선별** 후 브로드캐스트
+* DoD: 권역 밖 403, 권역 변경 즉시 반영
+
+---
+
+## R10 — 관측·보안·PWA 폴리싱 (v0.11.0)
+
+**목표**: 운영 신뢰도·보안 마무리
+
+* DB: `activity_logs`(append-only) + 변경 트리거
+* 대시보드(라이트): 오류율/알림 실패율·지연, **SSE 연결 수**, 큐 길이
+* 보안: **토큰 버전 무효화**, **JWKS 키 회전**, 레이트리밋 상향/세분화
+* PWA: 핵심 조회 **오프라인 캐시**, 만료 구독 정리, 푸시 딥링크 안정화
+* SSE 튜닝: 하트비트/타임아웃/역프록시 값 재점검
+* DoD: 오프라인 조회 캐시 동작, 키 회전 리그레션 OK
+
+---
+
+## 영역별 “무엇이 늘어나는가” 한눈 요약
+
+* **알림/푸시**: R2 파이프라인 → R3 PWA+Web Push → R5/R7/R8 각 도메인 리마인더/이벤트
+* **자원/예약/대여**: R4 세탁 사용 → R6 스터디룸 예약 → R8 도서 대출
+* **권한/도메인**: R9 zone 기반 인가로 운영 현실화
+* **보안/운영**: R1 멱등, R10 키 회전/감사·관측 강화
+* **실시간**: 전 단계에서 **SSE 유지**(푸시는 백그라운드 보완)
+
+---
+
+## 컷 스위치(시간 빠듯할 때)
+
+* 먼저 컷: R6 합석/강제예약 일부, R8 예약 대기열, R10 푸시 고급 UX
+* 반드시 유지: **멱등(R1)**, **알림 파이프라인(R2)**, **겹침 금지/락 규칙(R4/R6)**, **벌점 연계(R8)**
 
 
 # MVP 10주개발
