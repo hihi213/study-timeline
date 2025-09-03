@@ -56,4 +56,3 @@ creation_date: 2025-09-03
       * 아이템 라벨의 고유성 제약조건에 있던 버그를 수정했습니다.
   * **`chore(ci): add linting to workflow`**
       * CI 파이프라인에 린팅 작업을 추가했습니다.
-
