@@ -8,24 +8,11 @@ creation_date: 2025-09-01
 ---
 1. 10주간은 연습용으로, 작동+증빙에만 집중해 배포가능한 mvp를 만든다
 2. 그후 **하드닝/리팩터링 스프린트**로 품질을 끌어오른다
-# 🔔 실무 주의 2가지(항상 상단 고정)
 
-**① 라벨 교체(동일 라벨 `remove→create`)는 한 트랜잭션으로**
+# 상단 고정 (주의 2가지)
 
-```sql
-BEGIN;
-  UPDATE item_bundles SET removed_at = now() WHERE bundle_id = :old_id;
-  INSERT INTO item_bundles(resource_id,label_no,name,quantity,expires_on,owner_user_id,memo)
-  VALUES (:res_id,:label_no,:name,:qty,:exp,:owner,:memo);
-COMMIT;
-```
-
-> 활성만 UNIQUE(부분 UNIQUE)라서, **분리 호출 시 경쟁**으로 409가 납니다.
-
-**② 423 락 = “근거 테이블”만, 강제 차단은 앱에서**
-
-* `resource_locks`는 **락 상태 근거 저장** 용도.
-* **차단 판단은 미들웨어**에서 수행(만료는 워커/크론으로 정리).
+* [ ] **라벨 교체**(`remove→create`)는 **한 트랜잭션**으로 처리(경쟁 시 UNIQUE 409 방지)
+* [ ] **423 락**은 **근거 테이블만(DB)**, **차단 판단은 앱 미들웨어**(락 GC는 워커/크론)
 
 ---
 
@@ -33,382 +20,444 @@ COMMIT;
 
 ## 0-1. 레이아웃/규약
 
-* `backend/`, `frontend/`, `db/migrations/`, `db/seeds/`, `db/ops/`, `docs/`, `ops/`
-* 브랜치: `feat/*`, `fix/*`, `chore/*`, `release/*`
-* PR 라벨: `schema`, `api`, `sse`, `security`, `perf`, `docs`
+* [ ] `backend/`, `frontend/`, `db/{migrations,seeds,ops}/`, `ops/{cloud,nginx,load,scripts}/`, `docs/`
+* [ ] 브랜치: `feat/*`, `fix/*`, `chore/*`, `release/*`
+* [ ] PR 라벨: `schema`, `api`, `sse`, `security`, `perf`, `docs`
 
-## 0-2. Make 최소 타깃
+## 0-2. Make 타깃
 
-* `make schema` → `db/migrations/V000__baseline.sql`
-* `make seed` → `db/seeds/R_seed.sql`
-* `make seed-demo` → `db/seeds/R_seed_demo.sql`
-* `make openapi-snapshot` → `docs/openapi/snapshots/v0.1.0.json`
-* `make test` → 백엔드/계약/E2E 통합
+* [ ] `make schema` / `make seed` / `make seed-demo`
+* [ ] `make openapi-snapshot` / `make test`
+* [ ] **(신규)** `make build-image` / `make loadtest` / `make db-backup-local`
 
 ## 0-3. 환경변수/기동 검증
 
-* `.env.example`:
+* [ ] `.env.example` 포함:
   `DATABASE_URL`, `JWT_SECRET`, `JWT_TTL_MIN=20`,
   `CORS_ALLOWED_ORIGINS`, `RATE_LIMIT_REQ_PER_MIN=60`,
-  `LOG_LEVEL=json`, `TZ=UTC`
-* 기동 시 **필수 키 없으면 실패**
+  `LOG_LEVEL=json`, `TZ=UTC`,
+  **(신규)** `PUBLIC_ORIGIN`, `TRUST_PROXY=true`, `REQUEST_LOG_TIMING=true`, `RDS_SSL=true`
+* [ ] 기동 시 **필수 키 없으면 실패**
 
-## 0-4. DB 권한(최소화)
+## 0-4. DB 권한 최소화
 
-```sql
-REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-REVOKE ALL ON DATABASE dcs FROM PUBLIC;
-```
-
-* `db/ops/R_privileges.sql`로 **권한 스크립트 분리**(멱등)
+* [ ] `REVOKE CREATE ON SCHEMA public FROM PUBLIC;`
+* [ ] `REVOKE ALL ON DATABASE dcs FROM PUBLIC;`
+* [ ] `db/ops/R_privileges.sql`로 권한 스크립트 분리(멱등)
 
 ---
 
-# 1) 공통 표준(에러/로그/SSE)
+# 1) 공통 표준
 
-## 1-1. RFC7807 에러 카탈로그(정본)
-
-* `docs/errors.json`(정본) → `errors.md`(생성물)
-
-  * `409 LABEL_CONFLICT`, `422 CHECK_VIOLATION`, `423 RESOURCE_LOCKED`, `429 RATE_LIMITED`
-* 서버 미들웨어에서 **일괄 변환**
-
-## 1-2. 구조화 로그/코릴레이션
-
-* 요청→응답/SSE **`correlation_id` 전파**
-* 토큰/비번/이메일 **마스킹**
-
-## 1-3. SSE 엔벨로프(고정)
-
-```json
-{ "event_id":"...", "v":"1.0", "ts":"...", "correlation_id":"...", "floor_code": null, "resource_id":123, "data":{...} }
-```
-
-* 하트비트 `:\n`, `Last-Event-ID` 재동기
-* `floor_code`는 **R9 이전 `null` 허용**(UI 탭 대비, 호환성 확보)
+* [ ] **RFC7807 에러 카탈로그 정본**: `docs/errors.json` → 서버 미들웨어 변환
+* [ ] **구조화 로그 + correlation\_id**(요청→응답/SSE) & **민감정보 마스킹**
+* [ ] **SSE 엔벨로프 고정**: `{event_id,v,ts,correlation_id,floor_code,resource_id,data}`
+* [ ] **SSE 하트비트 `:\n` + Last-Event-ID 복구**
 
 ---
 
-# 2) 마이그/시드 구조
+# Day 0 — 부트스트랩 & SSE 베이스 (6–8h)
 
-* `db/migrations/V000__baseline.sql` : **스키마/제약/트리거/뷰/인덱스만**
-* `db/seeds/R_seed.sql` : **운영 기본 시드**(roles/resources/관리자 훅, 멱등)
-* `db/seeds/R_seed_demo.sql` : **데모 전용 시드**
-* `db/ops/R_privileges.sql` : **권한 최소화/롤 그랜트**
-* `db/ops/R_trgm_enable.sql` : **TRGM 인덱스(선택, 기본 미적용)**
+* [ ] `docker-compose` 로컬 실행 / 환경변수 검증
+* [ ] `/healthz`, `/readyz`(DB 커넥션 + 마이그 버전) / JSON 로그+`correlation_id`
+* [ ] **SSE 엔드포인트**(하트비트/자동 재연결 지시)
+* [ ] OpenAPI 골격(로그인/리소스/아이템/검사/벌점) + 에러 카탈로그
+* [ ] `make schema / seed / seed-demo`
+* [ ] **시드 멱등성** 보장
+* [ ] **시스템 타임존 규칙**: 서버/DB=UTC, 클라=KST 표기
 
-**규약**
-
-* 파일명: `YYYYMMDDHH_mm_desc.sql`
-* 모든 DDL `IF NOT EXISTS`
-* 접두사: `ck_/ux_/idx_`
+**Gate/DoD:** 스모크 3콜 200, 브라우저 `EventSource`로 `hello` 수신, 헬스/레디니스 200
 
 ---
 
-# 3) 지연 시 컷 스위치
+# Week 1 — 인증·인가·SSE 인증 (6–9h)
 
-* 먼저 컷: **번호 가용 조회 API**, 일부 UI 폴리싱
-* 반드시 유지: **2인 검사 / 423 락 / 단일 제출 / 벌점(원본+조정) / 에러 카탈로그 / OpenAPI 계약 / SSE**
+* [ ] `/auth/login`(username+password→JWT, TTL 15–30m) / `/me`
+* [ ] **RBAC**(ADMIN/INSPECTOR/USER)
+* [ ] **SSE 인증**: `Authorization: Bearer <JWT>`
+* [ ] CORS 화이트리스트, 기본 CSP/보안 헤더
+* [ ] 로그인 실패 쿨다운(429 + `Retry-After`)
+* [ ] 패스워드 정책/메시지 표준화
+* [ ] **(사전준비)** CORS에 **스테이징 도메인 슬롯** 주석
+* [ ] **(R9 대비 슬롯)** `floors:[]` 클레임 필드만 예약
 
-# 상시 보안/운영 체크
-
-* 해시(Argon2id/bcrypt≥12), JWT TTL 15–30분
-* 사용자/IP 레이트리밋, SSE 1–2개/유저
-* 민감정보 로깅 금지(Authorization/비번/토큰)
-* 분기별 백업→복구 리허설, 장애 런북 최신화
-
-
-# MVP 10주개발
-
-## 공통 운영 원칙
-
-* [ ] **실시간은 SSE만** 사용(폴링/웹소켓 금지). `Last-Event-ID` 기반 유실 복구.
-* [ ] 로그인은 **아이디(=username) + 비밀번호**. 이메일 로그인 아님.
-* [ ] **resource\_id**는 공개 불변 ID로 사용(라벨은 표시용).
-* [ ] 서버/DB **UTC 저장**, 클라이언트 **KST 표시**.
-* [ ] 구조화 로그(JSON) + **correlation\_id** 전파(요청→응답/SSE).
-* [ ] 보안 베이스라인: HTTPS, CORS 화이트리스트, 기본 CSP, RBAC(ADMIN/INSPECTOR/USER), 레이트리밋, 비밀번호 해시(Argon2id 또는 bcrypt≥12).
-* [ ] 사용자/IP 레이트리밋, SSE 동시 1–2개/유저 제한
----
-
-## Day 0 — 부트스트랩 & SSE 베이스 (6–8h)
-
-* [ ] `docker-compose`로 로컬 실행, 환경변수 검증
-* [ ] `/healthz`, `/readyz` 도입, JSON 로그+`correlation_id`
-* [ ] **SSE 엔드포인트**(하트비트 `:\n`, 자동 재연결 지시)
-* [ ] OpenAPI 골격(로그인/리소스/아이템/검사/벌점) + 에러 카탈로그(RFC7807)
-* [ ] `.env.example` 필수 키 정리(DB/JWT/CORS/RATE\_LIMIT) + 검증 로직
-* [ ] `/readyz`에서 **DB 커넥션 + 마이그 버전** 체크
-* [ ] `make V000__baseline.sql / make seed / make seed-demo` 타깃 제공
-* [ ] **시드 멱등성**: `R_seed*.sql` 2회 실행도 동일 결과
-* [ ] **시스템 타임존 문서화**: 서버/DB UTC, 클라 KST 표기
-
-
-**Gate/DoD:** 스모크 3콜 200, 브라우저 `EventSource`로 `hello` 수신 빈 DB에 `schema→seed`만으로 기동 OK, 헬스/레디니스 200
+**Gate/DoD:** 권한 밖 403, 토큰 만료 후 SSE 재연결 정상, 쿨다운 동작
 
 ---
 
-## Week 1 — 인증·인가·SSE 인증 (6–9h)
+# Week 2 — 자원·아이템 등록/조회 + SSE (6–9h)
 
-* [ ] `/auth/login`(username+password → **JWT Access** 짧은 TTL) / `/me`
-* [ ] **RBAC** 미들웨어(ADMIN/INSPECTOR/USER)
-* [ ] **SSE 인증**: `Authorization: Bearer <JWT>` 헤더, 만료 시 재연결 처리
-* [ ] CORS 화이트리스트, 기본 CSP/보안 헤더, 브루트포스 쿨다운(앱/캐시)
+* [ ] 자원 목록(냉장 칸), 아이템 묶음 **생성/조회/검색**
+* [ ] **SSE**: `items.created/updated/removed`
+* [ ] 페이지네이션 규약 고정(`?limit&cursor`, 정렬 `(created_at,id)`)
+* [ ] 응답/이벤트에 **`floor_code` 포함**
+* [ ] 검색은 LIKE부터, TRGM는 **옵션 마이그 파일만** 준비
 
-* [ ] **로그인 쿨다운**: 실패 N회 → 429 + `Retry-After`
-* [ ] **패스워드 정책/메시지** 표준화(길이/조합/에러문구 고정)
-* [ ] **JWT floors 클레임 슬롯만 예약**(예: `floors:["2F"]`) — *검증·강제는 R8에서*
-* [ ] **SSE 인증 만료 흐름 문서화**(재연결/토스트 규칙)
-
-**Gate/DoD:** 권한 밖 403, 토큰 만료 후 SSE 재연결 정상, 만료·비활성·쿨다운 케이스 E2E 녹색
+**Gate/DoD:** 라벨 충돌 409, 제거 후 재사용 OK, SSE 즉시 갱신
 
 ---
 
-## Week 2 — 자원·아이템 등록/조회 + SSE (6–9h)
+# Week 3 — 조정/제거 UX + 요청 로깅 (6–9h)
 
-* [ ] 자원 목록 조회(냉장 **칸** 단위)
-* [ ] 아이템(묶음) **생성/조회/검색**(묶음 공통명/유통기한/수량만)
-* [ ] **SSE 발행**: `items.created/updated/removed`
+* [ ] `items/:id:adjust`, `:remove-all`
+* [ ] 요청 요약 로그: **method,path,status,duration\_ms,correlation\_id**
+* [ ] **경량 Idempotency-Key**(메모리 TTL 10m)
+* [ ] **GUC 주입 미들웨어**(`app.user_id`,`app.change_reason`)
 
-
-* [ ] **페이지네이션 규약 고정**: `?limit&cursor`, 정렬 `(created_at, id)`
-* [ ] 모든 **리소스/아이템 응답·이벤트에 `floor_code` 포함**(UI 탭/필터 대비, 저비용/고호환)
-* [ ] **검색은 LIKE로 시작**, TRGM는 *포스트-MVP 전용 마이그 파일*로 분리만
-**Gate/DoD:** 활성 라벨 충돌 시 409, 제거 후 라벨 재사용 OK, 리스트가 SSE로 즉시 갱신, 라벨 충돌 409 본문 표준, floor 탭 필터 동작
-
+**Gate/DoD:** `remove-all→create` 라벨 유지 교체, 동일 Key 재호출 동일응답
 
 ---
 
-## Week 3 — 조정/제거 UX + 요청 로깅 (6–9h)
+# Week 4 — 2인 검사 세션 + 423 락 (7–9h)
 
-* [ ] `items/:id:adjust`(수량/유통기한/메모) / `:remove-all`(전량 제거)
-* [ ] 요청 요약 로그(메서드/경로/결과/지연)
-* [ ] **SSE**: `items.adjusted/items.removed_all`
-
-
-* [ ] **경량 Idempotency-Key**(메모리 TTL 10분) — 작성계 엔드포인트만
-* [ ] **요청 요약 로그** 필드 고정(메서드/경로/지연/결과/코릴레이션ID)
-* [ ] **GUC 주입 미들웨어 실제 적용**(리비전/감사 일관성)
-**Gate/DoD:** `remove-all → create`로 라벨 번호 유지 교체 동작, 동일 Key 재호출 2xx + 동일 바디
-
----
-
-## Week 4 — **2인 검사 세션** + 423 락 (7–9h)
-
-* [ ] 세션 열기/참여/나가기(동일 칸 **진행 1건** 제한, 참가자 **최대 2명**)
-* [ ] 세션 중 해당 칸 쓰기 요청 **423 Locked**
+* [ ] 세션 열기/참여/나가기(자원당 진행 1건, 참가자 ≤2)
+* [ ] 세션 중 쓰기 **423 Locked**
 * [ ] **SSE**: `inspection.opened/joined/left/locked`
+* [ ] 락 TTL+GC(5–10m) & 만료 인덱스
 
-
-* [ ] **락 TTL 기본값 & GC 잡**(5\~10분) + 만료 인덱스
-
-  ```sql
-  CREATE INDEX IF NOT EXISTS idx_resource_locks_expires ON resource_locks(expires_at);
-  ```
-* [ ] **3번째 참여 거절은 409로 고정**(본문에 현 참가자 노출)
-* [ ] **락 UX 규칙**(토스트/버튼 비활성/재시도 경로) 문서화
-**Gate/DoD:** 3번째 참여 409/422, 락 상태 실시간 반영
-, 만료 후 자동 쓰기 허용, 경합 시 409/423 구분 명확
+**Gate/DoD:** 3번째 참여 409/422, 락 실시간 반영, 만료 후 자동 허용
 
 ---
 
-## Week 5 — 조치 기록 + **단일 제출** → 벌점 원본 (7–9h)
+# Week 5 — 조치 기록 + 단일 제출 → 벌점 원본 (7–9h)
 
-* [ ] `PASS/WARNING/DISCARD/DISCARD_WITH_PENALTY` 기록
-* [ ] **제출 1회(멱등)**, 제출 후 결과 **INSERT/DELETE 금지**, UPDATE는 리비전 적재(+버전)
+* [ ] `PASS/WARNING/DISCARD/DISCARD_WITH_PENALTY`
+* [ ] **제출 1회(멱등)**, 제출 후 **INSERT/DELETE 금지**, UPDATE는 리비전(+버전)
 * [ ] **SSE**: `inspection.action_recorded/submitted`
 * [ ] 제출 시 **원본 벌점 자동 생성**
+* [ ] 제출 이후 수정 시 **사유 UI 필수**
 
-* [ ] **리비전 사유 UI 필수화**(제출 이후 수정시에만)
-* [ ] **벌점 매핑표 상수화**(`action/violation_type → points`) 소스에 스냅샷 보관
-* [ ] **재제출 멱등** 케이스 계약 테스트
-**Gate/DoD:** 재제출 동일 응답, 벌점 원본 생성 확인
-,제출 후 UPDATE 시 version +1, 원본 벌점 생성 확인
+**Gate/DoD:** 재제출 동일응답, 원본 벌점 생성, UPDATE 시 version +1
 
 ---
 
-## Week 6 — 벌점 **조정** + 집계 (6–8h)
+# Week 6 — 벌점 조정 + 집계 (6–8h)
 
-* [ ] 조정 벌점(+/-, 사유 필수) 작성
-* [ ] 사용자별 **최종 점수** 조회(원본 합 + Σ조정)
-* [ ] (선택 SSE) `penalties.adjusted`
+* [ ] 조정 벌점(+/-, 사유 필수)
+* [ ] 사용자별 집계 API(`original/adjusted/total`, 기간 필터)
+* [ ] (선택) 조정 사유 프리셋
 
-* [ ] **집계 API 계약**: `original/adjusted/total` 3필드 + 기간 필터
-* [ ] (선택) **조정 사유 프리셋** 코드 — 자유기입과 병행
-**Gate/DoD:** 원본 벌점은 불변, 최종 점수 정확, 카티전 곱 회귀 테스트(v\_penalties\_totals 정확)
+**Gate/DoD:** 원본 불변, 최종 점수 정확, 집계뷰 회귀 OK
 
 ---
 
-## Week 7 — 프론트 E2E + SSE 안정화 (7–9h)
+# Week 7 — 프론트 E2E + SSE 안정화 (7–9h)
 
-* [ ] 로그인 → 등록/조회 → 검사(2인) → 제출 → 벌점 조회 **엔드투엔드**
-* [ ] **Last-Event-ID** + **최근 이벤트 링버퍼**로 유실 복구
-* [ ] 단일 탭 연결(BroadcastChannel), 423 토스트/다이얼로그
+* [ ] 로그인→등록/조회→검사(2인)→제출→벌점 조회 **엔드투엔드**
+* [ ] **Last-Event-ID 링버퍼**(서버 N≈500)
+* [ ] **단일 탭 공유**(BroadcastChannel)로 SSE 1개 유지
+* [ ] **(스테이징 사전 스모크)** EC2 1대 임시 배포 테스트: `/healthz` 200 + SSE `hello`
 
-* [ ] **단일 탭 연결**: `BroadcastChannel`로 SSE 1개 공유
-* [ ] **Last-Event-ID 링버퍼** 서버 N=500, 재동기 흐름 확정
-**Gate/DoD:** 1분 데모 시나리오 매끄럽게 동작, 오프라인→복귀 후 이벤트 재적재 OK
-
----
-
-## Week 8 — 계약/회귀 + SSE E2E (6–9h)
-
-* [ ] OpenAPI 스냅샷 리그레션(계약 고정)
-* [ ] **네트워크 단절→재연결→복구** E2E 포함
-
-* [ ] **OpenAPI 스냅샷 잠금**(`v0.1.0-mvp`) + 계약 테스트 CI
-* [ ] **혼합 네트워크**(느린 SSE/빠른 HTTP) 회귀 시나리오 1건만 유지
-**Gate/DoD:** 스냅샷·E2E 모두 녹색, 스냅샷 diff 0, 끊김 복구 시나리오 통과
+**Gate/DoD:** 1분 데모 정상, 오프라인→복귀 후 재적재 OK, 스테이징 스모크 캡처
 
 ---
 
-## Week 9 — 견고화(경합·성능·보안 라이트) (6–9h)
+# Week 8 — 계약/회귀 + CI 골격 (6–9h)
 
-* [ ] 작성계 API **Idempotency-Key** 수용(서버 캐시 기반)
-* [ ] 레이트리밋(사용자/IP, SSE 별도 제한), 429 + Retry-After
-* [ ] p95 < 300ms(샘플 부하 10→30 rps)
+* [ ] OpenAPI 스냅샷 리그레션(CI 포함)
+* [ ] **CI 골격**: build+test+snapshot 까지(배포는 Week 9)
+* [ ] 혼합 네트워크(느린 SSE/빠른 HTTP) 대표 시나리오 1건
 
-* [ ] **k6/Artillery 시나리오**(로그인/목록/SSE/제출 혼합)
-* [ ] **레이트리밋 테스트**: 429 + `Retry-After` 헤더 검증
-* [ ] **VACUUM/ANALYZE 스케줄** + 인덱스 블로트 체크 쉘 스크립트
-* [ ] **Idempotency 캐시 누수 검사**(TTL 만료 후 메모리 회수)
-**Gate/DoD:** 동시 등록 409 정상, 중복 제출 멱등, SSE 커넥션 누수 없음, p95 < 300ms, 에러율 < 0.5%, SSE 누수 0
+**Gate/DoD:** 스냅샷 diff 0, CI 녹색
 
 ---
 
-## Week 10 — 폴리싱 · 문서 · **릴리즈** (6–8h)
+# Week 9 — **Cloud v1(Staging)**: 배포·부하·지표 (6–9h)
 
-* [ ] README(아키/플로우/시퀀스/실행가이드)
-* [ ] ADR 정리, 변경로그, **Runbook(SSE/락/오류 대응)**
-* [ ] 1분 데모 영상, Postman/Bruno 컬렉션
-* [ ] 태그 `v0.1.0-mvp`, 롤백 리허설
+* [ ] **AWS 스테이징**
 
-* [ ] **릴리즈 체크리스트**(마이그 순서/시드/롤백/알림) 문서
-* [ ] **백업→복구 리허설**(스냅샷 일부 테이블 복구)
-* [ ] **권한 매트릭스 표**(역할×API×층) 공개
-* [ ] **Postman/Bruno 컬렉션** + 1분 데모 영상
+  * EC2 1대(도커/컴포즈), RDS Postgres(Public OFF, SG=EC2만)
+  * Route53 `staging.example.com` + **HTTPS**(ACM/LE)
+* [ ] **Nginx SSE 설정**:
+  `proxy_http_version 1.1; proxy_buffering off; chunked_transfer_encoding off; proxy_read_timeout 1d;`
+* [ ] **CI/CD 1단계**: 테스트→도커 빌드→EC2 배포→스모크(`/readyz` & SSE ping)
+* [ ] **부하 테스트(k6/Artillery)**: 로그인/목록/SSE/제출 혼합
+* [ ] **지표 산출(초판)**
 
-**Gate/DoD:** 스모크/계약/E2E 전부 녹색, 실시간 이벤트/락 규칙 최종 점검, 롤백 리허설 1회 통과, 문서/데모 배포
+  * API p50/p95 응답시간(로그 or k6)
+  * 동시 접속자 10→30rps 결과
+  * RDS `pg_stat_statements` Top-N **Before** 스냅샷
+* [ ] 결과 산출물 `docs/benchmarks/YYYY-MM/` 커밋
+
+**Gate/DoD:** 스테이징 **HTTPS 접근 가능**, p95 < 300ms(스테이징), 429 동작, 보고서 존재
 
 ---
 
-## “Items v2”(MVP 이후) 준비 사항(오늘부터 가볍게)
+# Week 10 — **Cloud v2(Prod-like)**: 도메인·HTTPS·CI/CD·DB 전후비교 (6–8h)
 
-* [ ] UI/도메인 문서에 **개별 아이템 이름/유통기한** 요구사항 명시
-* [ ] 이벤트·로그에 **라벨/리소스/소유자/세션ID** 포함(향후 백필 추적 대비)
-* [ ] 마이그 전략만 문서화: **확장 → 백필 → 코드 전환 → 수축**
-## MVP 범위에서 의도적 제외(다음 단계)
+* [ ] **운영 도메인** `app.example.com` + HTTPS, CORS 반영
+* [ ] **CI/CD 2단계(Prod-like)**: `migrate → deploy → smoke → rollback on fail`
+* [ ] **DB 성능 Before/After 비교**
 
-* [ ] **Items v2**(개별 아이템 별도 이름/유통기한)
-* [ ] PWA 오프라인/푸시(Web Push), 알림 워커(Outbox/DueTasks), 층·존 권한, 감사로그, 키 회전/토큰버전 무효화, 정식 멱등 스토어
-* TRGM GIN 인덱스 실제 적용(별도 마이그 파일만 보유)
-* JWT floors 클레임 **강제 검증/권한 로직**(R8)
-* 혼합 네트워크 시나리오의 세부 케이스 다건(대표 1건만 유지)
-* 조정 사유 프리셋 고도화(코드/다국어/리포트)
+  * 인덱스 보강 전/후 `EXPLAIN ANALYZE` 캡처 1–2건
+  * `pg_stat_statements` Top-N **After** 스냅샷 & 비교표
+* [ ] **백업→복구 리허설**(RDS 스냅샷 복구 테스트)
+* [ ] README/ADR/Runbook(배포·SSE·락·오류) & Postman/Bruno & 1분 데모
+* [ ] 태그 `v0.1.0-mvp`
 
+**Gate/DoD:** 운영 도메인 HTTPS OK, **응답시간 그래프**/**DB Before-After 표**/배포 파이프라인 로그/롤백 리허설 통과
+
+---
+
+# MVP 이후(로드맵 헤더만 유지)
+
+* [ ] **R1** 하드닝(멱등 스토어, SSE 지표 대시보드)
+* [ ] **R2** 알림 파이프라인(Outbox/DueTasks)
+* [ ] **R3** PWA + Web Push
+* [ ] **R4** Items v2(그룹/유닛) 무중단 전환
+* [ ] **R5–R9** 리소스 확장·권역 권한·운영 옵션
+* [ ] **R10** 보안·관측·PWA 폴리싱
+
+---
 
 # MVP이후
 
-## 공통 원칙(상시)
 
-* [ ] 실시간은 계속 **SSE**(포그라운드), 백그라운드는 **푸시**로 보완
-* [ ] 변경은 가급적 **추가만**으로 진행(다운마이그 회피)
-* [ ] **피처 플래그**로 카나리 → 점진 → 전체
-* [ ] **SLO** 유지: p95 < 300ms, 푸시 실패율 < 1%
-* [ ] 보안 베이스라인 유지(HTTPS, CORS, CSP, RBAC, 레이트리밋, 비번 해시)
+# 📌 공통 원칙(상시)
 
----
+* 실시간은 계속 **SSE**(포그라운드), 백그라운드는 **푸시**로 보완
+* 변경은 **추가만(Backward-Compatible)** 으로 진행(다운마이그 회피)
+* **피처 플래그**로 카나리 → 점진 → 전체
+* **SLO**: HTTP p95 < **300ms**, 푸시 실패율 < **1%**, SSE 드롭률 < **1%**
+* 보안 베이스라인: HTTPS, CORS, 라이트 CSP, RBAC, 레이트리밋, 비밀번호 해시(Argon2id/bcrypt≥12)
 
-## R1 — 하드닝 ① / 운영가시성 (v0.2.x, 1–2주)
-
-* [ ] 작성계 API **Idempotency-Key** 정식화(중복요청 동일응답)
-* [ ] 에러 응답 **RFC7807** 카탈로그 확정(409/422/423/429 등)
-* [ ] **SSE 커넥션/하트비트 모니터링**(대시보드 지표 노출)
-  **Gate/DoD:** 중복요청 스냅샷 재사용, 커넥션 누수 0, p95 유지
-
-## R2 — 알림 파이프라인(Outbox / DueTasks / DomainEvents) (v0.3.x, 1–2주)
-
-* [ ] 알림/지연작업 파이프라인 도입(재시도·백오프·멱등)
-* [ ] **알림 센터**(배지/목록/딥링크) 1차
-* [ ] 트리거: 검사 제출/벌점/만료 임박
-  **Gate/DoD:** 제출→큐잉→전송→성공 지표 관찰 가능, 중복 억제 동작
-
-## R3 — PWA + Web Push(FCM/VAPID) (v0.4.x, 1–2주)
-
-* [ ] **Service Worker** 등록/업데이트 전략
-* [ ] 푸시 구독 저장/해지 API, 만료 구독 정리 잡
-* [ ] iOS는 **홈화면(PWA)** 조건 안내
-  **Gate/DoD:** 포그라운드=SSE, 백그라운드=푸시 수신·딥링크 OK
-
-## R4 — **Items v2(핵심)**: 개별 아이템 이름/유통기한 (v0.5.x, 2–3주)
-
-* [ ] **도메인/UX**: 묶음(공통명/메모) + **개별 단위**(이름/유통기한/제거)
-* [ ] **API**: 그룹/유닛 CRUD, 목록/검색, 검사 흐름 연동
-* [ ] **마이그 전략**:
-
-  * [ ] 확장(새 구조 추가) →
-  * [ ] **백필**(MVP 묶음 레코드 → 그룹 1 + 유닛 N) →
-  * [ ] **코드 전환**(읽기/쓰기를 새 모델로) →
-  * [ ] 수축(구조체계 중복 경로 정리)
-* [ ] **SSE 이벤트 키**: groupId/unitId 기반으로 전환
-  **Gate/DoD:** 기존 데이터/화면 무중단 전환, 검사/벌점 플로우 정상
-
-## R5 — 세탁실 ①: 기본 사용(시작/완료) (v0.6.x, 1–2주)
-
-* [ ] 자원 타입 확장(세탁기/건조기) 및 **동시 사용 금지** 규칙
-* [ ] 사용 시작/완료 API + 실시간 상태(SSE)
-  **Gate/DoD:** 동시 시작 409, 진행 상태 실시간 반영
-
-## R6 — 세탁실 ②: 미등록 사용·종료 알림·고장 신고 (v0.7.x, 1–2주)
-
-* [ ] **미등록 사용** 등록→시간 경과 자동 복귀
-* [ ] **종료 5분 전** 알림 예약
-* [ ] **고장 신고**→운영 전환(사용 차단)
-  **Gate/DoD:** 알림 큐잉/전송 확인, 상태 전환 감사 가능
-
-## R7 — 스터디룸 ①: 10분 슬롯 예약 (v0.8.x, 1–2주)
-
-* [ ] 주간 슬롯 생성(월 09:00), 예약/취소 API
-* [ ] 타임라인 뷰 + 실시간 반영(SSE)
-  **Gate/DoD:** 동일 시간대 중복 예약 409, 타임라인 즉시 갱신
-
-## R8 — 스터디룸 ② & 운영 옵션 (v0.9.x, 1주)
-
-* [ ] **합석 옵션**, **관리자 강제예약**, **블록 휴무**
-  **Gate/DoD:** 운영 화면에서 옵션·블록 관리, 충돌 규칙 통과
-
-## R9 — 권역 권한(층/존) (v0.10.x, 1–2주)
-
-* [ ] 사용자 권역 할당, 리스트/검사/예약 **권역 필터링**
-* [ ] `/me`에 권역 포함, 프런트 라우팅/보안 가드 연동
-  **Gate/DoD:** 권역 밖 403, 층별장 권역 내만 조작 가능
-
-## R10 — 보안·관측·PWA 폴리싱 (v0.11.x, 1주)
-
-* [ ] **append-only 감사로그**(고위험 액션 추적)
-* [ ] **키 회전/JWKS**, 토큰 **버전 무효화**(로그아웃·권한변경 즉시 반영)
-* [ ] PWA 오프라인(핵심 조회 캐싱), 푸시 딥링크 안정화
-  **Gate/DoD:** 키 교체 리그레션 OK, 오프라인 조회 동작
+> **Week9–10 입력값(반영 대상)**
+>
+> * 프로덕션형 배포: AWS **EC2+RDS**, 도메인 연결, **HTTPS(ACM)**, CI/CD
+> * 측정지표: **API p95**, **429 비율**, **SSE 드롭률**, **DB Slow Query Top-N**, 부하 테스트 결과
 
 ---
 
-## 상시 보안/운영 체크리스트
+# 🧱 R1 — 하드닝 ① / 운영가시성 (v0.2.x, 1–2주)
 
-* [ ] 비밀번호 해시(Argon2id 또는 bcrypt≥12) 계속 준수
-* [ ] Access JWT **짧은 TTL(15–30분)** 유지(리프레시는 후속 도입)
-* [ ] 사용자/IP 별 레이트리밋, **SSE 연결 1–2개/사용자** 제한
-* [ ] 민감정보 로깅 금지(비번/토큰/Authorization 헤더), 마스킹 규칙 점검
-* [ ] 백업/복구 리허설 분기별 1회, 장애 복구 런북 최신화
+## 목표
+
+* 작성계 **Idempotency-Key** 정식화, 에러 응답 정합화, **SSE 관측 대시보드** 구축
+* **Week9–10 지표**를 근거로 알람 임계치 고정
+
+## 작업
+
+* 작성계 POST/PATCH/DELETE에 **Idempotency-Key** 스토어(캐시/Redis/DB 택1) 도입
+* 에러 응답 **RFC7807 카탈로그 확정**(409/422/423/429 등 코드/메시지 고정)
+* **SSE 지표 수집**: 커넥션 수, 하트비트 갭, 재연결/드롭률, 이벤트 지연
+* **알람 임계치 설정**(CloudWatch/Prometheus 등):
+
+  * HTTP **p95 > 300ms** 5분 지속
+  * **429 비율 > 1%** 5분 지속
+  * **SSE 드롭률 > 1%** 10분 지속
+* **대시보드**: API Latency/Throughput, Error Rate, SSE Health, DB Slow Queries Top-N
+
+## Gate/DoD
+
+* **중복요청 동일응답**(Idempotent) 계약 테스트 통과
+* 대시보드/알람 Rule 작동(임계치 초과 시 알람)
+* k6/Artillery 리그레션에서 **p95 < 300ms** 유지
+
+## 산출물
+
+* `docs/observability/dashboard-links.md`
+* `docs/errors.json`(정본) + 계약 테스트 스냅샷
+* `ops/idempotency-store.md` 선택 근거
 
 ---
 
-## 데이터/제품 전환 메모(요약)
+# 🔔 R2 — 알림 파이프라인 (Outbox / DueTasks / DomainEvents) (v0.3.x, 1–2주)
 
-* **Items v2**는 최우선: **확장→백필→코드 전환→수축** 순서로 무중단 이행
-* 실시간은 **항상 SSE**로 유지, 푸시는 **보완 채널**
-* 모든 신규 기능은 **피처 플래그**로 카나리 운영 후 전면 전환
+## 목표
 
+* **재시도·백오프·멱등**을 갖춘 알림/지연작업 파이프라인
+* **Week9–10 부하 결과**로 **SQS(+DLQ)** 또는 내부 큐 선택 확정
 
+## 작업
+
+* **Outbox 테이블** + 워커(재시도 지수 백오프, 멱등 키)
+* **DueTasks**(예약 실행) + 락/픽킹 전략
+* 큐 백엔드 결정: **SQS(+DLQ)** 권장 *(대안: Redis Stream/Sidekiq류)*
+* 알림 센터 1차: 배지/목록/읽음 처리/딥링크
+
+## Gate/DoD
+
+* 제출/벌점/유통기한 임박 → **큐잉→전송→성공 지표** 확인
+* 일시 장애 시 **중복 억제 & 재시도 성공** 로그 증빙
+
+## 산출물
+
+* `docs/notifications/architecture.md`
+* 대시보드: 큐 적체/Fail/Retry 그래프
+
+---
+
+# 📱 R3 — PWA + Web Push(FCM/VAPID) (v0.4.x, 1–2주)
+
+## 목표
+
+* 포그라운드=SSE, **백그라운드=푸시** 수신·딥링크
+* **Week9–10의 도메인/HTTPS/CI** 셋업 재사용
+
+## 작업
+
+* **Service Worker** 등록/업데이트 전략(스킵·소프트 리로드)
+* 푸시 구독 저장/해지 API, 만료 구독 정리 잡
+* iOS 홈화면(PWA) 가이드 및 FCM/VAPID 설정 문서화
+
+## Gate/DoD
+
+* 앱 백그라운드 상태에서 푸시 수신 후 **딥링크 이동**
+* 구독 만료 자동 정리율 ≥ 95%
+
+## 산출물
+
+* `docs/pwa-push/setup.md`, SW 코드/업데이트 정책
+
+---
+
+# 📦 R4 — Items v2(핵심): 개별 아이템 (v0.5.x, 2–3주)
+
+## 목표
+
+* 묶음(공통명/메모) + **개별 단위(이름/유통기한/제거)** 구조 전환(무중단)
+
+## 작업
+
+* 스키마 **확장**(groups/units) → **백필**(bundles→group+units) → **코드 전환** → **수축**
+* 읽기/쓰기 **섀도우-쓰기** 기간 운영, SSE 키를 **groupId/unitId**로 이행
+* 라벨 교체 트랜잭션 처리 **가이드/테스트** 강화
+
+## Gate/DoD
+
+* 기존 데이터/화면 **무중단 전환**, 검사/벌점 플로우 정상
+* 백필 검증 리포트(카운트/샘플 Diff=0)
+
+## 산출물
+
+* `docs/migration/items-v2-playbook.md`(확장→백필→전환→수축)
+
+---
+
+# 🧺 R5 — 세탁실 ①: 사용 시작/완료 (v0.6.x, 1–2주)
+
+## 목표
+
+* 자원 타입 확장(WASHER/DRYER) + **동시 사용 금지** 규칙
+
+## 작업
+
+* 사용 시작/완료 API + SSE 상태 업데이트
+* 중복 시작 409, 사용 중 상태 표시/타이머
+
+## Gate/DoD
+
+* 동시 시작 409, 실시간 상태 반영, 타임라인 표시
+
+---
+
+# 🧼 R6 — 세탁실 ②: 미등록/알림/고장 (v0.7.x, 1–2주)
+
+## 목표
+
+* **미등록 사용** 처리, 종료 5분 전 알림, **고장 신고→운영 차단**
+
+## 작업
+
+* 미등록 사용 자동 복귀, 알림 예약(DueTasks), 고장 상태 전파(SSE)
+
+## Gate/DoD
+
+* 알림 큐잉→전송 성공률 ≥ 99%, 상태 전환 로그/감사 가능
+
+---
+
+# 📚 R7 — 스터디룸 ①: 10분 슬롯 예약 (v0.8.x, 1–2주)
+
+## 목표
+
+* 주간 슬롯 생성, 예약/취소, 타임라인 뷰 + SSE
+
+## 작업
+
+* 월 09:00 배치 슬롯 생성, 겹침 방지(UX+서버), 409 충돌 규칙
+
+## Gate/DoD
+
+* 동일 시간대 중복 예약 409, 타임라인 즉시 갱신
+
+---
+
+# 🧩 R8 — 스터디룸 ② & 운영 옵션 (v0.9.x, 1주)
+
+## 목표
+
+* **합석 옵션**, **관리자 강제예약**, **휴무 블록**
+
+## 작업
+
+* 옵션/블록 관리 UI, 충돌 규칙·권한 반영
+
+## Gate/DoD
+
+* 운영 화면에서 옵션/블록 시나리오 통과
+
+---
+
+# 🗺️ R9 — 권역 권한(층/존) (v0.10.x, 1–2주)
+
+## 목표
+
+* 사용자 권역 할당, 리스트/검사/예약 **권역 필터링**
+
+## 작업
+
+* `/me`에 권역 포함, 프런트 라우팅/가드, 서버 필터
+* (MVP에서 예약해둔 `floor_code` 필드와 호환 유지)
+
+## Gate/DoD
+
+* 권역 밖 403, 층별장 권역 내만 조작 가능(E2E)
+
+---
+
+# 🔐 R10 — 보안·관측·PWA 폴리싱 (v0.11.x, 1주)
+
+## 목표
+
+* **감사로그(append-only)**, **키 회전/JWKS**, 토큰 **버전 무효화**
+* PWA 오프라인(핵심 조회 캐싱) + 푸시 딥링크 안정화
+
+## 작업
+
+* 고위험 액션 감사 테이블/뷰(append-only)
+* 키 회전 파이프라인, 토큰 버전 무효화(강제 로그아웃)
+* **권장 옵션(Week9–10 배포 재사용)**:
+
+  * **ACM 자동갱신**, **CloudWatch 대시보드 강화**, **기본 WAF 룰**
+
+## Gate/DoD
+
+* 키 교체 리그레션 OK, 오프라인 조회 동작, 감사 쿼리로 추적 가능
+
+## 산출물
+
+* `docs/security/key-rotation.md`, `docs/audit/queries.md`
+* 대시보드/알람 정의서 업데이트
+
+---
+
+# 🧪 상시 보안·운영 체크리스트
+
+* 비밀번호 해시(Argon2id/bcrypt≥12), Access JWT TTL 15–30분
+* 사용자/IP 레이트리밋, **SSE 연결 1–2개/사용자** 제한
+* 민감정보 로깅 금지(Authorization/토큰/비번) & 마스킹 테스트
+* 분기별 **백업→복구 리허설**, 장애 복구 런북 최신화
+
+---
+
+# 🔄 데이터/제품 전환 메모(요약)
+
+* **Items v2**는 “**확장→백필→코드 전환→수축**”으로 **무중단** 이행
+* 실시간은 **항상 SSE**, 푸시는 **보완 채널**
+* 신규 기능은 **피처 플래그**로 카나리 후 전체 전환
+
+---
 
 ```sql
 -- =========================================================
