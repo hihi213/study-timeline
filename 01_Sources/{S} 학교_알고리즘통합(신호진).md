@@ -6,7 +6,6 @@ source_url: "{{SOURCE}}"
 author: 
 creation_date: 2025-09-06
 ---
-# 무제
 
 ## 📖 주차 요약 (Summary)
 
