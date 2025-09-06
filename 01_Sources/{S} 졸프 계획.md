@@ -14,188 +14,164 @@ creation_date: 2025-09-01
 * [ ] **라벨 교체**(`remove→create`)는 **한 트랜잭션**으로 처리(경쟁 시 UNIQUE 409 방지)
 * [ ] **423 락**은 **근거 테이블만(DB)**, **차단 판단은 앱 미들웨어**(락 GC는 워커/크론)
 
+---  
+# 0) 리포/운영 기본  
+## 0-1. 레이아웃/규약  
+* [ ] `backend/`, `frontend/`, `db/{migrations,seeds,ops}/`, `ops/{cloud,nginx,load,scripts}/`, `docs/`  
+* [ ] 브랜치: `feat/*`, `fix/*`, `chore/*`, `release/*`  
+* [ ] PR 라벨: `schema`, `api`, `sse`, `security`, `perf`, `docs`  
+## 0-2. Make 타깃  
+* [ ] `make schema` / `make seed` / `make seed-demo`  
+* [ ] `make openapi-snapshot` / `make test`  
+* [ ] **(신규)** `make build-image` / `make loadtest` / `make db-backup-local`  
+## 0-3. 환경변수/기동 검증  
+* [ ] `.env.example` 포함:  
+`DATABASE_URL`, `JWT_SECRET`, `JWT_TTL_MIN=20`,  
+`CORS_ALLOWED_ORIGINS`, `RATE_LIMIT_REQ_PER_MIN=60`,  
+`LOG_LEVEL=json`, `TZ=UTC`,  
+**(신규)** `PUBLIC_ORIGIN`, `TRUST_PROXY=true`, `REQUEST_LOG_TIMING=true`, `RDS_SSL=true`  
+* [ ] 기동 시 **필수 키 없으면 실패**  
+## 0-4. DB 권한 최소화  
+* [ ] `REVOKE CREATE ON SCHEMA public FROM PUBLIC;`  
+* [ ] `REVOKE ALL ON DATABASE dcs FROM PUBLIC;`  
+* [ ] `db/ops/R_privileges.sql`로 권한 스크립트 분리(멱등)  
+---  
+# 1) 공통 표준  
+* [ ] **RFC7807 에러 카탈로그 정본**: `docs/errors.json` → 서버 미들웨어 변환  
+* [ ] **구조화 로그 + correlation_id**(요청→응답/SSE) & **민감정보 마스킹**  
+* [ ] **SSE 엔벨로프 고정**: `{event_id,v,ts,correlation_id,floor_code,resource_id,data}`  
+* [ ] **SSE 하트비트 `:\n` + Last-Event-ID 복구**  
 ---
 
-# 0) 리포/운영 기본
+# ✅ 10주 실행 플랜 (주당 10–15h)
 
-## 0-1. 레이아웃/규약
+## Week 1 (10–15h) — 부트스트랩 + 인증 베이스
 
-* [ ] `backend/`, `frontend/`, `db/{migrations,seeds,ops}/`, `ops/{cloud,nginx,load,scripts}/`, `docs/`
-* [ ] 브랜치: `feat/*`, `fix/*`, `chore/*`, `release/*`
-* [ ] PR 라벨: `schema`, `api`, `sse`, `security`, `perf`, `docs`
+* [ ] `docker-compose`, `/healthz`,`/readyz`, 구조화 로그 + `correlation_id`
+* [ ] OpenAPI 골격 + **RFC7807 에러 카탈로그 초안**
+* [ ] **SSE 엔드포인트(하트비트)** + 브라우저 EventSource 스모크
+* [ ] `/auth/login`(JWT 15–30m), `/me`, **RBAC(ADMIN/INSPECTOR/USER)**
+* Gate/DoD: 헬스 200, SSE `hello` 수신, 권한 밖 403
 
-## 0-2. Make 타깃
+## Week 2 (10–15h) — 자원·아이템 CRUD + SSE
 
-* [ ] `make schema` / `make seed` / `make seed-demo`
-* [ ] `make openapi-snapshot` / `make test`
-* [ ] **(신규)** `make build-image` / `make loadtest` / `make db-backup-local`
-
-## 0-3. 환경변수/기동 검증
-
-* [ ] `.env.example` 포함:
-  `DATABASE_URL`, `JWT_SECRET`, `JWT_TTL_MIN=20`,
-  `CORS_ALLOWED_ORIGINS`, `RATE_LIMIT_REQ_PER_MIN=60`,
-  `LOG_LEVEL=json`, `TZ=UTC`,
-  **(신규)** `PUBLIC_ORIGIN`, `TRUST_PROXY=true`, `REQUEST_LOG_TIMING=true`, `RDS_SSL=true`
-* [ ] 기동 시 **필수 키 없으면 실패**
-
-## 0-4. DB 권한 최소화
-
-* [ ] `REVOKE CREATE ON SCHEMA public FROM PUBLIC;`
-* [ ] `REVOKE ALL ON DATABASE dcs FROM PUBLIC;`
-* [ ] `db/ops/R_privileges.sql`로 권한 스크립트 분리(멱등)
-
----
-
-# 1) 공통 표준
-
-* [ ] **RFC7807 에러 카탈로그 정본**: `docs/errors.json` → 서버 미들웨어 변환
-* [ ] **구조화 로그 + correlation\_id**(요청→응답/SSE) & **민감정보 마스킹**
-* [ ] **SSE 엔벨로프 고정**: `{event_id,v,ts,correlation_id,floor_code,resource_id,data}`
-* [ ] **SSE 하트비트 `:\n` + Last-Event-ID 복구**
-
----
-
-# Day 0 — 부트스트랩 & SSE 베이스 (6–8h)
-
-* [ ] `docker-compose` 로컬 실행 / 환경변수 검증
-* [ ] `/healthz`, `/readyz`(DB 커넥션 + 마이그 버전) / JSON 로그+`correlation_id`
-* [ ] **SSE 엔드포인트**(하트비트/자동 재연결 지시)
-* [ ] OpenAPI 골격(로그인/리소스/아이템/검사/벌점) + 에러 카탈로그
-* [ ] `make schema / seed / seed-demo`
-* [ ] **시드 멱등성** 보장
-* [ ] **시스템 타임존 규칙**: 서버/DB=UTC, 클라=KST 표기
-
-**Gate/DoD:** 스모크 3콜 200, 브라우저 `EventSource`로 `hello` 수신, 헬스/레디니스 200
-
----
-
-# Week 1 — 인증·인가·SSE 인증 (6–9h)
-
-* [ ] `/auth/login`(username+password→JWT, TTL 15–30m) / `/me`
-* [ ] **RBAC**(ADMIN/INSPECTOR/USER)
-* [ ] **SSE 인증**: `Authorization: Bearer <JWT>`
-* [ ] CORS 화이트리스트, 기본 CSP/보안 헤더
-* [ ] 로그인 실패 쿨다운(429 + `Retry-After`)
-* [ ] 패스워드 정책/메시지 표준화
-* [ ] **(사전준비)** CORS에 **스테이징 도메인 슬롯** 주석
-* [ ] **(R9 대비 슬롯)** `floors:[]` 클레임 필드만 예약
-
-**Gate/DoD:** 권한 밖 403, 토큰 만료 후 SSE 재연결 정상, 쿨다운 동작
-
----
-
-# Week 2 — 자원·아이템 등록/조회 + SSE (6–9h)
-
-* [ ] 자원 목록(냉장 칸), 아이템 묶음 **생성/조회/검색**
+* [ ] 리소스(냉장 칸) 목록
+* [ ] 아이템 묶음 **등록/조회/검색**(LIKE; TRGM은 파일만 분리)
 * [ ] **SSE**: `items.created/updated/removed`
-* [ ] 페이지네이션 규약 고정(`?limit&cursor`, 정렬 `(created_at,id)`)
-* [ ] 응답/이벤트에 **`floor_code` 포함**
-* [ ] 검색은 LIKE부터, TRGM는 **옵션 마이그 파일만** 준비
+* [ ] 페이지네이션 규약(`?limit&cursor`), 응답/이벤트에 `floor_code` 포함
+* Gate/DoD: 활성 라벨 중복 409, 제거 후 재사용 OK, 리스트가 SSE로 즉시 갱신
 
-**Gate/DoD:** 라벨 충돌 409, 제거 후 재사용 OK, SSE 즉시 갱신
-
----
-
-# Week 3 — 조정/제거 UX + 요청 로깅 (6–9h)
+## Week 3 (10–15h) — 조정/제거 + 요청 로깅/멱등
 
 * [ ] `items/:id:adjust`, `:remove-all`
-* [ ] 요청 요약 로그: **method,path,status,duration\_ms,correlation\_id**
-* [ ] **경량 Idempotency-Key**(메모리 TTL 10m)
-* [ ] **GUC 주입 미들웨어**(`app.user_id`,`app.change_reason`)
+* [ ] 요청 요약 로그(메서드/경로/지연/상태/코릴레이션)
+* [ ] **경량 Idempotency-Key**(작성계만, 메모리 TTL 10분)
+* [ ] **GUC 미들웨어**(감사 슬롯 주입) 배선
+* Gate/DoD: `remove-all→create` 라벨 교체 OK, 재호출시 동일응답
 
-**Gate/DoD:** `remove-all→create` 라벨 유지 교체, 동일 Key 재호출 동일응답
-
----
-
-# Week 4 — 2인 검사 세션 + 423 락 (7–9h)
+## Week 4 (10–15h) — **2인 검사 세션** + 423 락
 
 * [ ] 세션 열기/참여/나가기(자원당 진행 1건, 참가자 ≤2)
-* [ ] 세션 중 쓰기 **423 Locked**
+* [ ] 세션 중 해당 칸 쓰기 **423 Locked**
 * [ ] **SSE**: `inspection.opened/joined/left/locked`
-* [ ] 락 TTL+GC(5–10m) & 만료 인덱스
+* [ ] 락 TTL(5–10m) + 만료 인덱스 + GC 잡
+* Gate/DoD: 3번째 참여 409/422, 락 상태 실시간 반영
 
-**Gate/DoD:** 3번째 참여 409/422, 락 실시간 반영, 만료 후 자동 허용
-
----
-
-# Week 5 — 조치 기록 + 단일 제출 → 벌점 원본 (7–9h)
+## Week 5 (10–15h) — 조치 기록 + **단일 제출** → 벌점 원본
 
 * [ ] `PASS/WARNING/DISCARD/DISCARD_WITH_PENALTY`
-* [ ] **제출 1회(멱등)**, 제출 후 **INSERT/DELETE 금지**, UPDATE는 리비전(+버전)
-* [ ] **SSE**: `inspection.action_recorded/submitted`
+* [ ] **제출 1회(멱등)**, 제출 후 INSERT/DELETE 금지, UPDATE는 **리비전(+버전)**
 * [ ] 제출 시 **원본 벌점 자동 생성**
-* [ ] 제출 이후 수정 시 **사유 UI 필수**
+* [ ] **SSE**: `inspection.action_recorded/submitted`
+* Gate/DoD: 재제출 동일응답, 원본 벌점 생성, 수정 시 version +1
 
-**Gate/DoD:** 재제출 동일응답, 원본 벌점 생성, UPDATE 시 version +1
-
----
-
-# Week 6 — 벌점 조정 + 집계 (6–8h)
+## Week 6 (10–15h) — 벌점 조정 + 집계 API
 
 * [ ] 조정 벌점(+/-, 사유 필수)
-* [ ] 사용자별 집계 API(`original/adjusted/total`, 기간 필터)
+* [ ] 사용자별 **집계**(`original/adjusted/total`, 기간 필터)
 * [ ] (선택) 조정 사유 프리셋
+* Gate/DoD: 집계 정확(E2E/쿼리 회귀), 원본 불변 보장
 
-**Gate/DoD:** 원본 불변, 최종 점수 정확, 집계뷰 회귀 OK
+## Week 7 (10–15h) — 프런트 E2E + SSE 안정화(1차)
 
----
-
-# Week 7 — 프론트 E2E + SSE 안정화 (7–9h)
-
-* [ ] 로그인→등록/조회→검사(2인)→제출→벌점 조회 **엔드투엔드**
-* [ ] **Last-Event-ID 링버퍼**(서버 N≈500)
+* [ ] 로그인→등록/조회→검사(2인)→제출→벌점 조회 **엔드투엔드 화면**
+* [ ] **Last-Event-ID 링버퍼 서버(N≈500)** 1차 구현
 * [ ] **단일 탭 공유**(BroadcastChannel)로 SSE 1개 유지
-* [ ] **(스테이징 사전 스모크)** EC2 1대 임시 배포 테스트: `/healthz` 200 + SSE `hello`
+* [ ] **스테이징 예행**: 임시 EC2에 올려 `/healthz` + SSE ping
+* Gate/DoD: 1분 데모 OK, 오프라인→복귀 재동기 OK(1차)
 
-**Gate/DoD:** 1분 데모 정상, 오프라인→복귀 후 재적재 OK, 스테이징 스모크 캡처
+## Week 8 (10–15h) — 계약/회귀 + CI 골격
 
----
+* [ ] OpenAPI 스냅샷 **CI 회귀**(diff==0)
+* [ ] 혼합 네트워크 케이스(느린 SSE/빠른 HTTP) 1건
+* [ ] **CI 골격**: build+unit/contract+snapshot
+* Gate/DoD: CI 녹색, 실시간 시나리오 통과
 
-# Week 8 — 계약/회귀 + CI 골격 (6–9h)
+## Week 9 (10–15h) — **Cloud v1(Staging)** / 부하 / 지표
 
-* [ ] OpenAPI 스냅샷 리그레션(CI 포함)
-* [ ] **CI 골격**: build+test+snapshot 까지(배포는 Week 9)
-* [ ] 혼합 네트워크(느린 SSE/빠른 HTTP) 대표 시나리오 1건
+* [ ] **AWS 스테이징**: EC2(도커/컴포즈) + RDS(Public OFF), Route53 `staging.*` + **HTTPS**
+* [ ] **Nginx SSE 튜닝**(buffering off / read\_timeout 1d 등)
+* [ ] CI에서 **도커 빌드→원클릭 배포→스모크**( `/readyz`, SSE ping )
+* [ ] **k6/Artillery** 부하(로그인/목록/SSE/제출 혼합, 10→30 rps)
+* [ ] **지표 초판**: API p50/p95, 429 비율, SSE 드롭율, `pg_stat_statements` Top-N
+* Gate/DoD: 스테이징 HTTPS 접근, p95<300ms(샘플), 지표 리포트 커밋
 
-**Gate/DoD:** 스냅샷 diff 0, CI 녹색
+## Week 10 (10–15h) — **Cloud v2(Prod-like)** / 릴리즈
 
----
+* [ ] 운영 도메인 `app.*` HTTPS, CORS 반영
+* [ ] **CI/CD 2단계**: `migrate → deploy → smoke → auto-rollback`
+* [ ] **DB Before/After 비교**: 인덱스 보강 전후 `EXPLAIN ANALYZE` 1–2건, Top-N 비교표
+* [ ] **백업→복구 리허설**(RDS 스냅샷)
+* [ ] 문서/런북/데모(1분) 마감, 태그 `v0.1.0-mvp`
+* Gate/DoD: 운영 도메인 접근/배포 로그/롤백 리허설/지표 그래프 제출
 
-# Week 9 — **Cloud v1(Staging)**: 배포·부하·지표 (6–9h)
-
-* [ ] **AWS 스테이징**
-
-  * EC2 1대(도커/컴포즈), RDS Postgres(Public OFF, SG=EC2만)
-  * Route53 `staging.example.com` + **HTTPS**(ACM/LE)
-* [ ] **Nginx SSE 설정**:
-  `proxy_http_version 1.1; proxy_buffering off; chunked_transfer_encoding off; proxy_read_timeout 1d;`
-* [ ] **CI/CD 1단계**: 테스트→도커 빌드→EC2 배포→스모크(`/readyz` & SSE ping)
-* [ ] **부하 테스트(k6/Artillery)**: 로그인/목록/SSE/제출 혼합
-* [ ] **지표 산출(초판)**
-
-  * API p50/p95 응답시간(로그 or k6)
-  * 동시 접속자 10→30rps 결과
-  * RDS `pg_stat_statements` Top-N **Before** 스냅샷
-* [ ] 결과 산출물 `docs/benchmarks/YYYY-MM/` 커밋
-
-**Gate/DoD:** 스테이징 **HTTPS 접근 가능**, p95 < 300ms(스테이징), 429 동작, 보고서 존재
+> **컷 스위치(지연 시)**:
+> Week 7의 **링버퍼/단일탭**, Week 9의 **CI→원클릭배포**, Week 10의 **DB Before/After**는 슬립 가능. **아래 “10주 이후 플랜”으로 자동 이동**.
 
 ---
 
-# Week 10 — **Cloud v2(Prod-like)**: 도메인·HTTPS·CI/CD·DB 전후비교 (6–8h)
+# ▶️ 10주 이후 — **슬립분 포함, “기존 10주 MVP 전량” 완료 플랜** (예시 4주)
 
-* [ ] **운영 도메인** `app.example.com` + HTTPS, CORS 반영
-* [ ] **CI/CD 2단계(Prod-like)**: `migrate → deploy → smoke → rollback on fail`
-* [ ] **DB 성능 Before/After 비교**
+## Week 11 — SSE 안정화(최종) & 프런트 폴리싱
 
-  * 인덱스 보강 전/후 `EXPLAIN ANALYZE` 캡처 1–2건
-  * `pg_stat_statements` Top-N **After** 스냅샷 & 비교표
-* [ ] **백업→복구 리허설**(RDS 스냅샷 복구 테스트)
-* [ ] README/ADR/Runbook(배포·SSE·락·오류) & Postman/Bruno & 1분 데모
-* [ ] 태그 `v0.1.0-mvp`
+* [ ] **Last-Event-ID 링버퍼** 마무리(재연결 범위/중복억제), 서버 보존 N 확정
+* [ ] **단일 탭 공유**(BroadcastChannel) 결함 수정 + 다탭 경합 UX
+* [ ] SSE 끊김/복구 **E2E 3케이스** 추가(오프라인/네트 지연/토큰만료)
+* 산출물: SSE 복구 타임라인 캡처, 버그리스트/해결내역
 
-**Gate/DoD:** 운영 도메인 HTTPS OK, **응답시간 그래프**/**DB Before-After 표**/배포 파이프라인 로그/롤백 리허설 통과
+## Week 12 — CI/CD + 부하·지표 고도화
+
+* [ ] **배포 파이프라인**: 마이그 안전가드(잠금/롤백 스크립트), 태그/환경변수 전략
+* [ ] **레이트리밋**(사용자/IP) + **SSE 동시연결 1–2개 제한** 서버 적용
+* [ ] **Idempotency 캐시 누수 테스트**(TTL 만료/메모리 회수)
+* [ ] **k6 시나리오** 확대(경합/429 재시도/멱등 재호출)
+* 산출물: p95 그래프, 429/드롭률 추이, 파이프라인 로그
+
+## Week 13 — DB/운영 하드닝 라이트
+
+* [ ] **VACUUM/ANALYZE 스케줄** + 인덱스 블로트 체크 스크립트
+* [ ] `pg_stat_statements` 대시보드 초안, 슬로우쿼리 탑3 개선(인덱스 or 쿼리)
+* [ ] **권한 스크립트**( `db/ops/R_privileges.sql` ) 재검증
+* [ ] (옵션) **TRGM** 마이그 파일만 유지(운영 반영 X)
+* 산출물: 개선 전/후 `EXPLAIN ANALYZE`, 대시보드 스샷
+
+## Week 14 — 문서·런북·릴리즈 회고(버퍼)
+
+* [ ] README/ADR/Runbook 최종, 권한 매트릭스(역할×API×층)
+* [ ] Postman/Bruno 컬렉션 정리, 1분 데모 리테이크
+* [ ] **롤백 리허설** 1회 재수행, 체크리스트 봉인
+* 산출물: 최종 릴리즈 노트, 회고/위험·대응 기록
+
+> 위 11–14주는 **Week 7/9/10에서 밀린 항목**을 흡수하도록 짰어. 만약 10주 안에 다 끝나면, 11–14주는 **R1(하드닝) 프리뷰**로 전환해도 됨.
+
+---
+
+## 제출/증빙 팩(필수 산출물)
+
+* **지표**: p50/p95, 429 비율, SSE 드롭률, Top-N 쿼리(전/후 비교 1–2건)
+* **데모**: 1분 시나리오(로그인→등록/조회→2인검사→제출→벌점)
+* **문서**: OpenAPI 스냅샷, 에러 카탈로그, 배포/복구 런북, Nginx SSE 설정
+* **안전장치**: 롤백 로그, 백업→복구 리허설 기록
 
 ---
 
