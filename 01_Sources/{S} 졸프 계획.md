@@ -14,170 +14,119 @@ creation_date: 2025-09-01
 * [ ] **라벨 교체**(`remove→create`)는 **한 트랜잭션**으로 처리(경쟁 시 UNIQUE 409 방지)
 * [ ] **423 락**은 **근거 테이블만(DB)**, **차단 판단은 앱 미들웨어**(락 GC는 워커/크론)
 
----  
-# 0) 리포/운영 기본  
-## 0-1. 레이아웃/규약  
-* [ ] `backend/`, `frontend/`, `db/{migrations,seeds,ops}/`, `ops/{cloud,nginx,load,scripts}/`, `docs/`  
-* [ ] 브랜치: `feat/*`, `fix/*`, `chore/*`, `release/*`  
-* [ ] PR 라벨: `schema`, `api`, `sse`, `security`, `perf`, `docs`  
-## 0-2. Make 타깃  
-* [ ] `make schema` / `make seed` / `make seed-demo`  
-* [ ] `make openapi-snapshot` / `make test`  
-* [ ] **(신규)** `make build-image` / `make loadtest` / `make db-backup-local`  
-## 0-3. 환경변수/기동 검증  
-* [ ] `.env.example` 포함:  
-`DATABASE_URL`, `JWT_SECRET`, `JWT_TTL_MIN=20`,  
-`CORS_ALLOWED_ORIGINS`, `RATE_LIMIT_REQ_PER_MIN=60`,  
-`LOG_LEVEL=json`, `TZ=UTC`,  
-**(신규)** `PUBLIC_ORIGIN`, `TRUST_PROXY=true`, `REQUEST_LOG_TIMING=true`, `RDS_SSL=true`  
-* [ ] 기동 시 **필수 키 없으면 실패**  
-## 0-4. DB 권한 최소화  
-* [ ] `REVOKE CREATE ON SCHEMA public FROM PUBLIC;`  
-* [ ] `REVOKE ALL ON DATABASE dcs FROM PUBLIC;`  
-* [ ] `db/ops/R_privileges.sql`로 권한 스크립트 분리(멱등)  
----  
-# 1) 공통 표준  
-* [ ] **RFC7807 에러 카탈로그 정본**: `docs/errors.json` → 서버 미들웨어 변환  
-* [ ] **구조화 로그 + correlation_id**(요청→응답/SSE) & **민감정보 마스킹**  
-* [ ] **SSE 엔벨로프 고정**: `{event_id,v,ts,correlation_id,floor_code,resource_id,data}`  
-* [ ] **SSE 하트비트 `:\n` + Last-Event-ID 복구**  
 ---
 
-# ✅ 10주 실행 플랜 (주당 10–15h)
+# 선행 필수(폴링 실시간용) — **DB/앱 공통**
 
-## Week 1 (10–15h) — 부트스트랩 + 인증 베이스
+## A) DB 마이그 (이미 만들어둔 파일 적용)
 
-* [ ] `docker-compose`, `/healthz`,`/readyz`, 구조화 로그 + `correlation_id`
-* [ ] OpenAPI 골격 + **RFC7807 에러 카탈로그 초안**
-* [ ] **SSE 엔드포인트(하트비트)** + 브라우저 EventSource 스모크
+* [ ] `event_log` 테이블/인덱스 생성 (폴링 단일 소스)
+* [ ] `resources.floor_code` 추가 + 백필(임시 `F1`) + NOT NULL + 인덱스
+* [ ] `resource_locks(expires_at)` 인덱스(락 GC 성능)
+* [ ] `penalties_adjustments.delta_points <> 0` 체크 제약
+* [ ] (권장) dcs\_app/dcs\_read 권한에 `event_log` 접근 부여
+
+## B) 앱 필수 6가지
+
+* [ ] **이벤트 기록 삽입**: 아이템 생성/수정/제거, 검사 open/join/locked/submitted, 벌점 조정 시
+  `INSERT INTO event_log(type,resource_id,floor_code,correlation_id,data)` 호출
+* [ ] **폴링 엔드포인트**: `GET /events/poll?sinceId&limit[&resourceId&floor]` (커서 방식)
+  ↳ 응답: `{ lastId, events:[{event_id, created_at, type, resource_id, floor_code, data, correlation_id}] }`
+* [ ] **API 응답에 `floor_code` 포함**(리소스/아이템/검사 관련)
+* [ ] **OpenAPI & 에러카탈로그 업데이트**: `/events/poll` 스펙, 이벤트 타입 enum, 예제 페이로드
+* [ ] **권한 확인**: 앱 커넥션 롤에 `event_log` 접근 OK
+* [ ] **실제 층 코드 백필**: 임시 `F1` → 실제 값으로 `UPDATE`
+
+---
+
+# ✅ 10주 실행 플랜 (주당 10–15h, “작동+증빙” 중심)
+
+## Week 1 — 부트스트랩 + 인증 베이스
+
+* [ ] `docker-compose`, `/healthz` `/readyz`, 요청 요약 로그(+지연)
+* [ ] OpenAPI 골격 + **RFC7807 초안**
 * [ ] `/auth/login`(JWT 15–30m), `/me`, **RBAC(ADMIN/INSPECTOR/USER)**
-* Gate/DoD: 헬스 200, SSE `hello` 수신, 권한 밖 403
+* [ ] **`/events/poll` 스텁**(“hello” 1건, `sinceId/limit` 커서 처리)
+* **Gate/DoD**: 헬스 200, 권한 밖 403, 폴링으로 hello 수신 캡처
 
-## Week 2 (10–15h) — 자원·아이템 CRUD + SSE
+## Week 2 — 자원·아이템 등록/조회 + **이벤트 기록**
 
-* [ ] 리소스(냉장 칸) 목록
-* [ ] 아이템 묶음 **등록/조회/검색**(LIKE; TRGM은 파일만 분리)
-* [ ] **SSE**: `items.created/updated/removed`
-* [ ] 페이지네이션 규약(`?limit&cursor`), 응답/이벤트에 `floor_code` 포함
-* Gate/DoD: 활성 라벨 중복 409, 제거 후 재사용 OK, 리스트가 SSE로 즉시 갱신
+* [ ] 리소스(냉장 칸) 목록(+ `floor_code`)
+* [ ] 아이템 묶음 **등록/조회/검색**(LIKE; TRGM 인덱스는 파일만)
+* [ ] **event\_log.append**: `items.created/updated/removed` 기록
+* [ ] 페이지네이션(`?limit&cursor`), 모든 응답/이벤트에 `floor_code` 포함
+* **Gate/DoD**: 활성 라벨 중복 409, 제거 후 재사용 OK, 폴링에 신규 이벤트 노출
 
-## Week 3 (10–15h) — 조정/제거 + 요청 로깅/멱등
+## Week 3 — 조정/제거 + 멱등/감사 슬롯
 
 * [ ] `items/:id:adjust`, `:remove-all`
-* [ ] 요청 요약 로그(메서드/경로/지연/상태/코릴레이션)
-* [ ] **경량 Idempotency-Key**(작성계만, 메모리 TTL 10분)
-* [ ] **GUC 미들웨어**(감사 슬롯 주입) 배선
-* Gate/DoD: `remove-all→create` 라벨 교체 OK, 재호출시 동일응답
+* [ ] **경량 Idempotency-Key**(작성계, TTL 10m)
+* [ ] **GUC/컨텍스트 주입**(`app.user_id`,`app.change_reason`)
+* [ ] 이벤트: `items.adjusted` / `items.removed_all`
+* **Gate/DoD**: `remove-all→create` 라벨 교체 OK, 중복요청 동일응답
 
-## Week 4 (10–15h) — **2인 검사 세션** + 423 락
+## Week 4 — **2인 검사 세션** + 423 락
 
 * [ ] 세션 열기/참여/나가기(자원당 진행 1건, 참가자 ≤2)
-* [ ] 세션 중 해당 칸 쓰기 **423 Locked**
-* [ ] **SSE**: `inspection.opened/joined/left/locked`
+* [ ] 세션 중 해당 칸 쓰기 **423 Locked**(미들웨어 판단)
 * [ ] 락 TTL(5–10m) + 만료 인덱스 + GC 잡
-* Gate/DoD: 3번째 참여 409/422, 락 상태 실시간 반영
+* [ ] 이벤트: `inspection.opened/joined/left/locked`
+* **Gate/DoD**: 3번째 참여 409/422, 폴링에서 락 상태 즉시 확인
 
-## Week 5 (10–15h) — 조치 기록 + **단일 제출** → 벌점 원본
+## Week 5 — 조치 기록 + **단일 제출** → 벌점 원본
 
-* [ ] `PASS/WARNING/DISCARD/DISCARD_WITH_PENALTY`
-* [ ] **제출 1회(멱등)**, 제출 후 INSERT/DELETE 금지, UPDATE는 **리비전(+버전)**
+* [ ] 액션: `PASS / WARNING / DISCARD / DISCARD_WITH_PENALTY`
+* [ ] **제출 1회(멱등)**, 제출 후 INSERT/DELETE 금지, UPDATE=**리비전(+버전)**
 * [ ] 제출 시 **원본 벌점 자동 생성**
-* [ ] **SSE**: `inspection.action_recorded/submitted`
-* Gate/DoD: 재제출 동일응답, 원본 벌점 생성, 수정 시 version +1
+* [ ] 이벤트: `inspection.action_recorded` / `inspection.submitted`
+* **Gate/DoD**: 재제출 동일응답, 원본 벌점 생성, 수정 시 version +1
 
-## Week 6 (10–15h) — 벌점 조정 + 집계 API
+## Week 6 — 벌점 조정 + 집계 API
 
-* [ ] 조정 벌점(+/-, 사유 필수)
-* [ ] 사용자별 **집계**(`original/adjusted/total`, 기간 필터)
+* [ ] 조정 벌점(+/-, 사유 필수), 합산 뷰로 **사용자별 집계**(`original/adjusted/total`, 기간 필터)
 * [ ] (선택) 조정 사유 프리셋
-* Gate/DoD: 집계 정확(E2E/쿼리 회귀), 원본 불변 보장
+* **Gate/DoD**: 집계 정확(E2E/쿼리 회귀), 원본 불변 보장
 
-## Week 7 (10–15h) — 프런트 E2E + SSE 안정화(1차)
+## Week 7 — 프런트 E2E + **폴링 안정화**
 
-* [ ] 로그인→등록/조회→검사(2인)→제출→벌점 조회 **엔드투엔드 화면**
-* [ ] **Last-Event-ID 링버퍼 서버(N≈500)** 1차 구현
-* [ ] **단일 탭 공유**(BroadcastChannel)로 SSE 1개 유지
-* [ ] **스테이징 예행**: 임시 EC2에 올려 `/healthz` + SSE ping
-* Gate/DoD: 1분 데모 OK, 오프라인→복귀 재동기 OK(1차)
+* [ ] 로그인→등록/조회→검사(2인)→제출→벌점 **엔드투엔드**
+* [ ] **폴링 커서 규약 확정**(localStorage), 중복 억제/역순 보정
+* [ ] **단일 탭 공유**(BroadcastChannel)로 폴링 주기 2–5s 공유
+* [ ] 임시 스테이징 예행: `/healthz` + `/events/poll`
+* **Gate/DoD**: 1분 데모 OK, 오프라인→복귀 후 재동기 OK(폴링)
 
-## Week 8 (10–15h) — 계약/회귀 + CI 골격
+## Week 8 — 계약/회귀 + CI 골격
 
-* [ ] OpenAPI 스냅샷 **CI 회귀**(diff==0)
-* [ ] 혼합 네트워크 케이스(느린 SSE/빠른 HTTP) 1건
-* [ ] **CI 골격**: build+unit/contract+snapshot
-* Gate/DoD: CI 녹색, 실시간 시나리오 통과
+* [ ] OpenAPI **스냅샷 회귀**(CI)
+* [ ] **폴링 계약 테스트**(커서/중복/순서/limit)
+* [ ] **CI 골격**: build + unit/contract + snapshot
+* **Gate/DoD**: CI 녹색, 폴링 계약 테스트 통과
 
-## Week 9 (10–15h) — **Cloud v1(Staging)** / 부하 / 지표
+## Week 9 — **Cloud v1(Staging)** / 부하 / 지표
 
-* [ ] **AWS 스테이징**: EC2(도커/컴포즈) + RDS(Public OFF), Route53 `staging.*` + **HTTPS**
-* [ ] **Nginx SSE 튜닝**(buffering off / read\_timeout 1d 등)
-* [ ] CI에서 **도커 빌드→원클릭 배포→스모크**( `/readyz`, SSE ping )
-* [ ] **k6/Artillery** 부하(로그인/목록/SSE/제출 혼합, 10→30 rps)
-* [ ] **지표 초판**: API p50/p95, 429 비율, SSE 드롭율, `pg_stat_statements` Top-N
-* Gate/DoD: 스테이징 HTTPS 접근, p95<300ms(샘플), 지표 리포트 커밋
+* [ ] AWS: EC2(도커/컴포즈), RDS(Postgres/SG=EC2만), Route53 + **HTTPS(ACM/LE)**
+* [ ] **배포 스크립트**: test → image → 배포 → 스모크(`/readyz` & `/events/poll`)
+* [ ] **부하(k6/Artillery)**: 로그인/목록/**poll**/제출 혼합, 10→30 rps
+* [ ] **지표 초판**: API p50/p95, 429 비율, DB Top-N(before)
+* **Gate/DoD**: HTTPS 접근, p95 < 300ms(샘플), 리포트 커밋
 
-## Week 10 (10–15h) — **Cloud v2(Prod-like)** / 릴리즈
+## Week 10 — **Cloud v2(Prod-like)** / 릴리즈
 
 * [ ] 운영 도메인 `app.*` HTTPS, CORS 반영
-* [ ] **CI/CD 2단계**: `migrate → deploy → smoke → auto-rollback`
-* [ ] **DB Before/After 비교**: 인덱스 보강 전후 `EXPLAIN ANALYZE` 1–2건, Top-N 비교표
+* [ ] **CI/CD 2단계**: migrate → deploy → smoke → **auto-rollback**
+* [ ] **DB Before/After** 비교(인덱스 1–2건 `EXPLAIN ANALYZE`) + Top-N 비교표
 * [ ] **백업→복구 리허설**(RDS 스냅샷)
-* [ ] 문서/런북/데모(1분) 마감, 태그 `v0.1.0-mvp`
-* Gate/DoD: 운영 도메인 접근/배포 로그/롤백 리허설/지표 그래프 제출
+* [ ] README/ADR/Runbook, Postman/Bruno, **1분 데모** 정리
+* [ ] 태그 `v0.1.0-mvp`
+* **Gate/DoD**: 운영 도메인 OK, 배포로그/롤백 리허설/지표 그래프 제출
 
-> **컷 스위치(지연 시)**:
-> Week 7의 **링버퍼/단일탭**, Week 9의 **CI→원클릭배포**, Week 10의 **DB Before/After**는 슬립 가능. **아래 “10주 이후 플랜”으로 자동 이동**.
-
----
-
-# ▶️ 10주 이후 — **슬립분 포함, “기존 10주 MVP 전량” 완료 플랜** (예시 4주)
-
-## Week 11 — SSE 안정화(최종) & 프런트 폴리싱
-
-* [ ] **Last-Event-ID 링버퍼** 마무리(재연결 범위/중복억제), 서버 보존 N 확정
-* [ ] **단일 탭 공유**(BroadcastChannel) 결함 수정 + 다탭 경합 UX
-* [ ] SSE 끊김/복구 **E2E 3케이스** 추가(오프라인/네트 지연/토큰만료)
-* 산출물: SSE 복구 타임라인 캡처, 버그리스트/해결내역
-
-## Week 12 — CI/CD + 부하·지표 고도화
-
-* [ ] **배포 파이프라인**: 마이그 안전가드(잠금/롤백 스크립트), 태그/환경변수 전략
-* [ ] **레이트리밋**(사용자/IP) + **SSE 동시연결 1–2개 제한** 서버 적용
-* [ ] **Idempotency 캐시 누수 테스트**(TTL 만료/메모리 회수)
-* [ ] **k6 시나리오** 확대(경합/429 재시도/멱등 재호출)
-* 산출물: p95 그래프, 429/드롭률 추이, 파이프라인 로그
-
-## Week 13 — DB/운영 하드닝 라이트
-
-* [ ] **VACUUM/ANALYZE 스케줄** + 인덱스 블로트 체크 스크립트
-* [ ] `pg_stat_statements` 대시보드 초안, 슬로우쿼리 탑3 개선(인덱스 or 쿼리)
-* [ ] **권한 스크립트**( `db/ops/R_privileges.sql` ) 재검증
-* [ ] (옵션) **TRGM** 마이그 파일만 유지(운영 반영 X)
-* 산출물: 개선 전/후 `EXPLAIN ANALYZE`, 대시보드 스샷
-
-## Week 14 — 문서·런북·릴리즈 회고(버퍼)
-
-* [ ] README/ADR/Runbook 최종, 권한 매트릭스(역할×API×층)
-* [ ] Postman/Bruno 컬렉션 정리, 1분 데모 리테이크
-* [ ] **롤백 리허설** 1회 재수행, 체크리스트 봉인
-* 산출물: 최종 릴리즈 노트, 회고/위험·대응 기록
-
-> 위 11–14주는 **Week 7/9/10에서 밀린 항목**을 흡수하도록 짰어. 만약 10주 안에 다 끝나면, 11–14주는 **R1(하드닝) 프리뷰**로 전환해도 됨.
+> **컷 스위치(지연 시 이동)**: Week 7(단일탭 공유), Week 9(자동배포), Week 10(DB 비교)은 **R1\~R2로 슬립**.
 
 ---
 
-## 제출/증빙 팩(필수 산출물)
+# MVP 이후(헤더)
 
-* **지표**: p50/p95, 429 비율, SSE 드롭률, Top-N 쿼리(전/후 비교 1–2건)
-* **데모**: 1분 시나리오(로그인→등록/조회→2인검사→제출→벌점)
-* **문서**: OpenAPI 스냅샷, 에러 카탈로그, 배포/복구 런북, Nginx SSE 설정
-* **안전장치**: 롤백 로그, 백업→복구 리허설 기록
-
----
-
-# MVP 이후(로드맵 헤더만 유지)
-
-* [ ] **R1** 하드닝(멱등 스토어, SSE 지표 대시보드)
+* [ ] **R1** 하드닝(정식 Idempotency-Store, **SSE 전환/지표 대시보드**)
 * [ ] **R2** 알림 파이프라인(Outbox/DueTasks)
 * [ ] **R3** PWA + Web Push
 * [ ] **R4** Items v2(그룹/유닛) 무중단 전환
@@ -186,127 +135,50 @@ creation_date: 2025-09-01
 
 ---
 
-# MVP이후
+## 제출/증빙 팩(권장)
+
+* **지표**: p50/p95, 429 비율, DB Top-N(전/후)
+* **데모**: 1분 시나리오(로그인→등록/조회→2인검사→제출→벌점)
+* **문서**: OpenAPI 스냅샷, 에러 카탈로그, 배포/복구 런북
+* **안전장치**: 배포 로그·롤백 리허설 기록
 
 
-# 📌 공통 원칙(상시)
+# ▶️ 10주 이후 — 하드닝/리팩터링 스프린트 (SSE 도입 포함)
 
-* 실시간은 계속 **SSE**(포그라운드), 백그라운드는 **푸시**로 보완
-* 변경은 **추가만(Backward-Compatible)** 으로 진행(다운마이그 회피)
-* **피처 플래그**로 카나리 → 점진 → 전체
-* **SLO**: HTTP p95 < **300ms**, 푸시 실패율 < **1%**, SSE 드롭률 < **1%**
-* 보안 베이스라인: HTTPS, CORS, 라이트 CSP, RBAC, 레이트리밋, 비밀번호 해시(Argon2id/bcrypt≥12)
+## 🧱 R1 — 하드닝① & **SSE 도입** (v0.2.x, 1–2주)
 
-> **Week9–10 입력값(반영 대상)**
->
-> * 프로덕션형 배포: AWS **EC2+RDS**, 도메인 연결, **HTTPS(ACM)**, CI/CD
-> * 측정지표: **API p95**, **429 비율**, **SSE 드롭률**, **DB Slow Query Top-N**, 부하 테스트 결과
+**목표:** 멱등/에러 정합화 + **SSE 전환** + 관측/알람
 
----
+* [ ] 작성계 **Idempotency-Key 스토어**(캐시/Redis/DB 택1)
+* [ ] **SSE 엔드포인트** `/events/sse`(하트비트 `:\n`, 인증, `Last-Event-ID`)
+* [ ] **Nginx SSE 튜닝**: `proxy_buffering off`, `http/1.1`, `read_timeout 1d`
+* [ ] **링버퍼**(서버 N≈500) + 전송 지연/드롭률 지표 수집
+* [ ] **클라: SSE→폴링 폴백**(네트/브라우저별)
+* [ ] **알람 임계치**: p95>300ms(5m), 429>1%(5m), SSE 드롭률>1%(10m)
+* [ ] **RFC7807 카탈로그 확정**(409/422/423/429 메시지)
+* DoD: SSE/폴링 동시 운영, 재연결 복구 OK, 알람 발화 테스트
 
-# 🧱 R1 — 하드닝 ① / 운영가시성 (v0.2.x, 1–2주)
+## 🔔 R2 — 알림 파이프라인 (Outbox/DueTasks) (v0.3.x, 1–2주)
 
-## 목표
+* [ ] **Outbox** + 워커(지수 백오프/멱등 키)
+* [ ] **DueTasks**(예약 실행) + 락/픽킹 전략
+* [ ] 큐 백엔드 결정: **SQS(+DLQ)** 권장 *(대안: Redis Stream 등)*
+* [ ] 알림센터 1차(배지/목록/읽음/딥링크)
+* DoD: 큐잉→전송 지표 확인, 중복억제·재시도 성공 로그
 
-* 작성계 **Idempotency-Key** 정식화, 에러 응답 정합화, **SSE 관측 대시보드** 구축
-* **Week9–10 지표**를 근거로 알람 임계치 고정
+## 📱 R3 — PWA + Web Push (v0.4.x, 1–2주)
 
-## 작업
+* [ ] **Service Worker** 등록/업데이트 전략
+* [ ] 푸시 구독/해지 API + 만료구독 정리 잡
+* [ ] iOS 홈화면 가이드, 딥링크
+* DoD: 백그라운드 푸시 수신→딥링크 진입 OK
 
-* 작성계 POST/PATCH/DELETE에 **Idempotency-Key** 스토어(캐시/Redis/DB 택1) 도입
-* 에러 응답 **RFC7807 카탈로그 확정**(409/422/423/429 등 코드/메시지 고정)
-* **SSE 지표 수집**: 커넥션 수, 하트비트 갭, 재연결/드롭률, 이벤트 지연
-* **알람 임계치 설정**(CloudWatch/Prometheus 등):
+## 📦 R4 — Items v2(개별) 무중단 전환 (v0.5.x, 2–3주)
 
-  * HTTP **p95 > 300ms** 5분 지속
-  * **429 비율 > 1%** 5분 지속
-  * **SSE 드롭률 > 1%** 10분 지속
-* **대시보드**: API Latency/Throughput, Error Rate, SSE Health, DB Slow Queries Top-N
+* [ ] 스키마 **확장→백필→코드 전환→수축**
+* [ ] **섀도우-쓰기** 운용, SSE 키를 `groupId/unitId`로 이행
+* DoD: 기존/신규 데이터 혼재에서도 UI/실시간 정확
 
-## Gate/DoD
-
-* **중복요청 동일응답**(Idempotent) 계약 테스트 통과
-* 대시보드/알람 Rule 작동(임계치 초과 시 알람)
-* k6/Artillery 리그레션에서 **p95 < 300ms** 유지
-
-## 산출물
-
-* `docs/observability/dashboard-links.md`
-* `docs/errors.json`(정본) + 계약 테스트 스냅샷
-* `ops/idempotency-store.md` 선택 근거
-
----
-
-# 🔔 R2 — 알림 파이프라인 (Outbox / DueTasks / DomainEvents) (v0.3.x, 1–2주)
-
-## 목표
-
-* **재시도·백오프·멱등**을 갖춘 알림/지연작업 파이프라인
-* **Week9–10 부하 결과**로 **SQS(+DLQ)** 또는 내부 큐 선택 확정
-
-## 작업
-
-* **Outbox 테이블** + 워커(재시도 지수 백오프, 멱등 키)
-* **DueTasks**(예약 실행) + 락/픽킹 전략
-* 큐 백엔드 결정: **SQS(+DLQ)** 권장 *(대안: Redis Stream/Sidekiq류)*
-* 알림 센터 1차: 배지/목록/읽음 처리/딥링크
-
-## Gate/DoD
-
-* 제출/벌점/유통기한 임박 → **큐잉→전송→성공 지표** 확인
-* 일시 장애 시 **중복 억제 & 재시도 성공** 로그 증빙
-
-## 산출물
-
-* `docs/notifications/architecture.md`
-* 대시보드: 큐 적체/Fail/Retry 그래프
-
----
-
-# 📱 R3 — PWA + Web Push(FCM/VAPID) (v0.4.x, 1–2주)
-
-## 목표
-
-* 포그라운드=SSE, **백그라운드=푸시** 수신·딥링크
-* **Week9–10의 도메인/HTTPS/CI** 셋업 재사용
-
-## 작업
-
-* **Service Worker** 등록/업데이트 전략(스킵·소프트 리로드)
-* 푸시 구독 저장/해지 API, 만료 구독 정리 잡
-* iOS 홈화면(PWA) 가이드 및 FCM/VAPID 설정 문서화
-
-## Gate/DoD
-
-* 앱 백그라운드 상태에서 푸시 수신 후 **딥링크 이동**
-* 구독 만료 자동 정리율 ≥ 95%
-
-## 산출물
-
-* `docs/pwa-push/setup.md`, SW 코드/업데이트 정책
-
----
-
-# 📦 R4 — Items v2(핵심): 개별 아이템 (v0.5.x, 2–3주)
-
-## 목표
-
-* 묶음(공통명/메모) + **개별 단위(이름/유통기한/제거)** 구조 전환(무중단)
-
-## 작업
-
-* 스키마 **확장**(groups/units) → **백필**(bundles→group+units) → **코드 전환** → **수축**
-* 읽기/쓰기 **섀도우-쓰기** 기간 운영, SSE 키를 **groupId/unitId**로 이행
-* 라벨 교체 트랜잭션 처리 **가이드/테스트** 강화
-
-## Gate/DoD
-
-* 기존 데이터/화면 **무중단 전환**, 검사/벌점 플로우 정상
-* 백필 검증 리포트(카운트/샘플 Diff=0)
-
-## 산출물
-
-* `docs/migration/items-v2-playbook.md`(확장→백필→전환→수축)
 
 ---
 
@@ -960,4 +832,95 @@ COMMIT;
 --  - resource_locks는 "근거 데이터"로 유지, 쓰기 차단은 앱 미들웨어에서 423 반환
 --  - inspection_results 불변성은 MVP 기간 유지(나중에 저장함수로 점진 전환 고려)
 -- =========================================================
+```
+
+
+```sql
+-- =========================================================
+-- Migration: event_log + floor_code (+ 소소한 보강)
+-- Idempotent, PG >= 11 가정 (IDENTITY / metadata-only DEFAULT)
+-- =========================================================
+BEGIN;
+
+-- 1) 폴링 이벤트 소스
+CREATE TABLE IF NOT EXISTS event_log (
+  event_id       BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  type           TEXT NOT NULL,              -- 'items.created' | 'inspection.opened' ...
+  resource_id    BIGINT REFERENCES resources(resource_id) ON DELETE SET NULL,
+  floor_code     TEXT,                       -- 응답/이벤트에 포함
+  correlation_id TEXT,
+  data           JSONB NOT NULL              -- EventEnvelope.data (앱에서 스키마 검증)
+);
+CREATE INDEX IF NOT EXISTS idx_eventlog_id          ON event_log(event_id);
+CREATE INDEX IF NOT EXISTS idx_eventlog_res_id_id   ON event_log(resource_id, event_id);
+CREATE INDEX IF NOT EXISTS idx_eventlog_created_desc ON event_log(created_at DESC);
+
+-- 2) resources.floor_code 추가 (+ 백필 → NOT NULL → 인덱스)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name='resources' AND column_name='floor_code'
+  ) THEN
+    ALTER TABLE resources ADD COLUMN floor_code TEXT;              -- 일단 NULL 허용
+  END IF;
+
+  -- 기존 행 백필: 기본 'F1' (추후 실제 층 코드로 UPDATE 권장)
+  UPDATE resources SET floor_code='F1' WHERE floor_code IS NULL;
+
+  -- NOT NULL 제약 (백필 이후)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='resources'::regclass AND conname='resources_floor_code_not_null'
+  ) THEN
+    ALTER TABLE resources
+      ALTER COLUMN floor_code SET NOT NULL,
+      ADD CONSTRAINT resources_floor_code_not_null CHECK (floor_code IS NOT NULL);
+  END IF;
+END$$;
+
+CREATE INDEX IF NOT EXISTS idx_resources_floor ON resources(floor_code);
+
+-- 3) 락 GC 성능 보강
+CREATE INDEX IF NOT EXISTS idx_resource_locks_expire ON resource_locks(expires_at);
+
+-- 4) 조정 벌점 0 금지
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='penalties_adjustments'::regclass
+      AND conname='ck_pa_nonzero_delta'
+  ) THEN
+    ALTER TABLE penalties_adjustments
+      ADD CONSTRAINT ck_pa_nonzero_delta CHECK (delta_points <> 0);
+  END IF;
+END$$;
+
+-- 5) (선택) 권한 부여: dcs_app / dcs_read 있을 때만
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='dcs_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON event_log TO dcs_app';
+    EXECUTE 'ALTER TABLE event_log ENABLE ROW LEVEL SECURITY';        -- 필요시 비활성화/정책 추가
+    -- 참고: RLS 쓸 계획 없으면 위 줄은 삭제해도 됨
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='dcs_read') THEN
+    EXECUTE 'GRANT SELECT ON event_log TO dcs_read';
+  END IF;
+END$$;
+
+COMMIT;
+
+-- 사용 예시(폴링):
+--   SELECT * FROM event_log
+--   WHERE event_id > $1             -- sinceId 커서
+--     AND ($2::bigint IS NULL OR resource_id=$2)   -- 선택: 특정 자원
+--     AND ($3::text   IS NULL OR floor_code=$3)    -- 선택: 특정 층
+--   ORDER BY event_id ASC
+--   LIMIT $4;
+-- =========================================================
+
 ```
