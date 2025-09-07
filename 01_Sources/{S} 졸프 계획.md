@@ -20,11 +20,11 @@ creation_date: 2025-09-01
 
 ## A) DB 마이그 (이미 만들어둔 파일 적용)
 
-* [ ] `event_log` 테이블/인덱스 생성 (폴링 단일 소스)
-* [ ] `resources.floor_code` 추가 + 백필(임시 `F1`) + NOT NULL + 인덱스
-* [ ] `resource_locks(expires_at)` 인덱스(락 GC 성능)
-* [ ] `penalties_adjustments.delta_points <> 0` 체크 제약
-* [ ] (권장) dcs\_app/dcs\_read 권한에 `event_log` 접근 부여
+* [x] `event_log` 테이블/인덱스 생성 (폴링 단일 소스)
+* [x] `resources.floor_code` 추가 + 백필(임시 `F1`) + NOT NULL + 인덱스
+* [x] `resource_locks(expires_at)` 인덱스(락 GC 성능)
+* [x] `penalties_adjustments.delta_points <> 0` 체크 제약
+* [x] (권장) dcs\_app/dcs\_read 권한에 `event_log` 접근 부여
 
 ## B) 앱 필수 6가지
 
@@ -41,13 +41,16 @@ creation_date: 2025-09-01
 
 # ✅ 10주 실행 플랜 (주당 10–15h, “작동+증빙” 중심)
 
+
 ## Week 1 — 부트스트랩 + 인증 베이스
 
-* [ ] `docker-compose`, `/healthz` `/readyz`, 요청 요약 로그(+지연)
+* [ ] `docker-compose`, `/healthz` `/readyz`, 요청 요약 로그(+지연)	 ^2ebl98
 * [ ] OpenAPI 골격 + **RFC7807 초안**
 * [ ] `/auth/login`(JWT 15–30m), `/me`, **RBAC(ADMIN/INSPECTOR/USER)**
 * [ ] **`/events/poll` 스텁**(“hello” 1건, `sinceId/limit` 커서 처리)
-* **Gate/DoD**: 헬스 200, 권한 밖 403, 폴링으로 hello 수신 캡처
+* **Gate/DoD**: 헬스 200, 권한 밖 403, 폴링으로 hello 수신 캡처 
+* 구현
+	* [[00_Inbox/dockercompose설정.md|dockercompose설정]]
 
 ## Week 2 — 자원·아이템 등록/조회 + **이벤트 기록**
 
@@ -121,6 +124,11 @@ creation_date: 2025-09-01
 * **Gate/DoD**: 운영 도메인 OK, 배포로그/롤백 리허설/지표 그래프 제출
 
 > **컷 스위치(지연 시 이동)**: Week 7(단일탭 공유), Week 9(자동배포), Week 10(DB 비교)은 **R1\~R2로 슬립**.
+
+
+
+
+
 
 ---
 
