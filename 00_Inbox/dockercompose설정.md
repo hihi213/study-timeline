@@ -66,20 +66,6 @@ creation_date: 2025-09-07
     - **Container**: 이미지의 실행 가능한 인스턴스입니다. 설계도로 지은 '집'에 해당하며, 실제 애플리케이션이 실행되는 격리된 공간입니다.
     - **`docker-compose.yml`**: 여러 서비스(앱, DB), 네트워크, 볼륨 등을 정의하는 YAML 형식의 설정 파일입니다. Docker Compose가 이 '각본'을 읽고 환경을 구성합니다.
     - **Service**: `docker-compose.yml`에 정의된 각 컨테이너를 말합니다. 예를 들어 `db` 서비스, `app` 서비스가 있습니다.
-	1) Liveness: healthz
-		주요 용도: 컨테이너가 응답하지 않을 경우, 오케스트레이션 시스템이 이를 감지하고 컨테이너를 재시작하여 자가 복구하도록 유도합니다.
-		
-		구현: 일반적으로 단순하게 HTTP 200 OK를 반환하도록 구현하며, 애플리케이션의 내부 로직이나 의존성 상태를 복잡하게 확인하지 않습니다.
-	- **`healthz`만 사용할 경우:** 서버는 실행 중이지만, 데이터베이스 연결이 끊어지거나 초기화 작업이 끝나지 않아 실제 요청을 처리할 수 없는 상황이 발생할 수 있습니다. 이 상태에서도 로드 밸런서는 계속 트래픽을 보내서 사용자에게 에러를 반환하게 됩니다.
-	
-	1) Readiness: readyz
-		주요 용도: 애플리케이션이 시작되는 동안 또는 의존성(예: 데이터베이스 연결, 캐시 초기화 등)에 문제가 발생했을 때, 로드밸런서가 해당 컨테이너로 트래픽을 보내지 않도록 차단하는 데 사용됩니다.
-		
-		구현: 애플리케이션이 외부 서비스와 통신하는 데 필요한 모든 핵심 의존성(예: DB 연결 상태)을 확인하는 로직을 포함합니다. 모든 준비가 완료되었을 때만 HTTP 200 OK를 반환하며, 그렇지 않으면 HTTP 503 Service Unavailable을 반환합니다.
-	- **`readyz`만 사용할 경우:** `readyz`는 트래픽 처리 준비가 되었는지를 판단하기 때문에, 서버 자체가 다운된 상태(ex. JVM 크래시)를 명확하게 판단하기 어렵습니다.
-
----
-
 ### 5\) 구현 절차
 
 #### 체크리스트
@@ -163,70 +149,132 @@ volumes:
   dcs-pg-data: # 명명된 볼륨 정의
 ```
 
-**5. `docker-compose.override.yml` (개발 환경용 확장)**
 
-  - 개발에만 필요한 설정을 덮어씁니다. (앱 빌드, 포트 연결 등)
+좋은 결정입니다. 혼자 개발할 때는 **빠른 피드백 루프**와 **쉬운 디버깅**이 생산성에 가장 큰 영향을 미칩니다. 옵션 1(하이브리드)은 그 점에서 최고의 선택입니다.
+
+언급해주신 `Makefile` 아이디어를 반영하여, 실제 구현을 위한 절차를 안내해 드리겠습니다.
+
+-----
+
+### 5\) 구현 절차 (하이브리드 방식)
+
+`docker-compose.override.yml`은 삭제하고, 대신 운영 환경 시뮬레이션을 위한 `docker-compose.prod.yml` 파일을 새로 만드는 구조로 변경합니다.
+
+#### 체크리스트
+
+1.  [ ] **`Makefile` 생성**: `up`, `down`, `dev`, `up-prod` 명령어를 정의합니다.
+2.  [ ] **`docker-compose.yml` 수정**: `app` 서비스를 제거하고 **오직 `db` 서비스만** 남깁니다.
+3.  [ ] **`docker-compose.prod.yml` 생성**: **`app` 서비스 정의**를 이 파일로 옮깁니다.
+4.  [ ] **로컬 앱 설정 변경**: 로컬에서 실행되는 앱이 Docker 안의 DB를 바라보도록 `application.yml` (또는 `.properties`)의 DB 접속 주소를 수정합니다.
+5.  [ ] **스모크 테스트**: `make up` 후 IDE에서 앱을 실행하여 DB 연결을 확인합니다.
+
+-----
+
+#### 산출물 및 스니펫
+
+**1. `Makefile` (프로젝트 루트)**
+
+```makefile
+# =======================================================
+# Makefile for Project Canon
+# =======================================================
+
+# 개발용: 인프라(DB)만 Docker로 실행
+up:
+	docker compose up -d
+
+# 개발용: 모든 Docker 컨테이너 중지 및 볼륨 삭제
+down:
+	docker compose down --volumes
+
+# 개발용: 백엔드 앱을 로컬에서 직접 실행
+dev:
+	./mvnw spring-boot:run
+
+# 운영 시뮬레이션용: DB와 App 모두 Docker로 실행
+up-prod:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+
+# 운영 시뮬레이션용: 중지
+down-prod:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml down --volumes
+```
+
+**2. `docker-compose.yml` (수정)**
+
+  - `app` 서비스를 완전히 제거하고, 개발 시 필요한 `db` 포트 노출을 여기에 포함합니다.
 
 <!-- end list -->
 
 ```yaml
-# Development-specific overrides
+# Base infrastructure services definition
 services:
-  app:
-    build: . # 현재 디렉토리의 Dockerfile을 사용해 빌드
-    ports:
-      - "8080:8080" # 로컬 8080 포트를 컨테이너 8080 포트에 연결
-    depends_on:
-      - db
-    environment:
-      # 앱이 'db'라는 호스트명으로 DB에 접속하도록 설정
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
-
   db:
+    image: postgres:16-alpine
     ports:
-      - "5432:5432" # 로컬에서 psql 등으로 DB에 직접 접속하기 위해
+      - "5432:5432" # 로컬 앱이 접속할 수 있도록 포트 노출
+    volumes:
+      - dcs-pg-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    restart: unless-stopped
+
+volumes:
+  dcs-pg-data:
 ```
 
-#### 스모크 테스트
+**3. `docker-compose.prod.yml` (신규 생성)**
 
-  - 터미널에서 아래 명령어를 순서대로 실행합니다.
+  - 이전 `override.yml`에 있던 `app` 서비스 정의를 이곳으로 옮깁니다.
 
 <!-- end list -->
 
-1.  **환경 구성 및 실행**
+```yaml
+# Production-like services (app container)
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      # 컨테이너 간 통신이므로 호스트명은 'db'
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+```
 
+**4. `src/main/resources/application.yml` (수정)**
+
+  - **가장 중요한 변경점입니다.** 로컬 앱은 `localhost`로 DB 컨테이너에 접근해야 합니다.
+
+<!-- end list -->
+
+```yaml
+spring:
+  datasource:
+    # 'db' 서비스가 아닌 'localhost'를 통해 접속
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+```
+
+-----
+
+#### 스모크 테스트
+
+1.  터미널에서 `make up`을 실행하여 DB 컨테이너를 띄웁니다.
     ```bash
-    # .env 파일이 .gitignore에 포함되었는지 먼저 확인!
-    git status
-
-    # 백그라운드에서 컨테이너 빌드 및 실행 (-d: detached mode)
-    docker-compose up --build -d
+    make up
     ```
+2.  `docker ps` 명령어로 `db` 컨테이너가 잘 실행되고 있는지 확인합니다.
+3.  IntelliJ나 VSCode 같은 IDE에서 **평소처럼 애플리케이션을 직접 실행**합니다.
+4.  애플리케이션 시작 로그에 DB 연결이 성공했다는 메시지가 뜨는지 확인합니다. `Connection refused` 에러가 없어야 합니다.
 
-2.  **상태 확인**
-
-    ```bash
-    # 실행 중인 컨테이너 목록 확인 (app과 db 서비스가 'Up' 상태여야 함)
-    docker-compose ps
-    ```
-
-    **기대 결과 스케치**:
-
-    ```
-    NAME                COMMAND                  SERVICE             STATUS              PORTS
-    project-canon-app-1 "java -jar app.jar"      app                 Up                  0.0.0.0:8080->8080/tcp
-    project-canon-db-1  "docker-entrypoint.s…"   db                  Up                  0.0.0.0:5432->5432/tcp
-    ```
-
-3.  **로그 확인**
-
-    ```bash
-    # app 서비스의 로그를 실시간으로 확인 (-f: follow)
-    docker-compose logs -f app
-    ```
-
+이제 이 설정들을 직접 프로젝트에 적용해 보시죠. 막히는 부분이 있으면 바로 알려주세요.
     **기대 결과 스케치**: Spring Boot가 성공적으로 시작되고 DB 연결 풀이 생성되었다는 로그가 보여야 합니다. `Connection refused` 같은 에러가 없어야 합니다.
 
 -----

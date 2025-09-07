@@ -51,6 +51,7 @@ creation_date: 2025-09-01
 * **Gate/DoD**: 헬스 200, 권한 밖 403, 폴링으로 hello 수신 캡처 
 * 구현
 	* [[00_Inbox/dockercompose설정.md|dockercompose설정]]
+	* [[00_Inbox/헬스체크와 요청로그.md|헬스체크와 요청로그]]
 
 ## Week 2 — 자원·아이템 등록/조회 + **이벤트 기록**
 
