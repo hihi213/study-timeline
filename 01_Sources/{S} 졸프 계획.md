@@ -45,8 +45,9 @@ creation_date: 2025-09-01
 ## Week 1 — 부트스트랩 + 인증 베이스 
 
 * [x] `docker-compose`, `/healthz` `/readyz`, 요청 요약 로그(+지연)	 ^2ebl98
-* [ ] OpenAPI 골격 + **RFC7807 초안** ^qasm2v
-* [ ] `/auth/login`(JWT 15–30m), `/me`, **RBAC(ADMIN/INSPECTOR/USER)**
+* [x] OpenAPI 골격 + **RFC7807 초안** ^qasm2v
+* [ ] `/auth/login`(JWT 15–30m), `/me`
+* [ ] **RBAC(ADMIN/INSPECTOR/USER)**
 * [ ] **`/events/poll` 스텁**(“hello” 1건, `sinceId/limit` 커서 처리)
 * **Gate/DoD**: 헬스 200, 권한 밖 403, 폴링으로 hello 수신 캡처 
 * 구현
