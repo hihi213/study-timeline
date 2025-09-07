@@ -46,7 +46,7 @@ creation_date: 2025-09-01
 
 * [x] `docker-compose`, `/healthz` `/readyz`, 요청 요약 로그(+지연)	 ^2ebl98
 * [x] OpenAPI 골격 + **RFC7807 초안** ^qasm2v
-* [ ] `/auth/login`(JWT 15–30m), `/me`
+* [ ] `/auth/login`(JWT 15–30m), `/me`. ^1ebl98
 * [ ] **RBAC(ADMIN/INSPECTOR/USER)**
 * [ ] **`/events/poll` 스텁**(“hello” 1건, `sinceId/limit` 커서 처리)
 * **Gate/DoD**: 헬스 200, 권한 밖 403, 폴링으로 hello 수신 캡처 
@@ -54,6 +54,7 @@ creation_date: 2025-09-01
 	* [[00_Inbox/dockercompose설정.md|dockercompose설정]]
 	* [[00_Inbox/헬스체크와 요청로그.md|헬스체크와 요청로그]]
 	* [[00_Inbox/OpenApi골격.md|OpenApi골격]]
+	* [[00_Inbox/인증.md|인증]]
 
 ## Week 2 — 자원·아이템 등록/조회 + **이벤트 기록**
 
