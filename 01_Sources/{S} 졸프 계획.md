@@ -42,16 +42,17 @@ creation_date: 2025-09-01
 # ✅ 10주 실행 플랜 (주당 10–15h, “작동+증빙” 중심)
 
 
-## Week 1 — 부트스트랩 + 인증 베이스
+## Week 1 — 부트스트랩 + 인증 베이스 
 
-* [ ] `docker-compose`, `/healthz` `/readyz`, 요청 요약 로그(+지연)	 ^2ebl98
-* [ ] OpenAPI 골격 + **RFC7807 초안**
+* [x] `docker-compose`, `/healthz` `/readyz`, 요청 요약 로그(+지연)	 ^2ebl98
+* [ ] OpenAPI 골격 + **RFC7807 초안** ^qasm2v
 * [ ] `/auth/login`(JWT 15–30m), `/me`, **RBAC(ADMIN/INSPECTOR/USER)**
 * [ ] **`/events/poll` 스텁**(“hello” 1건, `sinceId/limit` 커서 처리)
 * **Gate/DoD**: 헬스 200, 권한 밖 403, 폴링으로 hello 수신 캡처 
 * 구현
 	* [[00_Inbox/dockercompose설정.md|dockercompose설정]]
 	* [[00_Inbox/헬스체크와 요청로그.md|헬스체크와 요청로그]]
+	* [[00_Inbox/OpenApi골격.md|OpenApi골격]]
 
 ## Week 2 — 자원·아이템 등록/조회 + **이벤트 기록**
 
