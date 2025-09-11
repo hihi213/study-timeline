@@ -7,7 +7,7 @@ creation_date: 2025-09-07
 
 
 ## 📜 원본 맥락
-![[01_Sources/{S} 졸프 계획.md#^qasm2v]]
+![](../01_Sources/{S}%20졸프%20계획.md#^qasm2v)
 
 ---
 ## 정리
@@ -58,7 +58,7 @@ creation_date: 2025-09-07
 
 ---
 ## 💭 나의 추가적 생각/질문
-- [[00_Inbox/RestAPi.md|RestAPi]] 
+- [RestAPi](RestAPi.md) 
 
 ### 인터뷰 브리프 (3/3)
 

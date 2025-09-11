@@ -7,7 +7,7 @@ creation_date: 2025-09-08
 
 
 ## 📜 원본 맥락
-![[01_Sources/{S} 학교_보안DB.md#^7q8mkl]]
+![](../01_Sources/{S}%20학교_보안DB.md#^7q8mkl)
 
 ---
 ## 정리

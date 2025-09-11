@@ -7,7 +7,7 @@ creation_date: 2025-08-19
 
 
 ## 📜 원본 맥락
-![[01_Sources/{S} 졸프 MVP1_ver2(유저 냉장고) DB 분석.md#^qwwkv7]]
+![](01_Sources/{S}%20졸프%20MVP1_ver2(유저%20냉장고)%20DB%20분석.md#^qwwkv7)
 
 ---
 ## 정리

@@ -3,6 +3,6 @@
 - 그러나 뒤로 못감 추가할때마다 추가하는곳까지 가야함
 이를 개선한게 더블리 링크드 리스트-맨앞뒤를 연결
 
-[[Queue_interface]](LinkedList클래스가 구현)
+[Queue_interface](Queue_interface.md)(LinkedList클래스가 구현)
 
 #list

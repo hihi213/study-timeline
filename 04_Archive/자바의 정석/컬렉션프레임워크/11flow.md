@@ -18,12 +18,12 @@
 			list:	ArrayList LinkedList Vector Stack 클래스 Queue 인터페이스
 			set: Hashset LinkedHashSet TreeSet 클래스
 			map:  HashMap Properties LinkedHashMap TreeMap 클래스
-6.  Vector클래스, 보완한게 [[ArrayList_class]] 이걸 보완한게 [[LinkedList_class]]  그리고 LinkedLIst가 list말고도 구현한  [[Queue_interface]] 와 vector를 상속받은 [[Stack_class]]
-1. [[Hashset_class]] , [[LinkedHashSet_class]], [[TreeSet_class]]
-2. [[HashMap_class]] , [[Properties_class]] , [[LinkedHashMap_class]] , [[TreeMap_class]]
-3. 그리고 이 모든 클래스에 적용가능한 있는거 다 뱉어 [[Iterator_class]]
+6.  Vector클래스, 보완한게 [ArrayList_class](ArrayList_class.md) 이걸 보완한게 [LinkedList_class](LinkedList_class.md)  그리고 LinkedLIst가 list말고도 구현한  [Queue_interface](Queue_interface.md) 와 vector를 상속받은 [Stack_class](Stack_class.md)
+1. [Hashset_class](Hashset_class.md) , [LinkedHashSet_class](LinkedHashSet_class.md), [TreeSet_class](TreeSet_class.md)
+2. [HashMap_class](HashMap_class.md) , [Properties_class](Properties_class.md) , [LinkedHashMap_class](LinkedHashMap_class.md) , [TreeMap_class](TreeMap_class.md)
+3. 그리고 이 모든 클래스에 적용가능한 있는거 다 뱉어 [Iterator_class](Iterator_class.md)
 4. comparator와 comparable이다.
-5. 이제 [[vs]]를 들면
+5. 이제 [vs](vs.md)를 들면
 
 
 

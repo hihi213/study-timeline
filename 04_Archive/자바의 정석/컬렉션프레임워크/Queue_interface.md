@@ -4,7 +4,7 @@
 	데이터 추가/삭제가 쉬운 LinkedList로 구현했다.
 
 - 예시: 최근사용문서, 인쇄작업대기목록,버퍼
-- [[PriorityQuee]]
-- [[BlockingQueue]]
-- [[Deque_interface]]: queue의 자손
+- [PriorityQuee](PriorityQuee)
+- [BlockingQueue](BlockingQueue)
+- [Deque_interface](Deque_interface.md): queue의 자손
 #list 

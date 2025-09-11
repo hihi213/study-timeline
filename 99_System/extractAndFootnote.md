@@ -1,2 +1,2 @@
-[^]: > {{content}} [[{{fromTitle}}#^]]
+[^]: > {{content}} []({{fromTitle}}#^)
 

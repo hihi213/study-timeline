@@ -7,7 +7,7 @@ creation_date: 2025-08-06
 
 
 ## 📜 원본 맥락
-![[00_Inbox/자바스크립트-addEventListener.md#^f2u89m]]
+![](자바스크립트-addEventListener.md#^f2u89m)
 
 ---
 ## 정리

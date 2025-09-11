@@ -7,7 +7,7 @@ creation_date: 2025-08-01
 
 
 ## 📜 원본 맥락
-![[01_Sources/{S} 인프런 그린코딩 52시간 풀스택+ Gemini.md#^opa8z9]]
+![](../01_Sources/{S}%20인프런%20그린코딩%2052시간%20풀스택+%20Gemini.md#^opa8z9)
 
 ---
 ## 정리
@@ -112,4 +112,4 @@ document.querySelector('ul').addEventListener('click', (e) => {
 - **`resize`**: 브라우저 창 크기를 조절할 때
 ---
 ## 💭 나의 추가적 생각/질문
-- [[HTML 속성이나 DOM 프로퍼티를 사용할 때vs addEventListener쓸때의 이벤트의 이름이 다르다|HTML 속성이나 DOM 프로퍼티를 사용할 때vs addEventListener쓸때의 이벤트의 이름이 다르다]] 
+- [HTML 속성이나 DOM 프로퍼티를 사용할 때vs addEventListener쓸때의 이벤트의 이름이 다르다](HTML%20속성이나%20DOM%20프로퍼티를%20사용할%20때vs%20addEventListener쓸때의%20이벤트의%20이름이%20다르다.md) 
