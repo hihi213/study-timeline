@@ -129,6 +129,7 @@ creation_date: 2025-09-01
 
 > **컷 스위치(지연 시 이동)**: Week 7(단일탭 공유), Week 9(자동배포), Week 10(DB 비교)은 **R1\~R2로 슬립**.
 
+![](../99_System/images/2025_6/dormitory_db%20-%20public.png)
 
 
 
