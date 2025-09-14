@@ -26,7 +26,8 @@ creation_date: 2025-09-14
 		- 단방향인경우: 한쪽만 참조변수를 선언
 			- (어느 쪽을 주인으로 둘지에 따라 FK 위치가 달라짐
 	- N: N: : 
-		- 양쪽이 서로를 컬렉션(set/list)으로 가짐
+		- 양쪽이 서로를 컬렉션(set/list)으로 가짐 
+			- [자세한설명-다대다매핑구현(JoinTable)](다대다매핑구현(JoinTable).md)
 		- 근데 실무에서는 연결 엔티티를 추가로 만들어서 N:1, 1:N으로 분해함(왜냐면 두엔티티의 관계에 관한 필드추가하기 위해서)
 - DB: FK(외래키)/제약을 이용해 데이터를 연결
 	- 1: N: : N테이블에 1의 pk를 참조하는 FK컬럼을 둠
@@ -36,7 +37,7 @@ creation_date: 2025-09-14
 	- N: N: 
 		- 조인 테이블 필요: 중간테이블없이 표현 불가함
 ## **보너스: JPA 매핑 짚고 가기**
-- **JPA/Hibernate는, 연관관계를 DB에 반영할 때, \_FK를 가진 엔티티(주인)의 FK 컬럼 값_만 INSERT/UPDATE 한다.**
+- **JPA/Hibernate는, 연관관계를 DB에 반영할 때, 주인쪽을 변경한다.
     - 1:N 기본 패턴: @ManyToOne(N측, 주인) + @OneToMany(mappedBy=...)(1측, 거울)
     - 1:1: **FK 가진 쪽**에 @JoinColumn(주인), 반대편은 mappedBy
     - N:N: 학습용 @ManyToMany @JoinTable, 실무는 **연결 엔티티**로 분해
