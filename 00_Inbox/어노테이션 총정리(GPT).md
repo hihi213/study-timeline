@@ -4,30 +4,47 @@ status: inbox
 source: 
 creation_date: 2025-09-09
 ---
-
 ## **엔티티/기본 매핑**
 
-- @Entity: 이 클래스를 JPA가 관리하는 엔티티로 등록.
-- @Table(name=...): 매핑할 테이블/스키마/인덱스 지정.
+### **식별자/PK**
+
 - @Id: 기본키(PK) 필드 지정.
 - @GeneratedValue(strategy=...): PK 생성 전략(IDENTITY/SEQUENCE/TABLE/AUTO).
+
+### **컬럼/값 매핑**
+
 - @Column(name=..., nullable=..., length=..., unique=...): 컬럼 속성 지정.
 - @Basic(fetch=..., optional=...): 단순 값 매핑(대부분 기본값 사용).
 - @Enumerated(EnumType.STRING): enum을 문자열로 저장(권장).
 - @Lob: 대용량 CLOB/BLOB 매핑.
 - @Transient: 영속성 제외(컬럼 생성·저장 안 함).
+
+### **시간/버전**
+
+- @Temporal(TemporalType.DATE/TIME/TIMESTAMP): Date/Calendar 시간 정밀도(java.time이면 불필요).
 - @Version: 낙관적 락 버전 컬럼(동시 수정 충돌 방지).
+
+### **접근/테이블**
+
 - @Access(AccessType.FIELD/PROPERTY): 필드/프로퍼티 접근 방식 선택.
-- @Temporal(TemporalType.DATE/ TIME/ TIMESTAMP): Date/Calendar의 시간 정밀도 지정(java.time 사용 시 불필요).
+- @Entity: 이 클래스를 JPA 엔티티로 등록.
+- @Table(name=...): 매핑할 테이블/스키마/인덱스 지정.
 
 ## **값 타입(임베디드/컬렉션)**
 
+### **정의/사용**
+
 - @Embeddable: 값 타입 정의(별도 테이블 없음, 소유자 테이블에 내장).
 - @Embedded: 값 타입 사용/포함.
+
+### **컬럼명 재정의**
+
 - @AttributeOverride(s): 임베디드 컬럼명 재정의.
+
+### **컬렉션/보조 테이블**
+
 - @ElementCollection: 값 타입 컬렉션(엔티티 아님) 저장.
 - @CollectionTable(name=..., joinColumns=...): 값 컬렉션용 보조 테이블 지정.
-
 ## **연관관계**
 
 mappedBY="다른 테이블의 이 필드이름이 관계의 주인이야 이쪽 수정하면 변화없어" ex) @OneToMany(mappedBy="필드이름")
