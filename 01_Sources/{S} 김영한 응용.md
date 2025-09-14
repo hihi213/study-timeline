@@ -9,7 +9,7 @@ creation_date: 2025-09-09
 # 무제
 
 ## 📖 소스 요약 (Summary)
-
+[어노테이션 총정리(GPT)](../00_Inbox/어노테이션%20총정리(GPT).md)
 - 쓰기와 읽기를 분리하자
 	- 커맨드(쓰기) 할때는 엔티티를 반환하지 않고, id만 반환한다 어차피 읽으면 되니까
 - [assertThat(actual).isEqualTo(expected)란](../00_Inbox/assertThat(actual).isEqualTo(expected)란.md)
@@ -23,4 +23,4 @@ creation_date: 2025-09-09
 	- [상속관계 테이블 구현](../00_Inbox/상속관계%20테이블%20구현.md) ^n7wzoy
 
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
--  ^ar2qgy
+-  
