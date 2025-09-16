@@ -30,6 +30,10 @@ creation_date: 2025-09-09
 - @Entity: 이 클래스를 JPA 엔티티로 등록.
 - @Table(name=...): 매핑할 테이블/스키마/인덱스 지정.
 
+### (선택) 추가 유틸
+- `@Converter` / `@Convert` : 값 변환기(예: 암복호화, 마스킹).
+- `@SecondaryTable` : 한 엔티티가 두 테이블에 걸쳐 매핑.
+
 ## **값 타입(임베디드/컬렉션)**
 
 ### **정의/사용**
@@ -47,49 +51,14 @@ creation_date: 2025-09-09
 - @CollectionTable(name=..., joinColumns=...): 값 컬렉션용 보조 테이블 지정.
 ## **연관관계**
 
-### **핵심 용어/규칙**
-
-- JPA에서의 **주인(owner)**=DB에서 FK 가진 쪽(여기 변경해야 DB FK가 갱신).
-- **비주인(inverse)**=mappedBy=여긴 FK 없음. 진짜 주인은 저쪽 필드다.”
-- **단방향**: 한쪽만 참조. **양방향**: 양쪽 참조하되 주인은 하나.
-- [자세한 설명- 반드시 외래 키가 있는 곳을 연관관계의 주인으로 정해라](반드시%20외래%20키가%20있는%20곳을%20연관관계의%20주인으로%20정해라.md)
-
 ### **주인측 어노테이션**
 
+[[00_Inbox/엔티티연관관계.md|엔티티연관관계]] ^cbu33j
 - @JoinColumn(name=...): FK 컬럼 위치/이름 지정(주인/시작점 선언, DML은 내 FK 갱신).
 - @JoinColumns(...): 복합 FK 매핑(referencedColumnName 필요 시 명시).
-- @JoinTable(name=..., joinColumns=..., inverseJoinColumns=...): 
+- @JoinTable(name=..., joinColumns=..., inverseJoinColumns=...): 중간 **연결 테이블**로 관계 관리(행 INSERT/DELETE).
 	- [[00_Inbox/다대다매핑구현(JoinTable).md|다대다매핑구현(JoinTable)]]
-- @MapsId: 공유 PK(자식 PK=부모 PK(+FK), 주로 1:1 정합성↑). ^lcdriv
-
-### **비주인측 어노테이션**
-
-- mappedBy="필드명": “진짜 주인은 저쪽 필드(=FK). 여기선 읽기 거울.”
-
-### **관계별 레시피**
-
-- **N:1 / 1:N(양방향 권장)**
-    - 주인: @ManyToOne(fetch=LAZY) @JoinColumn("...")
-    - 거울: @OneToMany(mappedBy="...")
-    - 1:N 단방향이 꼭 필요하면 부모 컬렉션에 @OneToMany @JoinColumn(자식 FK 생성) 또는 @JoinTable 사용.
-- **1:1**
-    - 주인=FK 가진 쪽(보통 의존/자식). @OneToOne @JoinColumn
-    - 거울: @OneToOne(mappedBy="...")
-    - 정합성↑: 자식에 @MapsId로 공유 PK.
-- **N:N**
-    - 학습용: @ManyToMany @JoinTable
-    - 실무권장: **연결 엔티티**로 분해(N:1+1:N), 추가필드/제약/감사 가능.
-
-### **컬렉션 정렬/순서**
-
-- @OrderBy("field ASC"): 조회 시 SQL ORDER BY 정렬(읽기 전용 정렬).
-- @OrderColumn(name=...): 순서 보존 인덱스 컬럼(재배열 UPDATE 많아질 수 있음).
-
-### **로딩/튜닝 팁**
-
-- @ManyToOne 기본 EAGER → **실무 LAZY 권장**.
-- N+1 완화: fetch join/@EntityGraph/@BatchSize.
-
+- @MapsId: 공유 PK(자식 PK=부모 PK(+FK), 주로 1:1 정합성↑). 
 ## **상속 매핑**
 
 ### **전략/판별**
@@ -188,28 +157,17 @@ creation_date: 2025-09-09
 - @Import: 다른 구성 클래스 포함.
 
 ## **데이터/JPA & 스프링 데이터 JPA**
+### **쿼리**
 
-### **엔티티/기본 매핑**
+- @Query: 커스텀 JPQL/네이티브 쿼리.
+- @Modifying: 변경 쿼리(UPDATE/DELETE) 표시.
 
-- @Entity/@Table/@Column/@Id/@GeneratedValue/@Enumerated/@Lob/@Transient/@Version: 기본 매핑 세트.
+### **리포지토리/스캔**
 
-### **연관관계**
+- @EnableJpaRepositories: 스프링 데이터 JPA 리포지토리 스캔 시작점.
 
-- @ManyToOne/@OneToMany/@OneToOne/@ManyToMany/@JoinColumn/@JoinTable: 관계/연결 매핑.
+### **락/트랜잭션**
 
-### **임베디드**
-
-- @Embeddable/@Embedded/@AttributeOverride(s): 값 타입/재정의.
-
-### **쿼리/그래프**
-
-- @EntityGraph: 로딩 계획.
-- @Query: 커스텀 JPQL/네이티브.
-- @Modifying: 변경 쿼리(UPDATE/DELETE).
-
-### **리포지토리/락/트랜잭션**
-
-- @EnableJpaRepositories: 리포지토리 스캔 시작점.
 - @Lock: JPA 락(PESSIMISTIC/OPTIMISTIC).
 - @Transactional: 트랜잭션 경계.
 
