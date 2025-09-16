@@ -49,15 +49,25 @@ creation_date: 2025-09-09
 
 - @ElementCollection: 값 타입 컬렉션(엔티티 아님) 저장.
 - @CollectionTable(name=..., joinColumns=...): 값 컬렉션용 보조 테이블 지정.
-## **연관관계**
 
-### **주인측 어노테이션**
+## **연관관계(요약)**
 
-[[00_Inbox/엔티티연관관계.md|엔티티연관관계]] ^cbu33j
-- @JoinColumn(name=...): FK 컬럼 위치/이름 지정(주인/시작점 선언, DML은 내 FK 갱신).
-- @JoinColumns(...): 복합 FK 매핑(referencedColumnName 필요 시 명시).
-- @JoinTable(name=..., joinColumns=..., inverseJoinColumns=...): 중간 **연결 테이블**로 관계 관리(행 INSERT/DELETE).
-	- [[00_Inbox/다대다매핑구현(JoinTable).md|다대다매핑구현(JoinTable)]]
+> **상세는 전용 문서**: [[JPA 연관관계-반드시 외래 키가 있는 곳을 연관관계의 주인으로 정해라|JPA 연관관계-반드시 외래 키가 있는 곳을 연관관계의 주인으로 정해라]]
+
+### **관계 선언**
+
+- @ManyToOne / @OneToMany / @OneToOne / @ManyToMany : 관계 종류 선언(기본 fetch 주의: 실무는 LAZY 권장).
+
+### **연결 지시(주인측)**
+
+- @JoinColumn(name=...) : FK 위치/이름 지정(주인).
+- @JoinColumns(...) : 복합 FK.
+- @JoinTable(name=..., joinColumns=..., inverseJoinColumns=...) : 연결 테이블 사용.
+- @MapsId : 공유 PK(주로 1:1).
+
+### **참고**
+
+- 주인/거울(mappdedBy), cascade, orphanRemoval, 정렬/순서는 **연관관계 전용 문서**에서 상세 정리.
 - @MapsId: 공유 PK(자식 PK=부모 PK(+FK), 주로 1:1 정합성↑). 
 ## **상속 매핑**
 

@@ -5,15 +5,12 @@ source:
 creation_date: 2025-09-09
 ---
 
-
 ## 📜 원본 맥락
 ![](../01_Sources/{S}%20김영한%20응용.md#^ar2qgy)
 
 ---
 
 ## 정리
-   
-   
 
 짧게 결론: **달라요.**
 
@@ -33,18 +30,18 @@ Assert 객체는 테스트 전용 **래퍼(Wrapper)** 이고, actual은 **검증
 		- 일반 객체: equals() 기반(또는 설정한 Comparator).
 			- 배열/컬렉션: 내용 비교(요소별 equals).
 			- BigDecimal: 기본적으로 스케일 무시하고 compareTo로 가치 비교(예: 10.0 == 10.00).
-			-	부동소수: 완전 동일 비교(오차 허용 비교는 isCloseTo 권장).
-	3.	판정 결과 처리
+			- 부동소수: 완전 동일 비교(오차 허용 비교는 isCloseTo 권장).
+	3. 판정 결과 처리
 		- 성공(동등): 같은 Assert 객체를 그대로 반환 → 체이닝 계속 가능 (예: .isEqualTo(x).isNotNull().extracting(...).isIn(...))
 		- 실패(불일치): AssertionError를 던짐
-			-	이때 AssertJ가 기대/실제 값, 차이점(diff) 이 보이는 풍부한 실패 메시지를 만들어 준다.
-			-	JUnit이 이 예외를 잡아 테스트 실패로 표시.
+			- 이때 AssertJ가 기대/실제 값, 차이점(diff) 이 보이는 풍부한 실패 메시지를 만들어 준다.
+			- JUnit이 이 예외를 잡아 테스트 실패로 표시.
 
 ## 미세 동작(알아두면 좋은 포인트)
--	NPE 안전: assertThat(null).isEqualTo(null)는 통과, null vs 비-null은 실패 메시지 생성.
--	커스텀 비교자: usingComparator(...) 또는 usingRecursiveComparison()으로 비교 전략을 바꿀 수 있음.
--	설명/태그: .as("설명")을 앞에 붙이면 실패 메시지에 설명이 포함됨.
--	소프트 어서션: SoftAssertions를 쓰면 즉시 예외를 던지지 않고 여러 실패를 모아 마지막에 한 번에 보고.
+- NPE 안전: assertThat(null).isEqualTo(null)는 통과, null vs 비-null은 실패 메시지 생성.
+- 커스텀 비교자: usingComparator(...) 또는 usingRecursiveComparison()으로 비교 전략을 바꿀 수 있음.
+- 설명/태그: .as("설명")을 앞에 붙이면 실패 메시지에 설명이 포함됨.
+- 소프트 어서션: SoftAssertions를 쓰면 즉시 예외를 던지지 않고 여러 실패를 모아 마지막에 한 번에 보고.
 
 ## 아주 작은 예
 ```Java

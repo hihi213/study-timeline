@@ -12,18 +12,19 @@ creation_date: 2025-09-16
 # **JPA 연관관계 레시피 & 체크리스트(Owner/mappedBy/cascade)**
 
 ## **TL;DR**
-
+> 반드시 외래 키가 있는 곳을 연관관계의 주인으로 정해라
 - **화살표 시작점 = FK = 주인(owner)**. 주인 쪽 필드를 바꿔야 DB FK가 갱신됨.
 - **mappedBy = 거울(inverse)**. DB 수정 X, 조회용.
 - **cascade/orphanRemoval**은 “부모만 건드려도 자식까지 같이”가 필요할 때만, 애그리거트 내부에 한정.
-- **단방향**: 한쪽만 참조. **양방향**: 양쪽 참조하되 주인은 하나
+- **단방향**: 한쪽만 참조. 
+- **양방향**: 양쪽 참조하되 주인은 하나
 
 ## **결정 순서(5단계)**
 
 1. **관계 종류** 결정: N:1, 1:1, N:N(→실무는 연결 엔티티).
 2. **FK 위치 = 주인** 결정(대부분 N측, 1:1은 의존/자식).
 3. **단/양방향** 결정(양방향이면 한쪽만 주인, 반대는 mappedBy).
-4. **매핑 방식** 선택: @JoinColumn vs @JoinTable(특수 케이스).
+4. **매핑 방식** 선택:@JoinColumn(FK) vs @JoinTable(특수; 주로 1:N 단방향/학습용 M:N).
 5. **전파/삭제 규칙**: cascade, orphanRemoval(애그리거트 내부만).
 
 ## **관계별 레시피(최소 예시)**
@@ -72,14 +73,16 @@ class CategoryItem {
   // 필요 메타필드: 순번, 기간, 생성자 등
 }
 ```
-
+- 학습용: @ManyToMany @JoinTable(...)
+- **실무 권장**: **연결 엔티티**로 분해(N:1 + 1:N). 메타필드/제약/감사 가능.
+- 상세: [[00_Inbox/다대다매핑구현(JoinTable).md|다대다매핑구현(JoinTable)]]
 ## **주인/거울 표기**
 
 - @JoinColumn(...) = “**여기가 주인(FK 칼럼)**, INSERT/UPDATE 여기서 한다.”
 - mappedBy="..." = “**FK는 저쪽 필드**. 나는 거울(읽기 전용).”
 
 ## **캐스케이드(Cascade) — “부모만 persist/remove 해도 자식까지 같이 전파”**
-- 어디에? → @OneToOne/@OneToMany/@ManyToOne/@ManyToMany의 속성으로.
+- 어디에? → 연관 어노테이션 속성으로: cascade=..., orphanRemoval=true.
 - 종류: PERSIST/REMOVE/MERGE/REFRESH/DETACH/ALL.
 - orphanRemoval=true : 컬렉션에서 제거하거나 FK 끊어 **고아**가 되면 자동 DELETE.
 - 권장 사용처:
@@ -183,10 +186,6 @@ public void addChild(Category child) {
 - EAGER 기본값 방치 ❌(예상치 못한 N+1).
 
 ## **함께 보기**
-
-- [자세한 설명- 반드시 외래 키가 있는 곳을 연관관계의 주인으로 정해라](반드시%20외래%20키가%20있는%20곳을%20연관관계의%20주인으로%20정해라.md)
----
-
+- [자세한 설명- 반드시 외래 키가 있는 곳을 연관관계의 주인으로 정해라](주인의%20개념.md)
 ---
 ## 💭 나의 추가적 생각/질문
--
