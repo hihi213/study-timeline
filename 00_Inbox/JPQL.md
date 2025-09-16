@@ -291,6 +291,6 @@ FROM Member m WHERE m.email = :email
 - getResultStream() : 결과를 Stream\<T>로 처리(JPA 2.2+)
 
 [[00_Inbox/JPA EntityManager 치트시트.md|JPA EntityManager 치트시트]]
----
+
 ## 💭 나의 추가적 생각/질문
 - ^dp9w89
