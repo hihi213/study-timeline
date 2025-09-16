@@ -160,4 +160,3 @@ public void setDelivery(Delivery delivery) {
 - 생명주기/전파(cascade, orphanRemoval) → [JPA 연관관계 생명주기 관리 (cascade ,orphanRemoval, persist & remove)](../02_Notes/JPA%20연관관계%20생명주기%20관리%20(cascade%20,orphanRemoval,%20persist%20&%20remove).md)
 - 성능/안티패턴/실무 팁 → [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](../02_Notes/JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)
 
-> 파일 이름은 취향대로 바꿔도 됩니다. 위 링크명은 이후 파일 만들 때 맞춰 주세요!

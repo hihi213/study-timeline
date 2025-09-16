@@ -74,6 +74,7 @@ creation_date: 2025-09-09
 ### **전략/판별**
 
 - @Inheritance(strategy=...): SINGLE_TABLE/JOINED/TABLE_PER_CLASS.
+	- [@Inheritance(strategy = …)](@Inheritance(strategy%20=%20…).md)
 - @DiscriminatorColumn(name=...): 판별 컬럼.
 - @DiscriminatorValue("..."): 자식 판별 값.
 
