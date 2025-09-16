@@ -14,7 +14,7 @@ creation_date: 2025-09-16
 
 > 개념 기초는 [JPA 연관관계 기초](JPA%20연관관계%20기초.md), 매핑 선택은 [JPA 연관관계 매핑 전략](JPA%20연관관계%20매핑%20전략.md) 참고.
 
-> 실무 성능/안티패턴은 [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)에서 정리.
+> 실무 성능/안티패턴은 [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](../02_Notes/JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)에서 정리.
 
 ---
 
@@ -58,6 +58,8 @@ private List<OrderItem> orderItems = new ArrayList<>();
 
 ## **3) 언제 cascade를 써야 하나?**
 
+> 즉, “각 엔티티를 하나씩 persist 해야 하는 번거로움”을 줄여 주는 게 캐스케이드.
+
 ### **✅ 사용**
 
 - Order → OrderItem, Order ↔ Delivery(1:1 의존) 처럼 **부모에 종속**되고 **독립 사용하지 않는 자식**.
@@ -71,14 +73,14 @@ private List<OrderItem> orderItems = new ArrayList<>();
 
 ## **4) persist / remove 정확히 알기**
 
-### **EntityManager.persist(entity)**
+### **EntityManager.persist(entity)** : 새로 저장 예약
 
 - 새 엔티티를 **영속성 컨텍스트(1차 캐시)에 등록**.
 - 보통 **flush/commit 시점**에 INSERT SQL 발생.
 - Cascade.PERSIST(또는 ALL)이면 **자식도 함께 영속 등록**.
 - **주의**: GenerationType.IDENTITY(AUTO_INCREMENT)는 키 생성을 위해 **즉시 INSERT**가 나갈 수 있음.
 
-### **EntityManager.remove(entity)**
+### **EntityManager.remove(entity)** : 삭제 예약
 
 - 관리 중 엔티티를 **삭제 상태로 마크**.
 - **flush/commit 시점**에 DELETE SQL 발생.
@@ -96,7 +98,7 @@ private List<OrderItem> orderItems = new ArrayList<>();
 - **Detached**(분리) → merge → **Managed**
 
 ### **flush**
-
+- SQL은 명령 즉시 DB반영이아니라 flush/commit 때 SQL**이 나간다
 - 영속성 컨텍스트 변경 내용을 **DB와 동기화**(SQL 전송).
 - 보통 **트랜잭션 커밋 직전 자동** 호출. 쿼리 실행 전 강제 호출될 수도 있음.
 
@@ -195,4 +197,4 @@ em.remove(o);
 
 - 개념 기초: [JPA 연관관계 기초](JPA%20연관관계%20기초.md)
 - 매핑 선택: [JPA 연관관계 매핑 전략](JPA%20연관관계%20매핑%20전략.md)
-- 실무 가이드/성능: [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)
+- 실무 가이드/성능: [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](../02_Notes/JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)

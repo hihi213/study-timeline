@@ -5,7 +5,6 @@ source:
 creation_date: 2025-09-10
 ---
 
-
 ## 📜 원본 맥락
 ![](../01_Sources/{S}%20김영한%20응용.md#^25yu6q)
 
@@ -68,17 +67,13 @@ creation_date: 2025-09-10
     - **기본 추천**: JOINED (정규화/유연성)
     - **속도·단순성**: SINGLE_TABLE (NULL 많이 생겨도 OK면)
     - **특수 케이스**: TABLE_PER_CLASS (거의 안 씀)
-    
 - **성능/쿼리**
     - N+1 피하려면 fetch join/엔티티그래프/배치사이즈 고려.
     - TABLE_PER_CLASS는 부모 타입 조회 시 UNION이라 페이징·정렬 비용 ↑.
-        
 - **ID 전략**
     - TABLE_PER_CLASS는 **공유 시퀀스(@SequenceGenerator)** 로 충돌 방지.
-        
 - **DDL 관리**
     - 운영에선 Flyway/Liquibase로 스키마 관리, JPA는 validate 권장.
-        
 
 ---
 

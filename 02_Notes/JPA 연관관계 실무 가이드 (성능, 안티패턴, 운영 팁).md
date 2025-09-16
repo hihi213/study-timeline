@@ -196,3 +196,4 @@ spring:
 - [JPA 연관관계 기초](JPA%20연관관계%20기초.md)
 - [JPA 연관관계 매핑 전략](JPA%20연관관계%20매핑%20전략.md)
 - [JPA 연관관계 생명주기 관리 (cascade ,orphanRemoval, persist & remove)](JPA%20연관관계%20생명주기%20관리%20(cascade%20,orphanRemoval,%20persist%20&%20remove).md)
+

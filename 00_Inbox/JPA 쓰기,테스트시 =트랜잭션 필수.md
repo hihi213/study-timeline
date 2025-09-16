@@ -1,7 +1,7 @@
 ---
 type: 생각조각
 status: inbox
-source: 
+source:
 creation_date: 2025-09-09
 ---
 

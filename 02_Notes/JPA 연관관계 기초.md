@@ -114,9 +114,9 @@ class CategoryItem {
 
 ## **5) 양방향 편의 메서드 패턴 (필수 습관)**
 
-> 주인(FK) 쪽 필드를 세팅하지 않으면 **DB FK가 갱신되지 않음**.
+> 주인(FK) 쪽 필드를 세팅하지 않으면 **DB FK가 갱신되지 않음**. -> 관계가 저장되지 않음
 
-```
+```java
 // Order(부모) 쪽 예시
 public void addOrderItem(OrderItem item) {
   orderItems.add(item);   // 뷰(컬렉션) 갱신
@@ -129,7 +129,7 @@ public void setDelivery(Delivery delivery) {
 }
 ```
 
-- **항상 양쪽을 동시에** 맞추는 편의 메서드를 제공해 **일관성**을 보장.
+- 한 메서드 호출로 **컬렉션 쪽(뷰)** 과 **주인 쪽(FK)** 을 **동시에** 일관된게 맞춰준다.
 
 ---
 
@@ -156,8 +156,8 @@ public void setDelivery(Delivery delivery) {
 
 ## **함께 보기**
 
-- 다음 단계: **매핑 선택/트레이드오프** → [JPA 연관관계 매핑 전략](JPA%20연관관계%20매핑%20전략.md)
-- 생명주기/전파(cascade, orphanRemoval) → [JPA 연관관계 생명주기 관리 (cascade ,orphanRemoval, persist & remove)](JPA%20연관관계%20생명주기%20관리%20(cascade%20,orphanRemoval,%20persist%20&%20remove).md)
-- 성능/안티패턴/실무 팁 → [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)
+- 다음 단계: **매핑 선택/트레이드오프** → [JPA 연관관계 매핑 전략](../02_Notes/JPA%20연관관계%20매핑%20전략.md)
+- 생명주기/전파(cascade, orphanRemoval) → [JPA 연관관계 생명주기 관리 (cascade ,orphanRemoval, persist & remove)](../02_Notes/JPA%20연관관계%20생명주기%20관리%20(cascade%20,orphanRemoval,%20persist%20&%20remove).md)
+- 성능/안티패턴/실무 팁 → [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](../02_Notes/JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)
 
 > 파일 이름은 취향대로 바꿔도 됩니다. 위 링크명은 이후 파일 만들 때 맞춰 주세요!
