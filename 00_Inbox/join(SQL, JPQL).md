@@ -190,6 +190,7 @@ WHERE t.name = 'Dev'
 
 > **요약**: LEFT JOIN 유지하고 싶으면 **ON**에서 필터,
 > WHERE에 조건 걸면 **NULL이 제거**되어 결과가 **내부 조인처럼** 줄어든다.
+[[00_Inbox/JOIN...ON vs WHERE 차이(SQL실행순서).md|JOIN...ON vs WHERE 차이(SQL실행순서)]] ^srw7kc
 
 ---
 
