@@ -177,4 +177,5 @@ private List<Order> orders = new ArrayList<>();
 - [어노테이션 총정리(GPT)](../00_Inbox/어노테이션%20총정리(GPT).md)
 - [[00_Inbox/데이터베이스에서의 표현vs 객체에서의 표현.md|데이터베이스에서의 표현vs 객체에서의 표현]]
 - [[00_Inbox/인텔리제이 단축키.md|인텔리제이 단축키]]
+- [[00_Inbox/JPQL.md|JPQL]] ^4h4frx
 
