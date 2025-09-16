@@ -172,7 +172,7 @@ TypedQuery<Order> q = em.createQuery(
 
 ## **4)getResultList() (쿼리 실행)**
 - **역할**: SELECT 실행 후 **List** 반환.
-- **특징**: 결과가 없으면 **빈 리스트** [] 를 반환(절대 null 아님).
+- **특징**: 결과가 없으면 **빈 리스트** \[] 를 반환(절대 null 아님).
 - **단건 조회 대안**: getSingleResult() 는 0건이면 **NoResultException**, 2건 이상이면 **NonUniqueResultException** → 실무에선 getResultList() 받아서 stream().findFirst() 패턴을 자주 씀.
 
 ```java
@@ -180,27 +180,27 @@ List<Order> orders = q.getResultList();      // 0건이면 []
 Order maybeOne = orders.stream().findFirst().orElse(null);
 ```
 
-### merge(entity)
+## merge(entity)
 
 - 분리(detached) 객체 상태를 **새 managed 인스턴스**에 **전체 복사**.
 - **반환 객체만** 변경 추적 대상. **부분 업데이트**에는 부적합(널 덮어쓰기 위험).
 
-### remove(entity)
+## remove(entity)
 
 - **Managed** 엔티티를 삭제 예약 → flush/commit 때 **DELETE**.
 - 자식 삭제는 `cascade = REMOVE/ALL` 또는 `orphanRemoval = true` 고려(공유 엔티티 주의).
 
-### getSingleResult()
+## getSingleResult()
 
 - **정확히 1건** 기대 시 사용. 0건/다건은 예외.
 - “없을 수도 있음”이면 `getResultList()` → `findFirst()` 권장.
 
-### createNamedQuery(name, resultClass)
+## createNamedQuery(name, resultClass)
 
 - 엔티티에 선언한 **@NamedQuery**를 이름으로 실행.
 - 재사용/표준화 장점, **부트 시 파싱**으로 오류 조기 발견.
 
-### createNativeQuery(sql, …)
+## createNativeQuery(sql, …)
 
 - **원시 SQL** 실행. 1) 기본: `Object[]` 2) 엔티티 매핑 3) `@SqlResultSetMapping` 이름으로 매핑.
 - 이식성↓, 컬럼 별칭/매핑 정확히. 페치조인 개념 없음.
@@ -216,32 +216,6 @@ Order maybeOne = orders.stream().findFirst().orElse(null);
 |getResultList()|리스트 결과 수집|아니오(읽기)|없으면 빈 리스트|
 
 ---
-
-## **자주 하는 실수 & 베스트 프랙티스**
-
-- **업데이트를 JPQL로 하지 말고**: 가능하면 find → 필드 변경 → 커밋. (더티체킹)
-- **단건 조회는 getSingleResult() 남용 주의**: 예외 부담 큼 → getResultList() 후 한 건 꺼내기.
-- **타입 안전**: 항상 createQuery(jpql, 타입) 사용.
-- **파라미터는 반드시 바인딩**: 문자열 합치기 금지(SQL 인젝션/캐시 실패).
-- **페이징**: setFirstResult/setMaxResults 는 **JPQL**에서만 안정적으로 동작(네이티브는 DB 방언 영향).
-
----
-
-## **예제: 이름으로 주문 조회(페이징)**
-
-```java
-@Transactional(readOnly = true)
-public List<Order> findOrdersByMember(String name, int page, int size) {
-  return em.createQuery(
-      "select o from Order o join o.member m where m.name = :name order by o.id desc",
-      Order.class
-    )
-    .setParameter("name", name)
-    .setFirstResult(page * size)
-    .setMaxResults(size)
-    .getResultList();
-}
-```
 
 ## **merge(entity)**
 
@@ -388,7 +362,18 @@ List<Member> members = em.createNativeQuery(
 |createNativeQuery()|원시 SQL 실행|선택|이식성↓, 매핑/성능 직접 책임|
 
 ---
+## 6) 추가 API(선택)
 
+- **refresh(entity)**: DB 값으로 **재로딩**(메모리 변경 덮어씀). 대상은 **managed**.
+- **lock(entity, LockModeType)**: 명시적 락(OPTIMISTIC/OPTIMISTIC_FORCE_INCREMENT/PESSIMISTIC_*). 낙관적 락은 보통 `@Version` 필요.
+- **getReference(Class, id)**: **프록시 즉시 획득**(접근 시 조회). 존재 안 하면 접근 시 예외.
+- **contains(entity)**: 현재 영속성 컨텍스트가 **관리 중인지** 여부.
+- **setFlushMode(AUTO/COMMIT)**: EM/쿼리 단위로 flush 시점 조정.
+- **setHint(key, val)**: 쿼리 힌트(캐시/타임아웃/읽기전용 등).
+- **getResultStream()**(JPA 2.2): 결과를 `Stream<T>`로 처리.
+- **getCriteriaBuilder()/createQuery(CriteriaQuery)**: 타입 세이프 Criteria API.
+- **createStoredProcedureQuery(...)**: 저장 프로시저 호출.
+- **unwrap(Class)**: 공급자(Hibernate) 고유 API 접근.
 ## **실무 패턴 미니 가이드**
 
 - **업데이트**: find()로 **managed** 가져와 **필드만 수정** → 변경감지(Dirty Checking) 이용. merge()는 진짜 필요할 때만.

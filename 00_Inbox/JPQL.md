@@ -9,12 +9,14 @@ creation_date: 2025-09-16
 ![[01_Sources/{S} 김영한 응용.md#^4h4frx]]
 
 ---
-- **JPQL과 SQL의 차이:** JPQL은 데이터베이스가 직접 이해하는 언어(SQL)가 아니라, JPA가 이해하는 객체지향 쿼리 언어입니다. 최종적으로는 SQL로 변환되어야 합니다.
+- **SQL:** 데이터베이스가 직접 이해하는 언어
+- JPQL: JPA가 이해하는 객체지향 쿼리 언어, 최종적으로는 SQL로 변환되어야 합니다.
+	- 테이블이 아닌 ‘객체(Entity)’를 대상으로 함
+	- 데이터베이스 종류에 상관없이 코드를 작성할 수 있게 해줍니다. (DB 독립성)
 - **실행 주체:** 데이터베이스가 JPQL을 직접 받는 것이 아니라, 중간에 JPA 구현체(예: Hibernate)와 JDBC 드라이버가 이 변환 및 전달 과정을 담당합니다.
 - **영속성 컨텍스트(Persistence Context):** 쿼리를 보내기 전에, JPA는 영속성 컨텍스트라는 메모리 공간에서 객체를 관리하며, 이것이 JPA 동작의 핵심 전제입니다.
 - **JPA (Java Persistence API):** 자바 애플리케이션에서 관계형 데이터베이스를 사용하는 방식을 정의한 ‘인터페이스(규격)’입니다. ORM(Object-Relational Mapping) 기술의 표준입니다.
 - **ORM (Object-Relational Mapping):** 객체(Object)는 객체답게, 관계형 데이터베이스(Relational Database)는 관계형 데이터베이스답게 사용하도록 중간에서 ‘매핑(Mapping)’해주는 기술입니다. 코드 복잡도를 줄이고 생산성을 높이는 것이 핵심 목표입니다.
-- **JPQL (Java Persistence Query Language):** 테이블이 아닌 ‘객체(Entity)’를 대상으로 하는 쿼리 언어입니다. 데이터베이스 종류에 상관없이 코드를 작성할 수 있게 해줍니다. (DB 독립성)
 - **JPA 구현체 (JPA Provider):** JPA라는 규격(인터페이스)을 실제로 구현한 라이브러리입니다. Hibernate, EclipseLink 등이 있으며, JPQL을 SQL로 번역하는 실질적인 역할을 합니다.
 - **영속성 컨텍스트 (Persistence Context):** 엔티티를 영구 저장하는 ‘환경’이자, 1차 캐시, 쓰기 지연(transactional write-behind) 등의 기능을 제공하는 논리적인 영역입니다. JPA 성능의 핵심입니다.
 - **JDBC (Java Database Connectivity):** 자바 애플리케이션이 데이터베이스와 통신할 수 있도록 해주는 표준 API입니다. JPA 구현체는 최종적으로 JDBC를 통해 SQL을 데이터베이스에 전달합니다.
@@ -83,7 +85,8 @@ SELECT m, t
 FROM Member m LEFT JOIN m.team t ON t.name = :name
 ```
 
----
+[[00_Inbox/join(SQL, JPQL).md|join(SQL, JPQL)]]
+--- ^vho6g4
 
 ## **3) WHERE 조건식**
 
