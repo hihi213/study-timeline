@@ -4,7 +4,7 @@ status: inbox
 source: 
 creation_date: 2025-09-09
 ---
-
+@SpringBootTest` : 스프링 부트 띄우고 테스트(이게 없으면 `@Autowired` 다 실패
 ## **1) 엔티티/테이블 & 식별자(PK)**
 
 ### **@Entity**
@@ -486,6 +486,7 @@ generator=”…”)** _(Hibernate)_
         - rollbackFor / noRollbackFor(예외 기준)
     - 역할: 트랜잭션 경계 설정, 커밋/롤백 자동화
     - 주의: 쓰기 작업은 반드시 트랜잭션 내에서. readOnly라도 지연로딩은 발생 가능. 벌크 DML 후 clear() 고려.
+    - 테스트 클래스에 쓰일때: 트랜잭션을 시작하고 **테스트가 끝나면 트랜잭션을 강제로 롤백** (이 어노테이션이 테스트 케이스에서 사용될 때만 롤백)
 - ### **@EnableJpaAuditing**
     - 위치: **설정(@Configuration) 클래스**
     - 역할: JPA 감사(Auditing) 기능 활성화

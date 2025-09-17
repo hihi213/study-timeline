@@ -158,8 +158,11 @@ private List<Order> orders = new ArrayList<>();
 - **flush**: 1차 캐시 변경을 DB에 **동기화**(보통 commit 직전 자동).
 
 ---
-
-## **10) 최종 체크리스트**
+## 10) TEST 
+- `assertThrows(예외, 람다)` 사용, 람다를 실행했을 때 지정한 예외가 발생하지 않으면 테스트가 실패한다
+- fail
+- [[00_Inbox/스프링test정리.md|스프링test정리]]
+## **11) 최종 체크리스트** ^ifx69f
 
 - 커맨드 핸들러는 **ID만 반환**(엔티티 반환 금지)
 - **@Transactional** 경계 안에서만 쓰기/테스트
