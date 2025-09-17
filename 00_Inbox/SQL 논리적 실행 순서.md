@@ -61,6 +61,115 @@ creation_date: 2025-09-16
     - **HAVING** 7,000.
 4. LEFT JOIN에서 오른쪽 조건을 WHERE에 쓰면 왜 내부 조인처럼 되나?
     - LEFT가 생성한 **NULL 행이 WHERE에서 탈락**하기 때문.
+## 7) **예시 시나리오**
+
+“ACTIVE 회원 중에서 팀 이름이 ‘Dev’로 시작하고, 2024년에 결제된 주문을 기준으로
+팀-연도-월 단위 매출 합계와 주문 수를 구해, 매출 10만 이상 그룹만 최신월 순으로 상위 10건만 본다.”
+### **스키마 가정**
+
+- members(id, name, team_id, status, created_at, ...)
+- teams(id, name, ...)
+- orders(id, member_id, status, created_at, ...)
+- order_items(id, order_id, product_id, quantity, unit_price, ...)
+
+---
+
+```Sql
+SELECT DISTINCT
+       t.name                                    AS team_name,
+       EXTRACT(YEAR  FROM o.created_at)          AS order_year,
+       EXTRACT(MONTH FROM o.created_at)          AS order_month,
+       COUNT(DISTINCT o.id)                      AS order_cnt,
+       SUM(oi.quantity * oi.unit_price)          AS total_revenue,
+       AVG(oi.quantity * oi.unit_price)          AS avg_item_amount
+       
+FROM   members      AS m     -- (1) FROM: 기준 테이블 1개
+JOIN   teams        AS t  ON t.id = m.team_id    -- (2) ON: 조인 규칙
+                       AND t.name LIKE 'Dev%'     --     (조인 시점 필터)
+JOIN   orders       AS o  ON o.member_id = m.id -- (3) JOIN: ON 규칙으로 결합
+                       AND o.status = 'PAID'
+LEFT JOIN order_items AS oi ON oi.order_id = o.id
+WHERE  m.status = 'ACTIVE'       -- (4) WHERE: 개별 행 필터
+  AND  o.created_at >= DATE '2024-01-01'
+  AND  o.created_at <  DATE '2025-01-01'
+GROUP BY
+       t.name,    -- (5) GROUP BY: 묶기
+       EXTRACT(YEAR  FROM o.created_at),
+       EXTRACT(MONTH FROM o.created_at)
+HAVING SUM(oi.quantity * oi.unit_price) >= 100000   -- (6) HAVING: 그룹 필터
+ORDER BY         -- (9) ORDER BY: 정렬 (별칭 사용 가능)
+       order_year  DESC,
+       order_month DESC,
+       team_name   ASC
+LIMIT  10   -- (10) LIMIT
+OFFSET 0;
+```
+
+> ⚠️ **주의**
+
+> 위 쿼리에서 SELECT DISTINCT는 **GROUP BY가 이미 중복을 정규화**하기 때문에 **사실상 중복**이야.
+> 여기서는 **10단계 전부를 시연**하려고 DISTINCT도 넣었어. 실무에선 GROUP BY만으로 충분하면 DISTINCT는 빼는 걸 권장!
+
+---
+
+### **단계별 해설 (논리 처리 순서)**
+
+1. **FROM** – 기준(출발) 테이블 1개 확정
+    FROM members AS m 에서 **멤버**를 기준으로 시작해.
+2. **ON** – 조인 규칙(조인 대상 한정)
+    ON t.id = m.team_id AND t.name LIKE 'Dev%' 처럼 **“붙이는 순간”의 필터**를 적어.
+    같은 방식으로 orders에도 o.status = 'PAID'를 **조인 시점**에 걸었어.
+3. **JOIN** – ON 규칙에 따라 테이블 결합 → **가상 테이블** 완성
+    JOIN teams AS t ... JOIN orders AS o ... LEFT JOIN order_items AS oi ...
+    이 단계까지가 “재료 연결” 단계야.
+4. **WHERE** – 결합된 **개별 행** 필터
+    m.status = 'ACTIVE' 및 **날짜 범위**를 최종 결과 행 기준으로 거른다.
+    (LEFT JOIN에서 오른쪽 테이블 조건을 WHERE에 쓰면 **내부조인처럼** 줄어들 수 있으니 주의)
+5. **GROUP BY** – 묶기(집계 기준 정의)
+    t.name, EXTRACT(YEAR), EXTRACT(MONTH) 기준으로 **팀-연도-월** 단위 그룹을 만든다.
+6. **HAVING** – 그룹 필터
+    SUM(...) >= 100000 으로 **매출 10만 이상인 그룹**만 남긴다.
+    (집계 조건은 WHERE가 아닌 **HAVING**에!)
+7. **SELECT** – 보여줄 **열 선택** + **별칭 확정**
+    AS team_name, AS order_year 등 **모든 컬럼에 별칭**을 부여했다.
+    집계값/개수/평균도 여기서 선택.
+8. **DISTINCT** – (중복 제거)
+    데모 목적상 포함. GROUP BY와 함께면 보통 불필요.
+9. **ORDER BY** – 정렬 (**SELECT 별칭 사용 가능**)
+    order_year, order_month, team_name **별칭으로** 정렬.
+10. **LIMIT / OFFSET** – 자르기(페이징)
+    페이지네이션을 위해 **상위 10건**만, 0부터 시작.
+
+---
+## **보너스: 같은 의도를 JPQL로(간략)**
+
+> (JPQL은 테이블이 아닌 **엔티티/필드명**을 사용)
+
+```sql
+SELECT DISTINCT
+       t.name                         AS team_name,
+       EXTRACT(YEAR  FROM o.createdAt) AS order_year,
+       EXTRACT(MONTH FROM o.createdAt) AS order_month,
+       COUNT(DISTINCT o.id)            AS order_cnt,
+       SUM(oi.quantity * oi.unitPrice) AS total_revenue,
+       AVG(oi.quantity * oi.unitPrice) AS avg_item_amount
+FROM   Member      m
+JOIN   m.team      t  -- ON은 엔티티 연관 매핑을 통해 암묵 처리
+JOIN   m.orders    o
+LEFT JOIN o.items  oi
+WHERE  m.status = :active
+  AND  t.name LIKE 'Dev%'
+  AND  o.status = 'PAID'
+  AND  o.createdAt >= :from
+  AND  o.createdAt <  :to
+GROUP BY t.name, EXTRACT(YEAR  FROM o.createdAt), EXTRACT(MONTH FROM o.createdAt)
+HAVING SUM(oi.quantity * oi.unitPrice) >= 100000
+ORDER BY order_year DESC, order_month DESC, team_name ASC
+```
+
+> JPQL은 DB 함수/표현식 지원이 벤더에 따라 다를 수 있어. 연/월 기준은
+> FUNCTION('extract', 'year', o.createdAt) 같은 방식으로도 쓸 수 있음(하이버네이트).
+
 ## **함께 보기**
 
 - [JOIN...ON vs WHERE 차이](JOIN...ON%20vs%20WHERE%20차이.md)
