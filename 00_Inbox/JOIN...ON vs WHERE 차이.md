@@ -6,7 +6,7 @@ creation_date: 2025-09-16
 ---
 
 ## 📜 원본 맥락
-![[00_Inbox/join(SQL, JPQL).md#^srw7kc]]
+![[00_Inbox/join(SQL, JPQL).md#^srw7kc]] ^0vjh51
 
 ---
 ## 정리
