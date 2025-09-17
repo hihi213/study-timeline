@@ -10,14 +10,16 @@ creation_date: 2025-09-16
 
 ---
 ## 0) 초간단 결정표
-- 새로 저장? → persist (cascade 필요 시 부모만 저장)
-- PK로 조회? → find
-- 분리 객체 다시 관리? → merge(반환값 사용) **or** find 후 필드 변경(권장)
-- 삭제? → remove(managed 보장)
-- 여러 건 조회? → createQuery(...).getResultList()
-- 단건 조회(안전)? → getResultList().stream().findFirst()
-- 정적 재사용 쿼리? → createNamedQuery
+
+- **새로 저장** → persist  (쓰기 트랜잭션 필요)
+- **PK로 단건 조회** → find
+- **여러 건/조건 조회** → createQuery(...).setParameter(...).getResultList()
+- **단건(없을 수도 있음)** → getResultList().stream().findFirst()
+- **정적 재사용 쿼리** → createNamedQuery
 - DB SQL 그대로? → createNativeQuery (+ 매핑 지정)
+- **분리 엔티티 갱신** → 가급적 find 후 필드 변경(권장), 어쩔 수 없을 때 merge
+- **삭제** → remove (managed 보장)
+- **대량 갱신/삭제** → executeUpdate() 후 **em.clear()**
 
 ## **1) 엔티티 생명주기 작업**
 
@@ -47,7 +49,7 @@ creation_date: 2025-09-16
 | createNativeQuery(sql)            | **순수 SQL**                 | Query (기본 List<Object[]>) | createNativeQuery(sql, Entity.class) 또는 SqlResultSetMapping으로 매핑 가능 |
 | **setParameter(name, val)**       | 파라미터 바인딩                   | `Query`                   | 이름/위치 파라미터 모두 가능(이름 권장)                                             |
 | **setFirstResult/ setMaxResults** | **페이징**                    | `Query`                   | JPA 표준 페이징                                                          |
-| **executeUpdate()**               | **벌크 UPDATE/DELETE**실행     | `int`(영향 행 수)             | 실행 직후 `**em.clear()**` **권장**(1차 캐시 불일치 방지)                         |
+| **executeUpdate()**               | **벌크 UPDATE/DELETE**실행     | `int`(영향 행 수)             | 실행 직후 `em.clear()` **권장**(1차 캐시 불일치 방지)                             |
 
 > 단건 안전 조회 패턴
 >createQuery(...).setParameter(...).setMaxResults(1).getResultList().stream().findFirst().orElse(null)
@@ -168,6 +170,9 @@ TypedQuery<Order> q = em.createQuery(
  .setFirstResult(0).setMaxResults(50);
 ```
 
+- **파라미터 바인딩 (Parameter Binding):** SQL 쿼리문에 변수가 들어갈 자리를 미리 **'틀'로** 만들어 놓고(예: `:username`), 실행 시점에 `setParameter`를 통해 **'값'을** 안전하게 채워 넣는 기술입니다.
+	- **이름 기반 파라미터 (Named Parameter):** `... WHERE m.name = :name` 처럼 이름으로 자리를 지정.
+	- **위치 기반 파라미터 (Positional Parameter):** `... WHERE m.name = ?1` 처럼 물음표와 순서로 자리를 지정.
 ---
 
 ## **4)getResultList() (쿼리 실행)**
@@ -318,7 +323,7 @@ List<Member> list = em
 
 ---
 
-# **createNativeQuery(sql, …)**
+## **createNativeQuery(sql, …)**
 
 - **무엇**: **원시 SQL** 실행. JPQL로 어려운 DB 전용 기능/복잡 쿼리/뷰/스칼라 결과에 사용.
 - **반환 타입 3가지**

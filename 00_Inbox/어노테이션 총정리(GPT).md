@@ -10,7 +10,6 @@ creation_date: 2025-09-09
 
 - @Id: 기본키(PK) 필드 지정.
 - @GeneratedValue(strategy=...): PK 생성 전략(IDENTITY/SEQUENCE/TABLE/AUTO).
-
 ### **컬럼/값 매핑**
 
 - @Column(name=..., nullable=..., length=..., unique=...): 컬럼 속성 지정.

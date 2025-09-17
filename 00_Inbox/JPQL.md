@@ -293,4 +293,4 @@ FROM Member m WHERE m.email = :email
 [[00_Inbox/JPA EntityManager 치트시트.md|JPA EntityManager 치트시트]]
 
 ## 💭 나의 추가적 생각/질문
-- ^dp9w89
+- [SQL 논리적 실행 순서](SQL%20논리적%20실행%20순서.md)
