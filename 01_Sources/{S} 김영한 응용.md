@@ -35,7 +35,7 @@ creation_date: 2025-09-09
 - **“반드시 외래 키가 있는 곳을 연관관계의 주인으로 정해라.”**
 - **양방향은 편의일 뿐**: 주인은 하나(FK 가진 쪽); 거울(mappedBy)은 **조회 전용**.
 - **영속성 컨텍스트 동일성:** “식별자(PK)가 같으면 같은 엔티티로 인식한다.”
-    
+
     → 같은 트랜잭션/퍼시스턴스 컨텍스트에서 **동일성(\==)** 보장.
 
 ---
@@ -44,9 +44,9 @@ creation_date: 2025-09-09
 
 - **네이밍:** 소문자 + 스네이크(member_point) 권장.
 - **1:1 매핑:** FK 위치는 **접근 빈도 높은 테이블**에 두자.
-    
+
     예) Delivery보다 Order에서 Delivery를 더 자주 본다 → **Order에 FK(=delivery_id)**.
-    
+
 - **상속 매핑:**
     - 부모(추상 클래스) + 자식들(Book/Album/…)
     - 부모에 @Inheritance(strategy=...), @DiscriminatorColumn(name = "dtype")
@@ -122,14 +122,30 @@ private List<Order> orders = new ArrayList<>();
 ### 6-7) 의존성주입
 - 스프링필드주입말고 final+ 룸북으로 생성자 주입을 쓰자
 	![**D) 롬복으로 생성자 주입 (최종권장)**](../00_Inbox/의존성주입방식비교.md#**D\)%20롬복으로%20생성자%20주입%20(최종권장)**)
---- 
+---
+### 6_8 엔티티에 비즈스 로직을 두는경우(도메인 주도 설계)
+
+서비스 계층 같은 외부에서 엔티티의 데이터를 꺼내어 수정하고 다시 저장하는 방식이 아니라, **엔티티가 스스로 자신의 상태를 변경하는 메서드를 내부에 구현**하라는 의미
+
+- **엔티티(Entity)**:
+    
+    1. 자신의 데이터(상태)를 가집니다. (예: `stockQuantity`)
+    2. 자신의 데이터를 변경하는 **비즈니스 로직(행위)을 메서드로 직접 포함**합니다. (예: `addStock(int quantity)`)
+    3. Setter를 무분별하게 열어두기보다, 의미 있는 메서드를 통해 상태 변경을 제어합니다.
+        
+- **서비스(Service)**:
+    
+    1. 트랜잭션 관리나 여러 도메인(엔티티)을 엮어주는 **조율자(Orchestrator)** 역할을 합니다.
+    2. 직접적인 비즈니스 계산보다는 엔티티에 "요청"하는 역할을 합니다. (예: `item.addStock(10);`)
+
+이 방식은 관련 데이터와 로직이 한곳에 뭉쳐있어 **응집도**가 높고, 코드를 재사용하거나 테스트하기 용이하며, 복잡한 비즈니스 로직을 체계적으로 관리할 수 있게 해줍니다
 
 ## **7) 로딩 전략과 N+1**
 
 - **실무 기본:** 모든 연관관계 **LAZY**.
-    
+
     (@ManyToOne, @OneToOne는 기본이 EAGER → 반드시 LAZY로 오버라이드)
-    
+
 - **N+1 문제:** JPQL로 N개 로우 조회 시, 연관 엔티티를 개별로 N번 추가 조회하는 현상.
 - **해결:**
     - **fetch join**(JPQL)
@@ -143,7 +159,7 @@ private List<Order> orders = new ArrayList<>();
 - **cascade**: 부모 동작을 자식에 전파(PERSIST/REMOVE/…/ALL).
 - **orphanRemoval=true**: 컬렉션에서 제거되거나 FK 끊겨 **고아**가 되면 자식 **DELETE**.
 - **언제 쓰나:** 애그리거트 내부, **부모에만 종속**되는 자식(예: Order↔OrderItem, Order↔Delivery).
-    
+
     공유 엔티티(Member, Product 등)에는 **금지**.
 
 ---
@@ -151,14 +167,14 @@ private List<Order> orders = new ArrayList<>();
 ## **9) 용어·동작 이해 (persist/remove/flush)**
 
 - **persist**: “저장 예약(INSERT)” → flush/commit 때 실제 SQL.
-    
+
     (IDENTITY 전략이면 즉시 INSERT 가능)
-    
+
 - **remove**: “삭제 예약(DELETE)” → flush/commit 때 SQL.
 - **flush**: 1차 캐시 변경을 DB에 **동기화**(보통 commit 직전 자동).
 
 ---
-## 10) TEST 
+## 10) TEST
 - `assertThrows(예외, 람다)` 사용, 람다를 실행했을 때 지정한 예외가 발생하지 않으면 테스트가 실패한다
 - fail
 - [[00_Inbox/스프링test정리.md|스프링test정리]]
@@ -175,16 +191,16 @@ private List<Order> orders = new ArrayList<>();
 - 1:1 FK는 **접근 빈도 높은 곳**에
 - FK 사용 여부는 **도메인/운영 요구**로 결정(정합성 vs 가용성)
 - **편의 메서드**로 양쪽 동기화(특히 주인/FK 세팅)
-- 컨트롤러가 서비스를 무조건 거치는 설계x 
+- 컨트롤러가 서비스를 무조건 거치는 설계x
 	- 다 서비스를 걸치면 그건 그거대로 문제.
-	- 리포지토리에 간단한 회원정보 하나 뿌릴땐 
+	- 리포지토리에 간단한 회원정보 하나 뿌릴땐
 	- 회원 리포지 토리에 바로 회원
 	- 서비스는 단순하게 레포지토리 위임할일밖에 없는데 모든걸 서비스를 타면 그것도 실용적으로 문제
 
 > **persist 순간, JPA는 캐시 키로 쓸 PK가 필요해서 ID를 즉시 확보해 엔티티에 채워 넣는다.**
 > 전략에 따라 “바로 INSERT(ID 받아오기)”(IDENTITY) 혹은 “키만 미리 땡김”(SEQUENCE/TABLE).
 
-## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
+## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 - - [임베디드 값타입과 ENUM의 차이](../00_Inbox/임베디드%20값타입과%20ENUM의%20차이.md)
 - - [assertThat(actual).isEqualTo(expected)란](../00_Inbox/assertThat(actual).isEqualTo(expected)란.md)
 - [어노테이션 총정리(GPT)](../00_Inbox/어노테이션%20총정리(GPT).md)
