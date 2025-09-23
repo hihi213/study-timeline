@@ -36,7 +36,6 @@ creation_date: 2025-09-09
 - **“반드시 외래 키가 있는 곳을 연관관계의 주인으로 정해라.”**
 - **양방향은 편의일 뿐**: 주인은 하나(FK 가진 쪽); 거울(mappedBy)은 **조회 전용**.
 - **영속성 컨텍스트 동일성:** “식별자(PK)가 같으면 같은 엔티티로 인식한다.”
-
     → 같은 트랜잭션/퍼시스턴스 컨텍스트에서 **동일성(\==)** 보장.
 
 ---
@@ -98,8 +97,12 @@ creation_date: 2025-09-09
 
 ```java
 public void addOrderItem(OrderItem item) {
-    orderItems.add(item);   // 뷰(컬렉션)
-    item.setOrder(this);    // ★ 주인(FK) 세팅
+    //     이 동작만으로는 SQL이 발생하지 않는다(DB 미변경)
+    orderItems.add(item);   // 하지만 DB단계가 아닌 객체 단계 메모리 상에서 Order ↔ OrderItem의 일관성 맞추기 위해 추가
+    
+    //실제 DB변경관련 메소드
+    item.setOrder(this);    // "`OrderItem` 객체인 item안의 `order` 필드에, 지금 이 `Order` 객체(this)를 넣어준다.
+    //이때의 this는 이 메서드를 호출한 Order객체 자신
 }
 ```
 
@@ -208,4 +211,6 @@ private List<Order> orders = new ArrayList<>();
 - [[00_Inbox/데이터베이스에서의 표현vs 객체에서의 표현.md|데이터베이스에서의 표현vs 객체에서의 표현]]
 - [[00_Inbox/인텔리제이 단축키.md|인텔리제이 단축키]]
 - [[00_Inbox/JPQL.md|JPQL]] ^4h4frx
+- [[00_Inbox/매서드에 배열로 받되 몇개 받을지 지정안해도 되는 문법_가변인자.md|매서드에 배열로 받되 몇개 받을지 지정안해도 되는 문법_가변인자]]
+- [[00_Inbox/향상된 for문(for-each)루프.md|향상된 for문(for-each)루프]]
 
