@@ -6,6 +6,7 @@ creation_date: 2025-09-16
 ---
 
 ## 📜 원본 맥락
+
 ![[00_Inbox/JPQL.md#^dp9w89]]
 
 ---
@@ -43,7 +44,7 @@ creation_date: 2025-09-16
 | **메서드**                           | **용도**                     | **반환/행동**                 | **포인트**                                                             |
 | --------------------------------- | -------------------------- | ------------------------- | ------------------------------------------------------------------- |
 | createQuery(jpql, T.class)        | **JPQL**(엔티티 대상) 작성        | TypedQuery<T>             | select e from Order e where e.status = :s                           |
-| getResultList()                   | **여러 건 조회**                | List<T> (비어 있을 수 있음)      | N건 결과. 절대 null 아님                                                   |
+| getResultList()                   | **여러 건 조회**                | List\<T> (비어 있을 수 있음)     | N건 결과. 절대 null 아님                                                   |
 | getSingleResult()                 | **단건 조회**                  | T                         | 없으면 NoResultException, 2건+이면 NonUniqueResultException               |
 | createNamedQuery(name, T.class)   | 사전에 정의한 **@NamedQuery** 실행 | TypedQuery<T>             | 재사용/정적쿼리, 컴파일 타임 검증 장점                                              |
 | createNativeQuery(sql)            | **순수 SQL**                 | Query (기본 List<Object[]>) | createNativeQuery(sql, Entity.class) 또는 SqlResultSetMapping으로 매핑 가능 |
@@ -285,8 +286,6 @@ T result = em.createQuery(jpql, T.class)
              .getResultList()
              .stream().findFirst().orElse(null);
 ```
-
-- 
     
     처럼 **getResultList() 후 findFirst()** 패턴으로 안전 처리.
 
@@ -305,8 +304,6 @@ T result = em.createQuery(jpql, T.class)
 @Entity
 class Member { ... }
 ```
-
-- 
 - **장점**
     - 쿼리를 **컴파일 시점에 파싱**(부트 시 기동 실패로 빨리 오류 발견)
     - 재사용/표준화 쉬움, 코드 깔끔
@@ -388,4 +385,5 @@ List<Member> members = em.createNativeQuery(
 
 ---
 ## 💭 나의 추가적 생각/질문
--
+
+[[entitymanager.find와 createQuery로 구현한 findall의 차이|entitymanager.find와 createQuery로 구현한 findall의 차이]] ^kbp5xd

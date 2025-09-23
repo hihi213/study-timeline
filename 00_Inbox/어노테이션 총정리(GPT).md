@@ -4,7 +4,9 @@ status: inbox
 source: 
 creation_date: 2025-09-09
 ---
+
 @SpringBootTest` : 스프링 부트 띄우고 테스트(이게 없으면 `@Autowired` 다 실패
+
 ## **1) 엔티티/테이블 & 식별자(PK)**
 
 ### **@Entity**
@@ -30,7 +32,7 @@ creation_date: 2025-09-09
 - **위치**: 필드/게터
 - **매개변수**:
     - strategy: 키 생성 전략
-    - generator = "name" 
+    - generator = "name"
 	    - ### **@SequenceGenerator / @TableGenerator**와 **이름 연결**
 - **역할**: PK 자동 생성.
 - **주의**:
@@ -155,21 +157,27 @@ creation_date: 2025-09-09
 - **역할**: **DDL 생성 시** 컬럼 기본값 지정.
 - **주의**: 런타임 INSERT 값이 null이면 DB 기본값 적용 여부는 DB 규칙에 따름. JPA 레벨 캐시 값과 **불일치** 주의.
 
-### **@Comment(“text”)** 
+### **@Comment(“text”)**
+
 (Hibernate)
+
 - **위치**: **필드/클래스**
 - **역할**: 컬럼/테이블 **주석(DDL)**.
 - **주의**: DDL 생성 시에만 반영.
 
 ### **@ColumnTransformer(read=“SQL”, write=“SQL”)**
+
 (Hibernate)
+
 - **위치**: **필드**
 - **매개변수**: read(조회 식), write(저장 식)
 - **역할**: **암복호화/함수** 등, DB 표현과 엔티티 값 사이 변환.
 - **주의**: **JPQL 조건에도 식이 그대로** 들어가 성능/인덱스 영향 가능. 가능하면 @Converter 우선.
 
 ### **@Nationalized**
+
 (Hibernate)
+
 - **위치**: **필드**
 - **역할**: 문자 컬럼을 **NVARCHAR/NCLOB**로 매핑(유니코드).
 - **주의**: DB 방언 지원 필요.
@@ -326,7 +334,9 @@ generator=”…”)** _(Hibernate)_
 - **주의**: 하위 행이 **DB에서 직접 삭제**되므로 영속성 컨텍스트 동기화 주의(캐시 불일치 가능).
 
 ### **@JoinFormula(value=“sql_expr”)**
+
 (Hibernate)
+
 - **위치**: **연관 필드**
 - **매개변수**: value(조인 식)
 - **역할**: **물리 FK 없이** 계산식으로 연관 매핑.

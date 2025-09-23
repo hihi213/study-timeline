@@ -24,8 +24,9 @@ creation_date: 2025-09-09
 - **쓰기와 테스트는 트랜잭션 필수**:
     @Transactional 경계 안에서만 JPA가 제대로 동작(쓰기 지연, flush, 영속성 컨텍스트 일관성).
     - 데이터 변경하는 service에 그래서 트랜잭션널 어노테이션있어야
-- @Transactional은 두가지 있는데 spring제공하는걸로 사용하기
+- @Transactional은 두가지 있는데 spring제공하는걸로 사용하기 ^h0d1r6
 	- 조회는 @Transactional(readOnly=true)로 써서 더 최적화 할수있으니 true키기
+		- 데이터를 변경할 때 필요한 여러 복잡한 작업들을 **생략** [[00_Inbox/@Transactional(readOnly)를 키면 일어나는일.md|@Transactional(readOnly)를 키면 일어나는일]]
 	- 클래스에 @Transactional하고 매서드에 @Transactional(readOnly = true)해서 조회만 옵션을 켜준다거나 그 반대도 가능
 - 테스트에서도 트랜잭션으로 격리/롤백 보장.
 ---

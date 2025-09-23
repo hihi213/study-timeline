@@ -6,6 +6,7 @@ creation_date: 2025-09-16
 ---
 
 ## 📜 원본 맥락
+
 ![[01_Sources/{S} 김영한 응용.md#^4h4frx]]
 
 ---
@@ -86,6 +87,7 @@ FROM Member m LEFT JOIN m.team t ON t.name = :name
 ```
 
 [[00_Inbox/join(SQL, JPQL).md|join(SQL, JPQL)]]
+
 --- ^vho6g4
 
 ## **3) WHERE 조건식**
