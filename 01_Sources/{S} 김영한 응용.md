@@ -148,28 +148,106 @@ private List<Order> orders = new ArrayList<>();
 
 > 목적: **객체 생성·초기화 로직을 한 곳에 모아** 규칙 변경 시 그 메서드만 고치면 되게 하자.
 - [[00_Inbox/객체를 생성할때 생성시점을 메서드화해서 생성시점을 단일화 하자.md|객체를 생성할때 생성시점을 메서드화해서 생성시점을 단일화 하자]]
+- 이렇게 생성지점을 단일화했는데 다른곳에서 New로 만들면 나중에 필드/검증/연관 세팅이 흩어져 유지보수가 힘들어짐
+- 그래서 Proctected 기본생성자를 선언해주면 다른곳에서 new로 생성할때 컴파일에러가 나서 막아준다
+	- lombook으로 편하게 생성가능
+	- @NoArgsConstructor(access = AccessLevel.PROTECTED)
 
 ## **7) 로딩 전략과 N+1**
 
 - **실무 기본:** 모든 연관관계 **LAZY**.
-
     (@ManyToOne, @OneToOne는 기본이 EAGER → 반드시 LAZY로 오버라이드)
-
 - **N+1 문제:** JPQL로 N개 로우 조회 시, 연관 엔티티를 개별로 N번 추가 조회하는 현상.
 - **해결:**
     - **fetch join**(JPQL)
     - **@EntityGraph**
     - **@BatchSize** (배치 페치)
 
+## **8) 캐스케이드/고아 삭제**
+
+### **8-0. 한 줄 정의**
+- 잘 모르면 처음엔 쓰지 말자. 나중에 리펙토링할때 써라
+- cascade = CascadeType.ALL **=** PERSIST + MERGE + REMOVE + REFRESH + DETACH 전파
+
+    → **부모에 한 JPA 연산이 자식에도 그대로 적용**.
+
 ---
 
-## **8) 캐스케이드/고아 삭제 (짧게 요약)**
+### **8-1. 언제 쓰나 (권장 기준)**
 
-- **cascade**: 부모 동작을 자식에 전파(PERSIST/REMOVE/…/ALL).
-- **orphanRemoval=true**: 컬렉션에서 제거되거나 FK 끊겨 **고아**가 되면 자식 **DELETE**.
-- **언제 쓰나:** 애그리거트 내부, **부모에만 종속**되는 자식(예: Order↔OrderItem, Order↔Delivery).
+- **프라이빗 오너(Private Owner)**: 자식이 **그 부모에서만** 참조됨
+    - 다른곳에서 자식을 참조x일때
+- **수명주기 동일**: 부모 생성/삭제 시 자식도 **항상 함께** 생성/삭제
+- 위 두 조건이면 보통 cascade = ALL + 필요 시 orphanRemoval = true
 
-    공유 엔티티(Member, Product 등)에는 **금지**.
+> **체크리스트**
+> [ ] 자식이 **부모 전용**인가?
+> [ ] **부모와 함께** 생성/삭제되는가?
+> [ ] 부모 컬렉션에서 빠지면 **삭제가 규칙**인가? → 그러면 orphanRemoval = true
+> [ ] 자식을 다른 곳에서 **재사용/독립 저장**하나? → 그렇다면 **cascade 금지** ->별도의 Repository생성해서 persist
+
+---
+
+### **8-2. 언제 피하나**
+
+- 자식을 **여러 애그리거트/도메인에서 공유**(예: Member, Product)
+- 삭제 전파가 위험하거나, 대형 그래프에 **성능/트랜잭션 리스크**
+- **@ManyToOne 쪽에 무지성 cascade** (부모까지 의도치 않게 persist/remove)
+
+---
+
+### **8-3. 자동으로 되는 것 (예:** Order ->OrderItem, Delivery)
+
+```java
+@OneToMany(mappedBy="order", cascade = CascadeType.ALL, orphanRemoval = true)
+private final List<OrderItem> orderItems = new ArrayList<>();
+
+@OneToOne(fetch = LAZY, cascade = CascadeType.ALL)
+@JoinColumn(name = "delivery_id")
+private Delivery delivery;
+```
+
+- **PERSIST**: save(order) 한 번으로 자식들도 INSERT
+- **MERGE**: 분리된 그래프 merge(order) 시 자식 변경도 병합
+- **REMOVE**: remove(order) 시 자식들도 DELETE
+- **REFRESH/DETACH**: 부모에 맞춰 자식도 갱신/분리
+
+---
+
+### **8-4. 자동이** 아닌것
+
+- **컬렉션에서 제거 ≠ DB 삭제**
+    → orphanRemoval = true일 때만 “부모와 단절된 자식”을 자동 DELETE
+- **DB의 ON DELETE CASCADE와 다름**
+    → JPA의 **연산 전파**일 뿐, DB 제약/트리거와 별개
+
+---
+
+### **8-5. 저장 패턴(생성 지점 단일화 + 전파 활용)**
+
+```Java
+@Transactional
+public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
+  Order o = Order.placeOrder(clock, m, d, items); // 정적 팩토리에서 검증/초기화/양방향 동기화
+  orderRepository.save(o);                        // cascade로 자식까지 함께 persist
+  return o.getId();
+}
+```
+
+---
+
+### **8-6. 실무 팁**
+
+- 초반엔 **보수적으로(미사용)** 시작 → “**프라이빗 + 수명 동일**”이 **명확**해지면 ALL 도입
+- 전파 범위가 과할 땐 **선별 전파**: cascade = {PERSIST, REMOVE} 등만 사용
+- 삭제 의도가 도메인 규칙이면 orphanRemoval = true로 **“컬렉션에서 빠지면 삭제”**를 모델링
+
+---
+
+### **8-7. 결론**
+
+> **“프라이빗 + 수명 동일”**일 때만 **Cascade**.
+> 그 외에는 **명시적 save/remove**가 안전하다.
 
 ---
 
@@ -205,7 +283,10 @@ private List<Order> orders = new ArrayList<>();
 	- 리포지토리에 간단한 회원정보 하나 뿌릴땐
 	- 회원 리포지 토리에 바로 회원
 	- 서비스는 단순하게 레포지토리 위임할일밖에 없는데 모든걸 서비스를 타면 그것도 실용적으로 문제
-
+- **Cascade는 ‘프라이빗 + 수명 동일’ 자식에만**(예: OrderItem/Delivery), 그 외엔 금지
+- 필요 시에만 **선별 전파**(PERSIST/REMOVE), 무지성 ALL 지양
+- **orphanRemoval=true**는 부모 컬렉션에서 빠지면 **삭제가 도메인 규칙**일 때만
+- 생성은 **정적 팩토리**로 단일화, save(order) 한 번 + Cascade로 일괄 persist
 > **persist 순간, JPA는 캐시 키로 쓸 PK가 필요해서 ID를 즉시 확보해 엔티티에 채워 넣는다.**
 > 전략에 따라 “바로 INSERT(ID 받아오기)”(IDENTITY) 혹은 “키만 미리 땡김”(SEQUENCE/TABLE).
 
