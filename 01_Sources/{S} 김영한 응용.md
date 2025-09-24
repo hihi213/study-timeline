@@ -306,7 +306,11 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 ---
 ## 10) TEST
 - `assertThrows(예외, 람다)` 사용, 람다를 실행했을 때 지정한 예외가 발생하지 않으면 테스트가 실패한다
-- fail
+- **가장 좋은 테스트는 “도메인(엔티티) 단위 테스트”**다.
+    DB·스프링 컨텍스트 없이 **순수 자바로 메서드 하나하나 검증**하면 더 빠르고, 실패 원인도 명확하다. (**Spring 띄우지 말고** JUnit만으로 테스트)
+- **통합 테스트는 “연결이 맞는지” 확인용**이다.
+    여러 엔티티·리포지터리·트랜잭션을 **엮어서 동작**을 볼 때 의미가 있다.
+
 - [[00_Inbox/스프링test정리.md|스프링test정리]]
 ## **11) 최종 체크리스트**
 
@@ -346,4 +350,5 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 - [[00_Inbox/향상된 for문(for-each)루프.md|향상된 for문(for-each)루프]]
 - [[00_Inbox/Stream 정리.md|Stream 정리]]
 - [[00_Inbox/람다정리.md|람다정리]] ^gseyqr
+- [[00_Inbox/동적쿼리개발.md|동적쿼리개발]]
 
