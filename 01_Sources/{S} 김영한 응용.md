@@ -219,4 +219,5 @@ private List<Order> orders = new ArrayList<>();
 - [[00_Inbox/매서드에 배열로 받되 몇개 받을지 지정안해도 되는 문법_가변인자.md|매서드에 배열로 받되 몇개 받을지 지정안해도 되는 문법_가변인자]]
 - [[00_Inbox/향상된 for문(for-each)루프.md|향상된 for문(for-each)루프]]
 - [[00_Inbox/Stream 정리.md|Stream 정리]]
+- [[00_Inbox/람다정리.md|람다정리]] ^gseyqr
 
