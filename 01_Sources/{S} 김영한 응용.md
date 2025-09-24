@@ -29,7 +29,50 @@ creation_date: 2025-09-09
 		- 데이터를 변경할 때 필요한 여러 복잡한 작업들을 **생략** [[00_Inbox/@Transactional(readOnly)를 키면 일어나는일.md|@Transactional(readOnly)를 키면 일어나는일]]
 	- 클래스에 @Transactional하고 매서드에 @Transactional(readOnly = true)해서 조회만 옵션을 켜준다거나 그 반대도 가능
 - 테스트에서도 트랜잭션으로 격리/롤백 보장.
----
+### **2-1) Dirty Checking & save() 호출 기준**
+
+> **핵심:** JPA에서는 **영속(Managed)** 엔티티의 **필드만 바꾸면** JPA가 알아서 업데이트 쿼리를 DB에 보낸다.
+> 정확히는 트랜잭션 끝(= flush/commit)에 **Dirty Checking**으로 **UPDATE SQL이 자동**으로 나간다.
+> → 변경 시 **별도 repository.save() 호출이 필요 없다**(특수 케이스 제외).
+
+#### Repository.save()가 필요없는경우
+
+- DB에서 **조회해 온 엔티티(영속)** 를 **수정만** 할 때
+
+```java
+@Transactional
+public void cancelOrder(Long orderId) {
+    Order order = orderRepository.findById(orderId).orElseThrow();
+    order.cancel(); // 내부에서 this.status = CANCEL; + orderItems.forEach(oi -> oi.addStock(...));
+    // save() 불필요 — 커밋 시 JPA가 UPDATE 자동 실행
+}
+```
+
+#### 언제 Repository.save()가 필요?
+
+- **새로 만든 엔티티(비영속)** 를 **처음 저장**할 때 → persist
+    - 보통 **애그리거트 루트**만 save()하고, 자식은 **Cascade(PERSIST/ALL)** 로 전파
+- **준영속(detached)** 엔티티의 변경을 **반영**할 때 → merge(Spring Data JPA의 save가 처리) 또는 **재조회 후 수정**
+
+#### **엔티티 생명주기(요약)**
+
+- **비영속(Transient)**: new로 생성만 한 상태, JPA가 모름
+- **영속(Managed)**: `repository.save()`를 호출하거나, DB에서 `repository.find()`로 조회한 엔티티의 상태.
+- **준영속(Detached)**: 과거에 영속 상태였지만, 영속성 컨텍스트(병원)가 닫히는 등 관리 범위에서 벗어난 상태.
+- **삭제(Removed)**: `repository.delete()`를 호출하여, DB에서 삭제되기 위해 대기 중인 상태.
+
+#### **Dirty Checking 동작 조건**
+
+- **영속 상태** 이어야 함(보통 findById로 조회)
+- **트랜잭션 안**에서 변경 (@Transactional)
+- **flush 시점**(대개 커밋 직전)에 스냅샷과 비교해 변경 필드만 UPDATE 생성
+- @Transactional(readOnly = true)에선 **수정 금지/최적화**로 업데이트가 나가지 않음(벤더 구현 주의)
+
+#### **주의사항**
+
+- **벌크 JPQL(update/delete)** 은 1차 캐시를 **무시** → 실행 후 clear() 필요
+- **동시성** 민감 구간은 @Version(낙관적 락) 고려
+- 트랜잭션 밖/컨트롤러 계층에서 값만 바꿔도 **아무 일도 안 일어남**
 
 ## **3) 연관관계 핵심**
 
@@ -289,7 +332,9 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 - 생성은 **정적 팩토리**로 단일화, save(order) 한 번 + Cascade로 일괄 persist
 > **persist 순간, JPA는 캐시 키로 쓸 PK가 필요해서 ID를 즉시 확보해 엔티티에 채워 넣는다.**
 > 전략에 따라 “바로 INSERT(ID 받아오기)”(IDENTITY) 혹은 “키만 미리 땡김”(SEQUENCE/TABLE).
-
+- **영속 엔티티 수정은 save() 없이 Dirty Checking**(트랜잭션 경계 필수)
+- **새 엔티티 저장·준영속 병합만 save()**(루트 저장 + Cascade로 전파)
+- **벌크 연산 후 clear()**, 동시성은 @Version 검토
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 - - [임베디드 값타입과 ENUM의 차이](../00_Inbox/임베디드%20값타입과%20ENUM의%20차이.md)
 - - [assertThat(actual).isEqualTo(expected)란](../00_Inbox/assertThat(actual).isEqualTo(expected)란.md)
