@@ -354,3 +354,6 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 - @NotEmpty(message = "회원이름은 필수입니다")  
 	private String name;
 	스프링이 값이 비어있으면 오류처리하게하는 어노테이션
+- [[00_Inbox/김영한 활용1에서의 흐름.md|김영한 활용1에서의 흐름]]
+- [[00_Inbox/모델vsDTOvs도메인모델.md|모델vsDTOvs도메인모델]]
+- [자바와 스프링 부트로 생애 최초 서버만들기](../04_Archive/민코딩/인프런_자바와%20스프링%20부트로%20생애%20최초%20서버만들기/자바와%20스프링%20부트로%20생애%20최초%20서버만들기.md)
