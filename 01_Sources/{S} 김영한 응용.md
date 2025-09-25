@@ -340,8 +340,8 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 - **새 엔티티 저장·준영속 병합만 save()**(루트 저장 + Cascade로 전파)
 - **벌크 연산 후 clear()**, 동시성은 @Version 검토
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
-- - [임베디드 값타입과 ENUM의 차이](../00_Inbox/임베디드%20값타입과%20ENUM의%20차이.md)
-- - [assertThat(actual).isEqualTo(expected)란](../00_Inbox/assertThat(actual).isEqualTo(expected)란.md)
+- [임베디드 값타입과 ENUM의 차이](../00_Inbox/임베디드%20값타입과%20ENUM의%20차이.md)
+- [assertThat(actual).isEqualTo(expected)란](../00_Inbox/assertThat(actual).isEqualTo(expected)란.md)
 - [어노테이션 총정리(GPT)](../00_Inbox/어노테이션%20총정리(GPT).md)
 - [[00_Inbox/데이터베이스에서의 표현vs 객체에서의 표현.md|데이터베이스에서의 표현vs 객체에서의 표현]]
 - [[00_Inbox/인텔리제이 단축키.md|인텔리제이 단축키]]
@@ -351,9 +351,13 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 - [[00_Inbox/Stream 정리.md|Stream 정리]]
 - [[00_Inbox/람다정리.md|람다정리]] ^gseyqr
 - [[00_Inbox/동적쿼리개발.md|동적쿼리개발]] ->이걸 qurelydsl배우면서 수정해나가기
-- @NotEmpty(message = "회원이름은 필수입니다")  
-	private String name;
-	스프링이 값이 비어있으면 오류처리하게하는 어노테이션
 - [[00_Inbox/김영한 활용1에서의 흐름.md|김영한 활용1에서의 흐름]]
 - [[00_Inbox/모델vsDTOvs도메인모델.md|모델vsDTOvs도메인모델]]
 - [자바와 스프링 부트로 생애 최초 서버만들기](../04_Archive/민코딩/인프런_자바와%20스프링%20부트로%20생애%20최초%20서버만들기/자바와%20스프링%20부트로%20생애%20최초%20서버만들기.md)
+
+## **12) 폼 검증: @Valid / BindingResult / @NotEmpty (Spring MVC + Bean Validation)**
+
+![12-9) 이걸 언제 쓰나?->현업 시나리오](입력검증.md#12-9\)%20이걸%20언제%20쓰나?->현업%20시나리오)
+
+---
+
