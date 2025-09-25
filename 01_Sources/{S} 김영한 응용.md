@@ -350,5 +350,5 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 - [[00_Inbox/향상된 for문(for-each)루프.md|향상된 for문(for-each)루프]]
 - [[00_Inbox/Stream 정리.md|Stream 정리]]
 - [[00_Inbox/람다정리.md|람다정리]] ^gseyqr
-- [[00_Inbox/동적쿼리개발.md|동적쿼리개발]]
+- [[00_Inbox/동적쿼리개발.md|동적쿼리개발]] ->이걸 qurelydsl배우면서 수정해나가기
 
