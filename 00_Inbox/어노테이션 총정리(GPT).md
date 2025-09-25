@@ -605,7 +605,7 @@ generator=”…”)** _(Hibernate)_
 - ### **@PathVariable**
     - 위치: **메서드 파라미터**
     - 매개변수: name, required
-    - 역할: 경로 변수 바인딩
+    - 역할: URL 경로(Path)의 일부를 변수(Variable)로 사용할 수 있게함
 - ### **@RequestBody**
     - 위치: **메서드 파라미터**
     - 역할: HTTP 바디(JSON 등)를 객체로 역직렬화
