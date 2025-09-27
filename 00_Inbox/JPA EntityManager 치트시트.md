@@ -7,7 +7,7 @@ creation_date: 2025-09-16
 
 ## 📜 원본 맥락
 
-![[00_Inbox/JPQL.md#^dp9w89]]
+![](JPQL.md#^dp9w89)
 
 ---
 ## 0) 초간단 결정표
@@ -386,4 +386,4 @@ List<Member> members = em.createNativeQuery(
 ---
 ## 💭 나의 추가적 생각/질문
 
-[[entitymanager.find와 createQuery로 구현한 findall의 차이|entitymanager.find와 createQuery로 구현한 findall의 차이]] ^kbp5xd
+[entitymanager.find와 createQuery로 구현한 findall의 차이](entitymanager.find와%20createQuery로%20구현한%20findall의%20차이.md) ^kbp5xd

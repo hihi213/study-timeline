@@ -7,7 +7,7 @@ creation_date: 2025-09-25
 
 ## 📜 원본 맥락
 
-![[01_Sources/{S} 김영한 응용.md#^gseyqr]]
+![](../01_Sources/{S}%20김영한%20응용.md#^gseyqr)
 
 ---
 ## 정리

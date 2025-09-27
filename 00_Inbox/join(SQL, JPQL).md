@@ -6,7 +6,7 @@ creation_date: 2025-09-16
 ---
 
 ## 📜 원본 맥락
-![[00_Inbox/JPQL.md#^vho6g4]]
+![](JPQL.md#^vho6g4)
 
 ---
 
@@ -190,7 +190,7 @@ WHERE t.name = 'Dev'
 
 > **요약**: LEFT JOIN 유지하고 싶으면 **ON**에서 필터,
 > WHERE에 조건 걸면 **NULL이 제거**되어 결과가 **내부 조인처럼** 줄어든다.
-[[JOIN...ON vs WHERE 차이|JOIN...ON vs WHERE 차이]] ^srw7kc
+[JOIN...ON vs WHERE 차이](JOIN...ON%20vs%20WHERE%20차이.md) ^srw7kc
 
 ---
 

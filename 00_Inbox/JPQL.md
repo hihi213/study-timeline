@@ -7,7 +7,7 @@ creation_date: 2025-09-16
 
 ## 📜 원본 맥락
 
-![[01_Sources/{S} 김영한 응용.md#^4h4frx]]
+![](../01_Sources/{S}%20김영한%20응용.md#^4h4frx)
 
 ---
 - **SQL:** 데이터베이스가 직접 이해하는 언어
@@ -86,7 +86,7 @@ SELECT m, t
 FROM Member m LEFT JOIN m.team t ON t.name = :name
 ```
 
-[[00_Inbox/join(SQL, JPQL).md|join(SQL, JPQL)]]
+[join(SQL, JPQL)](join(SQL,%20JPQL).md)
 
 --- ^vho6g4
 
@@ -292,7 +292,7 @@ FROM Member m WHERE m.email = :email
 - createNativeQuery(sql, \[resultClass|mapping]) : 네이티브 SQL
 - getResultStream() : 결과를 Stream\<T>로 처리(JPA 2.2+)
 
-[[00_Inbox/JPA EntityManager 치트시트.md|JPA EntityManager 치트시트]]
+[JPA EntityManager 치트시트](JPA%20EntityManager%20치트시트.md)
 
 ## 💭 나의 추가적 생각/질문
 - [SQL 논리적 실행 순서](SQL%20논리적%20실행%20순서.md)

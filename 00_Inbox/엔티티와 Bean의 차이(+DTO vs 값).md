@@ -6,7 +6,7 @@ creation_date: 2025-09-14
 ---
 
 ## 📜 원본 맥락
-![[00_Inbox/JoinTable이 생성하는 연결테이블이 엔티티가 아닌이유.md#^tymg0v]]
+![](JoinTable이%20생성하는%20연결테이블이%20엔티티가%20아닌이유.md#^tymg0v)
 
 ---
 ## 정리
@@ -124,4 +124,4 @@ record OrderCreateDto(String city, String street, String zip) {}
 
 ---
 ## 💭 나의 추가적 생각/질문
-- [[00_Inbox/스프링폴더의 도메인은 뭔데?.md|스프링폴더의 도메인은 뭔데?]] ^le2vnq
+- [스프링폴더의 도메인은 뭔데?](스프링폴더의%20도메인은%20뭔데?.md) ^le2vnq

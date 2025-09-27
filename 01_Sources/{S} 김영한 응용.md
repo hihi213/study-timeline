@@ -26,7 +26,7 @@ creation_date: 2025-09-09
     - 데이터 변경하는 service에 그래서 트랜잭션널 어노테이션있어야
 - @Transactional은 두가지 있는데 spring제공하는걸로 사용하기 ^h0d1r6
 	- 조회는 @Transactional(readOnly=true)로 써서 더 최적화 할수있으니 true키기
-		- 데이터를 변경할 때 필요한 여러 복잡한 작업들을 **생략** [[00_Inbox/@Transactional(readOnly)를 키면 일어나는일.md|@Transactional(readOnly)를 키면 일어나는일]]
+		- 데이터를 변경할 때 필요한 여러 복잡한 작업들을 **생략** [@Transactional(readOnly)를 키면 일어나는일](../00_Inbox/@Transactional(readOnly)를%20키면%20일어나는일.md)
 	- 클래스에 @Transactional하고 매서드에 @Transactional(readOnly = true)해서 조회만 옵션을 켜준다거나 그 반대도 가능
 - 테스트에서도 트랜잭션으로 격리/롤백 보장.
 ### **2-1) Dirty Checking & save() 호출 기준**
@@ -190,7 +190,7 @@ private List<Order> orders = new ArrayList<>();
 ### **6-9) 생성 메서드(정적 팩토리) – 생성 지점 단일화**
 
 > 목적: **객체 생성·초기화 로직을 한 곳에 모아** 규칙 변경 시 그 메서드만 고치면 되게 하자.
-- [[00_Inbox/객체를 생성할때 생성시점을 메서드화해서 생성시점을 단일화 하자.md|객체를 생성할때 생성시점을 메서드화해서 생성시점을 단일화 하자]]
+- [객체를 생성할때 생성시점을 메서드화해서 생성시점을 단일화 하자](../00_Inbox/객체를%20생성할때%20생성시점을%20메서드화해서%20생성시점을%20단일화%20하자.md)
 - 이렇게 생성지점을 단일화했는데 다른곳에서 New로 만들면 나중에 필드/검증/연관 세팅이 흩어져 유지보수가 힘들어짐
 - 그래서 Proctected 기본생성자를 선언해주면 다른곳에서 new로 생성할때 컴파일에러가 나서 막아준다
 	- lombook으로 편하게 생성가능
@@ -311,7 +311,7 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 - **통합 테스트는 “연결이 맞는지” 확인용**이다.
     여러 엔티티·리포지터리·트랜잭션을 **엮어서 동작**을 볼 때 의미가 있다.
 
-- [[00_Inbox/스프링test정리.md|스프링test정리]]
+- [스프링test정리](../00_Inbox/스프링test정리.md)
 ## **11) 최종 체크리스트**
 
 - 커맨드 핸들러는 **ID만 반환**(엔티티 반환 금지)
@@ -343,16 +343,16 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 - [임베디드 값타입과 ENUM의 차이](../00_Inbox/임베디드%20값타입과%20ENUM의%20차이.md)
 - [assertThat(actual).isEqualTo(expected)란](../00_Inbox/assertThat(actual).isEqualTo(expected)란.md)
 - [어노테이션 총정리(GPT)](../00_Inbox/어노테이션%20총정리(GPT).md)
-- [[00_Inbox/데이터베이스에서의 표현vs 객체에서의 표현.md|데이터베이스에서의 표현vs 객체에서의 표현]]
-- [[00_Inbox/인텔리제이 단축키.md|인텔리제이 단축키]]
-- [[00_Inbox/JPQL.md|JPQL]]
-- [[00_Inbox/매서드에 배열로 받되 몇개 받을지 지정안해도 되는 문법_가변인자.md|매서드에 배열로 받되 몇개 받을지 지정안해도 되는 문법_가변인자]]
-- [[00_Inbox/향상된 for문(for-each)루프.md|향상된 for문(for-each)루프]]
-- [[00_Inbox/Stream 정리.md|Stream 정리]]
-- [[00_Inbox/람다정리.md|람다정리]] ^gseyqr
-- [[00_Inbox/동적쿼리개발.md|동적쿼리개발]] ->이걸 qurelydsl배우면서 수정해나가기
-- [[00_Inbox/김영한 활용1에서의 흐름.md|김영한 활용1에서의 흐름]]
-- [[00_Inbox/모델vsDTOvs도메인모델.md|모델vsDTOvs도메인모델]]
+- [데이터베이스에서의 표현vs 객체에서의 표현](../00_Inbox/데이터베이스에서의%20표현vs%20객체에서의%20표현.md)
+- [인텔리제이 단축키](../00_Inbox/인텔리제이%20단축키.md)
+- [JPQL](../00_Inbox/JPQL.md)
+- [매서드에 배열로 받되 몇개 받을지 지정안해도 되는 문법_가변인자](../00_Inbox/매서드에%20배열로%20받되%20몇개%20받을지%20지정안해도%20되는%20문법_가변인자.md)
+- [향상된 for문(for-each)루프](../00_Inbox/향상된%20for문(for-each)루프.md)
+- [Stream 정리](../00_Inbox/Stream%20정리.md)
+- [람다정리](../00_Inbox/람다정리.md) ^gseyqr
+- [동적쿼리개발](../00_Inbox/동적쿼리개발.md) ->이걸 qurelydsl배우면서 수정해나가기
+- [김영한 활용1에서의 흐름](../00_Inbox/김영한%20활용1에서의%20흐름.md)
+- [모델vsDTOvs도메인모델](../00_Inbox/모델vsDTOvs도메인모델.md)
 - [자바와 스프링 부트로 생애 최초 서버만들기](../04_Archive/민코딩/인프런_자바와%20스프링%20부트로%20생애%20최초%20서버만들기/자바와%20스프링%20부트로%20생애%20최초%20서버만들기.md)
 
 ## **12) 폼 검증: @Valid / BindingResult / @NotEmpty (Spring MVC + Bean Validation)**
@@ -375,4 +375,4 @@ public Long placeOrder(Member m, Delivery d, List<OrderItem> items) {
 
 ---
 
-- [[00_Inbox/어노테이션 헷갈림 정리.md|어노테이션 헷갈림 정리]] ^v8jsql
+- [어노테이션 헷갈림 정리](../00_Inbox/어노테이션%20헷갈림%20정리.md) ^v8jsql

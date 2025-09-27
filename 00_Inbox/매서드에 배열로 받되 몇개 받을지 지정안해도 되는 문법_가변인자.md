@@ -7,7 +7,7 @@ creation_date: 2025-09-23
 
 ## 📜 원본 맥락
 
-![[01_Sources/{S} 김영한 응용.md#^4h4frx]]
+![](../01_Sources/{S}%20김영한%20응용.md#^4h4frx)
 
 ---
 ## 정리

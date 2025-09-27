@@ -7,7 +7,7 @@ creation_date: 2025-09-23
 
 ## 📜 원본 맥락
 
-![[00_Inbox/JPA EntityManager 치트시트.md#^kbp5xd]]
+![](JPA%20EntityManager%20치트시트.md#^kbp5xd)
 
 ---
 ## 정리
