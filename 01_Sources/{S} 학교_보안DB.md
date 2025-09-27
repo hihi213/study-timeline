@@ -102,3 +102,4 @@ creation_date: 2025-09-08
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 - [학교DB보안09-08](../00_Inbox/학교DB보안09-08.md)
 - [[../00_Inbox/학교DB보안09-15|학교DB보안09-15]] ^2ijc9c
+- [[00_Inbox/학교DB보안09-22.md|학교DB보안09-22]]
