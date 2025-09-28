@@ -24,58 +24,11 @@ creation_date: 2025-09-09
 - **쓰기와 테스트는 트랜잭션 필수**:
     @Transactional 경계 안에서만 JPA가 제대로 동작(쓰기 지연, flush, 영속성 컨텍스트 일관성).
     - 데이터 변경하는 service에 그래서 트랜잭션널 어노테이션있어야
-- @Transactional은 두가지 있는데 spring제공하는걸로 사용하기 ^h0d1r6
+- @Transactional은 두가지 있는데 spring이 제공하는걸로 사용하기 ^h0d1r6
 	- 조회는 @Transactional(readOnly=true)로 써서 더 최적화 할수있으니 true키기
 		- 데이터를 변경할 때 필요한 여러 복잡한 작업들을 **생략** [@Transactional(readOnly)를 키면 일어나는일](../00_Inbox/@Transactional(readOnly)를%20키면%20일어나는일.md)
 	- 클래스에 @Transactional하고 매서드에 @Transactional(readOnly = true)해서 조회만 옵션을 켜준다거나 그 반대도 가능
 - 테스트에서도 트랜잭션으로 격리/롤백 보장.
-### **2-1) Dirty Checking & save() 호출 기준**
-
-> **핵심:** JPA에서는 **영속(Managed)** 엔티티의 **필드만 바꾸면** JPA가 알아서 업데이트 쿼리를 DB에 보낸다.
-> 정확히는 트랜잭션 끝(= flush/commit)에 **Dirty Checking**으로 **UPDATE SQL이 자동**으로 나간다.
-> → 변경 시 **별도 repository.save() 호출이 필요 없다**(특수 케이스 제외).
-
-#### Repository.save()가 필요없는경우
-
-- DB에서 **조회해 온 엔티티(영속)** 를 **수정만** 할 때
-
-```java
-@Transactional
-public void cancelOrder(Long orderId) {
-    Order order = orderRepository.findById(orderId).orElseThrow();
-    order.cancel(); // 내부에서 this.status = CANCEL; + orderItems.forEach(oi -> oi.addStock(...));
-    // save() 불필요 — 커밋 시 JPA가 UPDATE 자동 실행
-}
-```
-
-#### 언제 Repository.save()가 필요?
-
-- **새로 만든 엔티티(비영속)** 를 **최초 저장**할 때 → persist
-    - 자식은 **Cascade(PERSIST/ALL)** 로 전파해 함께 저장
-- **준영속(Detached) 객체 변경 반영**: save(detached) → **merge** **또는** **재조회 후 변경**.
-
-#### **엔티티 생명주기(요약)**
-
-- **비영속(Transient)**: new로 생성만 한 상태, JPA가 모름
-- **영속(Managed)**: `repository.save()`를 호출하거나, DB에서 `repository.find()`로 조회해 **현재 영속성 컨텍스트가 관리 중**.
-- **준영속(Detached)**: 과거에 영속 상태였지만, 영속성 컨텍스트(`@Transactional` 범위)가 끝나 관리 범위에서 벗어난 상태.
-	- 트랜잭션이 시작될때 영속성 컨텍스트가 열리고 끝날때 닫힌다
-- **삭제(Removed)**: `repository.delete()`를 호출하여, DB에서 삭제되기 위해 대기 중인 상태.
-
-> **중요**: 트랜잭션 시작 시 **새로운 영속성 컨텍스트가 열리고**, 종료 시 **flush → commit → close** 흐름으로 닫힌다.
-
-#### **Dirty Checking 동작 조건**
-
-- 대상은 **현재 컨텍스트의 영속 엔티티**.
-- **트랜잭션 안**에서 값이 바뀌어야 함(@Transactional).
-- **flush 시점**(보통 커밋 직전)에 스냅샷과 비교해 **변경된 필드만 UPDATE** 생성.
-- @Transactional(readOnly = true)에선 쓰기 최적화로 **업데이트가 안 나감**(벤더별 차이 주의).
-
-#### **주의사항**
-
-- **벌크 JPQL(update/delete)** 은 1차 캐시를 **무시** → 실행 후 clear() 필요
-- **동시성** 민감 구간은 @Version(낙관적 락) 고려
-- 트랜잭션 밖/컨트롤러 계층에서 값만 바꿔도 **아무 일도 안 일어남**
 
 ## **3) 연관관계 핵심**
 
