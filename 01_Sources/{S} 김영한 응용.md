@@ -50,23 +50,26 @@ public void cancelOrder(Long orderId) {
 
 #### 언제 Repository.save()가 필요?
 
-- **새로 만든 엔티티(비영속)** 를 **처음 저장**할 때 → persist
-    - 보통 **애그리거트 루트**만 save()하고, 자식은 **Cascade(PERSIST/ALL)** 로 전파
-- **준영속(detached)** 엔티티의 변경을 **반영**할 때 → merge(Spring Data JPA의 save가 처리) 또는 **재조회 후 수정**
+- **새로 만든 엔티티(비영속)** 를 **최초 저장**할 때 → persist
+    - 자식은 **Cascade(PERSIST/ALL)** 로 전파해 함께 저장
+- **준영속(Detached) 객체 변경 반영**: save(detached) → **merge** **또는** **재조회 후 변경**.
 
 #### **엔티티 생명주기(요약)**
 
 - **비영속(Transient)**: new로 생성만 한 상태, JPA가 모름
-- **영속(Managed)**: `repository.save()`를 호출하거나, DB에서 `repository.find()`로 조회한 엔티티의 상태.
-- **준영속(Detached)**: 과거에 영속 상태였지만, 영속성 컨텍스트(병원)가 닫히는 등 관리 범위에서 벗어난 상태.
+- **영속(Managed)**: `repository.save()`를 호출하거나, DB에서 `repository.find()`로 조회해 **현재 영속성 컨텍스트가 관리 중**.
+- **준영속(Detached)**: 과거에 영속 상태였지만, 영속성 컨텍스트(`@Transactional` 범위)가 끝나 관리 범위에서 벗어난 상태.
+	- 트랜잭션이 시작될때 영속성 컨텍스트가 열리고 끝날때 닫힌다
 - **삭제(Removed)**: `repository.delete()`를 호출하여, DB에서 삭제되기 위해 대기 중인 상태.
+
+> **중요**: 트랜잭션 시작 시 **새로운 영속성 컨텍스트가 열리고**, 종료 시 **flush → commit → close** 흐름으로 닫힌다.
 
 #### **Dirty Checking 동작 조건**
 
-- **영속 상태** 이어야 함(보통 findById로 조회)
-- **트랜잭션 안**에서 변경 (@Transactional)
-- **flush 시점**(대개 커밋 직전)에 스냅샷과 비교해 변경 필드만 UPDATE 생성
-- @Transactional(readOnly = true)에선 **수정 금지/최적화**로 업데이트가 나가지 않음(벤더 구현 주의)
+- 대상은 **현재 컨텍스트의 영속 엔티티**.
+- **트랜잭션 안**에서 값이 바뀌어야 함(@Transactional).
+- **flush 시점**(보통 커밋 직전)에 스냅샷과 비교해 **변경된 필드만 UPDATE** 생성.
+- @Transactional(readOnly = true)에선 쓰기 최적화로 **업데이트가 안 나감**(벤더별 차이 주의).
 
 #### **주의사항**
 
@@ -170,7 +173,7 @@ private List<Order> orders = new ArrayList<>();
 - 스프링필드주입말고 final+ 룸북으로 생성자 주입을 쓰자
 	![**D) 롬복으로 생성자 주입 (최종권장)**](../00_Inbox/의존성주입방식비교.md#**D\)%20롬복으로%20생성자%20주입%20(최종권장)**)
 ---
-### 6_8 엔티티에 비즈스 로직을 두는경우(도메인 주도 설계)
+### 6_8 엔티티에 비즈니스 로직을 두는경우(도메인 주도 설계)
 
 서비스 계층 같은 외부에서 엔티티의 데이터를 꺼내어 수정하고 다시 저장하는 방식이 아니라, **엔티티가 스스로 자신의 상태를 변경하는 메서드를 내부에 구현**하라는 의미
 
