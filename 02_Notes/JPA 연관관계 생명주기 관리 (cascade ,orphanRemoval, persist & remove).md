@@ -69,7 +69,7 @@ private List<OrderItem> orderItems = new ArrayList<>();
 
 ### **✅ 사용**
 
-- Order → OrderItem, Order ↔ Delivery(1:1 의존) 처럼 **부모에 종속**되고 **독립 사용하지 않는 자식**.
+- 부모 엔티티에게만 독점적으로 소유되어, 다른 곳에서는 참조되지 않고, 부모 없이는 존재 의미가 없는 자식엔티티에게 사용
 
 ### **❌ 비권장/금지**
 
