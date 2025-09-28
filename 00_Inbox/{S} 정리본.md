@@ -1,0 +1,208 @@
+---
+type: 생각조각
+status: inbox
+source: 
+creation_date: 2025-09-16
+---
+
+---
+
+## **0) 한 장 요약 (기본값)**
+
+- **CQRS Lite**: 쓰기=ID만 반환, 읽기=전용 DTO.
+- **트랜잭션**: 쓰기/테스트는 필수, 읽기는 readOnly=true.
+- **연관관계**: **FK 가진 쪽이 주인**, 편의 메서드로 양쪽 동기화.
+- **로딩**: 전부 **LAZY**, N+1은 fetch join / @EntityGraph / @BatchSize로 방지
+- **Enum**: @Enumerated(STRING), STRING옵션만 사용
+- **엔티티**: Setter 금지, 의미있는 메서드로 변경. **값 타입 불변**.
+- **컬렉션**: 필드에서 즉시 초기화, 재할당 금지.
+- **Cascade/고아**: **프라이빗 + 수명 동일**일 때만.
+- **DB**: 스네이크 네이밍, 1:1 FK는 **더 자주 보는 쪽**. 중복 방지는 **유니크 인덱스**로 종단 방어.
+- **영속성**: 수정은 Dirty Checking, **벌크 후 clear()**.
+- **API**: 엔티티 직접 반환 금지 → DTO.
+- (선택) **OSIV OFF**, 컨트롤러 앞에서 DTO로 완결.
+
+---
+
+## **1) 쓰기/읽기 (CQRS Lite)**
+
+**왜**: 부작용·결합 낮추고, API 계약을 단순화.
+
+**어떻게**
+
+- 쓰기 서비스는 **ID만 반환**.
+- 조회는 전용 리포지토리/쿼리로 **DTO** 바로 조회.
+
+---
+
+## **2) 트랜잭션**
+
+같은 트랜잭션(영속성 콘텍스트) 안에서는 같은 ID(Pk)를 가진 엔티티를 조회하면 항상 똑같은 객체를 돌려주는 것을 보장 하지만 트랜잭션이 끝나면 그 보장은 사라짐.
+
+**어떻게**
+@Transactional 코드의 시작때 영속성 콘텍스트시작 코드 종료시 영속성 콘텍스트 종료
+
+- 서비스 계층에 @Transactional(클래스단위로 적용, 메서드별 override가능).
+- 조회는 @Transactional(readOnly = true)으로 불필요 작업 생략
+	- [@Transactional(readOnly)를 키면 일어나는일](../00_Inbox/@Transactional(readOnly)를%20키면%20일어나는일.md)
+- 여러 제공 어노테이션중 **Spring 제공** 애노테이션으로 사용하기(org.springframework.transaction.annotation.Transactional).
+- 테스트도 트랜잭션으로 **격리·롤백**.
+- 클래스에 @Transactional하고 매서드에 @Transactional(readOnly = true)해서 조회만 옵션을 켜준다거나 그 반대도 가능
+
+---
+
+## **3) 연관관계**
+
+**기본값**
+
+- **항상 주인은 FK 가진 쪽**으로 정하기. 반대편(mappedBy)은 조회용.
+- **편의 메서드**: DB변경코드+ DB와 별개인 스프링 내부와 동기화.
+```
+public void addOrderItem(OrderItem item) {
+  orderItems.add(item);// 메모리와 일관성을 위한 세팅
+  item.setOrder(this); // 주인(FK) 세팅
+}
+```
+
+---
+
+## **4) 로딩 & N+1**
+
+-  모든 연관관계 **LAZY**로 설정하기
+	@ManyToOne, @OneToOne 기본 EAGER로 설정되어있음. 이를 LAZY로변경
+
+- **N+1**: JPQL로 N개 로우 조회 시, 연관 엔티티를 개별로 N번 추가 조회하는 현상.
+- N+1 해결
+	- JPQL fetch join
+	- @EntityGraph
+	- @BatchSize(배치 로딩)
+
+---
+
+## **5) Cascade & orphanRemoval**
+
+ 잘 모르면 처음엔 쓰지 말자. 나중에 리펙토링할때 써라
+
+**언제**: **프라이빗 오너 + 수명 동일**일 때만(예: Order ↔ OrderItem)사용
+- 과하면 전파 축소: cascade={PERSIST, REMOVE} 등.
+- **컬렉션에서 빠지면 삭제**가 도메인 규칙이면 orphanRemoval=true.로 **“컬렉션에서 빠지면 삭제”**를 모델링
+
+```
+@OneToMany(mappedBy="order", cascade=ALL, orphanRemoval=true)
+private final List<OrderItem> orderItems = new ArrayList<>();
+```
+
+> DB의 **ON DELETE CASCADE**와는 다른 개념(영속성 연산 전파).
+
+---
+
+## **6) 엔티티 설계**
+
+- “변경점 추적 불가” 문제를 만드는 **Setter 금지** → order.cancel(), item.changeQuantity()처럼 **의도 드러나는 메서드**로만 상태 변경
+- **값 타입 불변**: 생성자/정적 팩토리로만 초기화, 수정은 교체.
+- **기본 생성자**: protected 권장.
+- **컬렉션**: 필드에서 즉시 초기화, 재할당 금지.
+	```java
+	private final List<OrderItem> orderItems = new ArrayList<>();
+	```
+	- 이후 orders = new LinkedList<>() 같은 **재할당/Null 할당 금지**.
+- **의존성 주입**: 필드 주입 X, **생성자 주입**.
+	- 생성자주입은 . final + 롬복으로 구현
+
+```java
+@RequiredArgsConstructor
+@Service
+class MemberService {
+  private final MemberRepository memberRepository;
+}
+```
+
+- **생성 팩토리로 생성 지점 단일화** + 임의 new 차단:
+	- 규칙/검증/연관 세팅을 한 곳에 모아 변경시 메서드 한개만 고치면되게 하자
+	- @NoArgsConstructor(access = PROTECTED) 로 선언해 다른곳에서 생성팩토리 활용대신 New로 생성시 컴파일에러나게 설정
+```
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Entity
+class Order {
+  public static Order place(Clock clock, Member m, Delivery d, List<OrderItem> items) { ... }
+}
+```
+
+---
+
+## **7) DB 설계 실무 팁**
+
+- **네이밍**: 소문자 스네이크(member_point).
+- **1:1 FK 위치**: **더 자주 접근**하는 테이블에
+	-  예) Delivery보다 Order에서 Delivery를 더 자주 본다 → **Order에 FK(=delivery_id)** 두기
+- 추상클래스인 부모를, 자식들이 구현하는것으로 상속 구현
+	- 단일 테이블 전략 시 부모에 @Inheritance + @DiscriminatorColumn("dtype")해서 dytpe으로 자식 구분
+- **FK vs 가용성**
+    - **정합성 최우선(금융/정산)**: FK **건다**.
+    - **고트래픽/가용성 우선**: FK 생략 + FK 없이 **인덱스만**으로도 운영 가능
+- **유니크 인덱스**로 최종 중복 방어선 구축
+	- 두 명의 사용자가 거의 동시에 같은 이름으로 가입을 요청할 때, 서비스 로직이 중복을 검사하는 시점(SELECT)과 실제 데이터를 저장하는 시점(INSERT) 사이에 아주 짧은 시간적 틈이 있다. 이 틈 때문에 서비스 로직의 방어는 뚫릴 수 있습니다.
+
+```
+ALTER TABLE member ADD CONSTRAINT uk_member_username UNIQUE (username);
+ALTER TABLE member ADD CONSTRAINT uk_member_email    UNIQUE (email);
+```
+
+---
+
+## **8) Enum 매핑**
+
+- @Enumerated(EnumType.STRING) 만 사용
+	-  EnumType.ORDINAL(숫자)금지 — 중간 값 추가 시 **의미 붕괴**
+
+---
+
+## **9) 영속성 동작(운영 관점)**
+
+- persist = INSERT 예약(IDENTITY는 즉시 INSERT로 키 확보).
+- **remove**: DELETE 예약(커밋/flush 시 실행).
+- **flush**: 1차 캐시 변경을 DB와 동기화(보통 커밋 직전 자동).
+- **벌크 연산 후**: 1차 캐시 불일치 방지를 위해 em.clear() 또는 clearAutomatically.
+
+---
+
+## **10) API·폼·DTO**
+
+- **서버 렌더링**(내부 페이지): 단순하면 엔티티 바인딩도 가능하지만, 복잡해지면 DTO 권장.
+- **API(JSON)**: **엔티티 반환 금지**, **전용 DTO** 고정사용.
+	- 왜냐면 엔티티를 모델에 넘기기 위해서 엔티티에 필드/로직을 추가·변경하면 API 응답 스펙이 함께 변해버림
+	- DTO 사용시 서버 내부에서 `Member` 엔티티의 필드 이름이 `username`으로 바뀌더라도, **DTO로 변환하는 과정에서 `dto.setName(member.getUsername())`처럼 맞춰주면** 외부 약속(`name`)은 그대로 지킬 수 있습니다
+- 계약 보호: 내부 필드명이 바뀌어도 **DTO 변환 계층**에서 매핑.
+- **검증**: @Valid, BindingResult, @NotEmpty 등 표준 애노테이션 활용.
+---
+
+## **11) 테스트 전략**
+
+- **도메인 단위 테스트**(순수 자바)가 빠르고 정확.
+	- DB·스프링 컨텍스트 없이 **순수 자바로 메서드 하나하나 검증**하면 더 빠르고, 실패 원인도 명확하다. (**Spring 띄우지 말고** JUnit만으로 테스트)
+- **통합 테스트**는 연결 검증용.
+	-  여러 엔티티·리포지터리·트랜잭션을 **엮어서 동작**을 볼 때 의미가 있다.
+- assertThrows로 규칙 위반을 명시적으로 검증.
+	- `assertThrows(예외, 람다)` 사용, 람다를 실행했을 때 지정한 예외가 발생하지 않으면 테스트가 실패한다
+
+---
+
+## **12) 컨트롤러가 서비스를 무조건 거치는 설계x
+
+-  “단순 조회만 하는 얇은 API”를 **서비스 레이어 강제 통과**시키느라 의미 없는 위임만 남는다면, 팀 규칙에 맞춰 **실용적으로** 선택(단, 일관성과 횡단 관심사 적용 범위를 고려)
+- 반대로 **규칙/정책 변화가 잦은 조직**이면 서비스 레이어 일관 유지가 안전.
+- (선택) **OSIV OFF** 후 컨트롤러 전 단계에서 DTO로 완결.
+
+---
+
+### **부록: 체크리스트(리뷰용 12문)**
+
+1. 커맨드는 ID만? 2) 조회는 DTO? 3) 트랜잭션 경계 명확?
+2. readOnly=true 적용? 5) 주인=FK? 6) 편의 메서드 동기화?
+3. 전부 LAZY? 8) N+1 대비(패턴 선택) 했나?
+4. Enum=STRING? 10) 값 타입 불변/Setter 배제?
+5. Cascade/orphan 기준 충족? 12) 유니크 인덱스·벌크 후 clear 반영?
+
+---
+
+필요하면 이 구조를 **팀 위키/코드베이스용 “One-pager + 체크리스트”** 형태로 더 압축해 드릴게요.
