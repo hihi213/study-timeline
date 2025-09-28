@@ -13,11 +13,18 @@ creation_date: 2025-09-16
 - **혼동 금지**: _JPA cascade_ ≠ _DB ON DELETE CASCADE_. 보통 **둘 중 하나만** 쓴다.
 
 > 개념 기초는 [JPA 연관관계 기초](JPA%20연관관계%20기초.md), 매핑 선택은 [JPA 연관관계 매핑 전략](JPA%20연관관계%20매핑%20전략.md) 참고.
-
 > 실무 성능/안티패턴은 [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](../02_Notes/JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)에서 정리.
 
 ---
 
+### 생명주기(요약)
+- `@Transactional` 코드 시작과 종료
+	- 트랜잭션 시작: 새로운 **영속성 컨텍스트 열림**
+		- **영속(Managed)**: `@Transactional`의 코드가 종료되지 않은 상태에서 `repository.save()`를 호출하거나, DB에서 `repository.find()`로 조회
+	- 트랜잭션 종료: **flush → commit → 영속성 컨텍스트 close**.
+		- **준영속(Detached)**: 과거에 영속 상태였지만, `@Transactional`의 코드가 종료되서 관리되지 않는 상태
+- **비영속(Transient)**: new로 생성만 한 상태, JPA가 모름
+- **삭제(Removed)**: `repository.delete()`를 호출하여, DB에서 삭제되기 위해 대기 중인 상태
 ## **1) cascade 한눈에**
 
 ```java
@@ -102,9 +109,7 @@ private List<OrderItem> orderItems = new ArrayList<>();
 - 영속성 컨텍스트 변경 내용을 **DB와 동기화**(SQL 전송).
 - 보통 **트랜잭션 커밋 직전 자동** 호출. 쿼리 실행 전 강제 호출될 수도 있음.
 
-### **Spring Data JPA** 
-
-### **save(...)**
+### **Spring Data JPA** save(...)
 
 - 새 엔티티(id 없음): 내부적으로 **persist**.
 - 기존/분리 엔티티(id 있음): **merge 성격** → 원치 않는 UPDATE가 생길 수 있음.
