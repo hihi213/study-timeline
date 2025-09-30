@@ -14,13 +14,12 @@ creation_date: 2025-09-16
 
 ---
 
-## **A. Dirty Checking(변경감지) – 표준 패턴**
+## **A. flush의 기능 Dirty Checking(변경감지) – 표준 패턴**
 
 1. 서비스 메서드에서 **@Transactional 시작**
 2. **ID로 영속 엔티티 조회** (findById)
 3. **의미 있는 변경 메서드**로 필요한 필드만 수정 (changeName, changePrice 등)
-4. 커밋 시점에 **변경분만 UPDATE**(flush)
-
+4. flush 시점에 **변경분만 UPDATE**
 ```java
 @Transactional
 public void updateItem(Long id, ItemUpdateParam p) {
