@@ -11,7 +11,7 @@ creation_date: 2025-09-16
 - **1:N 단방향**이 꼭 필요할 때만 @JoinColumn(자식 FK 생성) 혹은 @JoinTable 고려.
 - **N:N**은 학습용 @ManyToMany만 간단히, 실무는 **연결 엔티티**(N:1 + 1:N)로.
 
-> 먼저 개념은 [JPA 연관관계 기초](JPA%20연관관계%20기초.md) 참고. 전파/삭제 정책은 [JPA 연관관계 생명주기 관리 (cascade ,orphanRemoval, persist & remove)](../02_Notes/JPA%20연관관계%20생명주기%20관리%20(cascade%20,orphanRemoval,%20persist%20&%20remove).md)에서 다룹니다.
+> 먼저 개념은 [JPA 연관관계 기초](JPA%20연관관계%20기초.md) 참고. 전파/삭제 정책은 [JPA cascade ,orphanRemoval](JPA%20cascade%20,orphanRemoval.md)에서 다룹니다.
 
 ---
 
@@ -178,5 +178,6 @@ private Order order;
 ## **함께 보기**
 
 - 개념 기초: [JPA 연관관계 기초](JPA%20연관관계%20기초.md)
-- 전파/고아 삭제: [JPA 연관관계 생명주기 관리 (cascade ,orphanRemoval, persist & remove)](../02_Notes/JPA%20연관관계%20생명주기%20관리%20(cascade%20,orphanRemoval,%20persist%20&%20remove).md)
+- 개념 심화: [[JPA_업데이트·동기화_흐름(persist_remove_flush_commit)|JPA_업데이트·동기화_흐름(persist_remove_flush_commit)]]
+- 전파/고아 삭제: [JPA cascade ,orphanRemoval](JPA%20cascade%20,orphanRemoval.md)
 - 성능/실무 팁: [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](../02_Notes/JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)

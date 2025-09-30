@@ -4,11 +4,7 @@ status: inbox
 source: 
 creation_date: 2025-09-16
 ---
-
-좋아요! 위 캡처 요지들을 한 장짜리 **최종 총정리(치트시트)**로 압축해 드립니다.
-
-# **JPA 업데이트 총정리 – Dirty Checking vs Merge**
-
+- 전제 개념: [[JPA_업데이트·동기화_흐름(persist_remove_flush_commit)|JPA_업데이트·동기화_흐름(persist_remove_flush_commit)]]
 ## **TL;DR**
 
 - **수정의 정석:** 조회 → (도메인 메서드로) 필요한 필드만 변경 → 커밋
@@ -25,7 +21,7 @@ creation_date: 2025-09-16
 3. **의미 있는 변경 메서드**로 필요한 필드만 수정 (changeName, changePrice 등)
 4. 커밋 시점에 **변경분만 UPDATE**(flush)
 
-```
+```java
 @Transactional
 public void updateItem(Long id, ItemUpdateParam p) {
   Item item = itemRepository.findById(id).orElseThrow();
@@ -45,11 +41,7 @@ public void updateItem(Long id, ItemUpdateParam p) {
 
 ---
 
-## **B.** 
-
-## **merge()**
-
-## **(병합) – 동작과 리스크**
+## **B.** merge() (병합) – 동작과 리스크**
 
 - 파라미터(준영속/복원 엔티티)의 **모든 필드**를 DB에서 찾은 **새 영속 엔티티**에 **복사** → 그 **새 엔티티를 반환**
 - 넘긴 객체는 **여전히 비영속/준영속**
@@ -76,7 +68,7 @@ public void updateItem(Long id, ItemUpdateParam p) {
     - **세터 남발 금지**, 의미 있는 **도메인 변경 메서드** 제공
     - 컬렉션/연관관계는 **편의 메서드**로 일관성 유지
 
-```
+```java
 public record UpdateItemCommand(Long id, String name, Integer price, Integer stockQuantity) {}
 
 @Transactional
@@ -112,5 +104,4 @@ public void updateItem(UpdateItemCommand c) {
 ## **한 줄 마무리**
 
 > **“폼은 DTO로 끝, 수정은 서비스 트랜잭션에서 ‘조회→도메인 변경→커밋’.”**
-
 > 이 규칙만 지키면 안전성·가독성·추적성·테스트가 모두 좋아집니다.

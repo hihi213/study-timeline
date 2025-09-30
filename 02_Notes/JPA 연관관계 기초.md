@@ -333,6 +333,7 @@ public void setDelivery(Delivery delivery) {
 ## **함께 보기**
 
 - 다음 단계: **매핑 선택/트레이드오프** → [JPA 연관관계 매핑 전략](../02_Notes/JPA%20연관관계%20매핑%20전략.md)
-- 생명주기/전파(cascade, orphanRemoval) → [JPA 연관관계 생명주기 관리 (cascade ,orphanRemoval, persist & remove)](../02_Notes/JPA%20연관관계%20생명주기%20관리%20(cascade%20,orphanRemoval,%20persist%20&%20remove).md)
+- 개념 심화: [[JPA_업데이트·동기화_흐름(persist_remove_flush_commit)|JPA_업데이트·동기화_흐름(persist_remove_flush_commit)]]
+- 생명주기/전파(cascade, orphanRemoval) → [JPA cascade ,orphanRemoval](JPA%20cascade%20,orphanRemoval.md)
 - 성능/안티패턴/실무 팁 → [JPA 연관관계 실무 가이드 (성능, 안티패턴, 운영 팁)](../02_Notes/JPA%20연관관계%20실무%20가이드%20(성능,%20안티패턴,%20운영%20팁).md)
 
