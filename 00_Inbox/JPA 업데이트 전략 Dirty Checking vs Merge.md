@@ -6,11 +6,14 @@ creation_date: 2025-09-16
 ---
 - 전제 개념: [[JPA_업데이트·동기화_흐름(persist_remove_flush_commit)|JPA_업데이트·동기화_흐름(persist_remove_flush_commit)]]
 ## **TL;DR**
-
-- **수정의 정석:** 조회 → (도메인 메서드로) 필요한 필드만 변경 → 커밋
-- **신규 생성:** **ID 없이** persist
-- **merge()는 최후의 수단:** 스냅샷 **전체 치환**이라 누락 필드가 **NULL로 덮어쓰기**될 위험 큼
-- **레이어 원칙:** 컨트롤러는 **폼/DTO만 다루고**, 엔티티 생성·변경은 **서비스(트랜잭션)** 에서
+- **엔티티 신규 생성법:** **ID 할당 없이** persist()
+- **엔티티 수정법**: 조회 → (도메인 메서드로) 필요한 필드만 변경 → 커밋
+- 변경되면 안 되는 필드: Setter를 만들지 않거나/private으로 선언해 수정시도 차단
+- 변경 후 **save() 습관** → JPA에선 **불필요**(커밋 시 자동 반영)
+- (비추천) merge() **:** 전달된 객체의 정보로 영속성 컨텍스트에 있는 원본 엔티티를 **전체 덮어쓰기**
+	- 누락 필드가 **NULL로 덮어쓰기**됨
+- (비추천) new Entity() 후 **ID만 세팅**해서 repository.save()
+	- JPA가 **준영속**으로 보고 자동으로 `entityManager.merge()`를 호출
 
 ---
 
@@ -66,61 +69,3 @@ ID를 기준으로 **DB에 데이터 자체가 없는 경우** (즉, 신규 데�
 - 이제 여기서 관리되던 모든 엔티티는 **준영속 상태(Detached)** 로 전환됨
 
 ---
-
-## **B. 레이어드 아키텍처 원칙**
-
-- **컨트롤러** : DTO를 받아서 서비스에 넘기는 역할만 충실
-    - 폼 → **DTO(Command)** 로 변환만
-    - 엔티티 **생성·변경 금지**
-- **서비스(트랜잭션 경계)** 
-    - **조회 → 변경감지** 수행
-    - 파라미터 많으면 **전용 Command DTO** 도입 
-- **엔티티**
-    - **세터 남발 금지**, 의미 있는 **도메인 변경 메서드** 제공
-    - 컬렉션/연관관계는 **편의 메서드**로 일관성 유지
-
-```java
-public record UpdateItemCommand(Long id, String name, Integer price, Integer stockQuantity) {}
-
-@Transactional
-public void updateItem(UpdateItemCommand c) {
-  Item item = repo.findById(c.id()).orElseThrow();
-  item.changeName(c.name());
-  item.changePrice(c.price());
-  item.changeStockQuantity(c.stockQuantity());
-}
-```
-- 왜?
-	- 컨트롤러가 엔티티 생성/변경하는 비즈니스 로직까지 하면 역할을 나눈의미가 없어 유지보수가 힘듬
-    - 파라미터 많으면 **전용 Command DTO** 로 받기 
-	    - updateProfile(String nickname, String email, String address, ...) -> `updateProfile(ProfileUpdateDto dto)`
-	    - 프로필에 '전화번호'를 추가해야 할 때, DTO에 필드 하나만 추가하면 끝나요. 만약 DTO를 안 썼다면 이 기능을 사용하는 모든 메서드의 파라미터를 일일이 수정해야 하죠.
-	- setter, 의미메서드 모두 메서드이다. 그러나 비즈니스 규칙과 책임이 어디에 있는가에 따라 다르다
-		- `setPoint(1000)`: 최종값만 넘겨받아 저장만해서 setter를 사용할때마다 서비스에 로직을 추가적으로 작성해야한다. 
-			- 
-		- applyDiscountEvent(20)` increasePriceDueToInflation(10)` 등
----
-
-## **C. 체크리스트 (실무용)**
-
-- **신규**: ID 미지정 + persist
-- **수정**: findById 후 **필드만 변경**(Dirty Checking)
-- 컨트롤러 → **DTO만 전달**, 서비스에서 **명시적 매핑/검증**
-- 엔티티에 **change*** 메서드로 변경 수렴
-- **수정 가능/불가 필드** 구분(예: price, stockQuantity만 수정; isbn 등은 금지)
-- merge() 필요한 경우 **NULL-무시/화이트리스트 복사**로 가드
-
----
-
-## **D. 안티패턴**
-
-- new Entity() 후 **ID만 세팅**해서 저장 → JPA가 **준영속**으로 보고 merge() 경로로 빠짐(전체 덮어쓰기 위험)
-- 변경 후 **save() 습관** → JPA에선 **불필요**(커밋 시 자동 반영)
-- 컨트롤러에서 **엔티티 직접 생성/수정**
-
----
-
-## **한 줄 마무리**
-
-> **“폼은 DTO로 끝, 수정은 서비스 트랜잭션에서 ‘조회→도메인 변경→커밋’.”**
-> 이 규칙만 지키면 안전성·가독성·추적성·테스트가 모두 좋아집니다.
