@@ -12,7 +12,6 @@ creation_date: 2025-09-01
 * **개발 중에는**: API·SSE에 `floor_code`를 항상 태워 **미래 호환** 고정, 페이지네이션·이벤트 버전·에러코드 규약을 박아두기.
 * **나중(R8)**: floors/rooms/stays/floor\_managers를 추가하고 **백필→내부매핑교체**로 무중단 전환.
 
-
 ## 결론(실무 판단)
 
 * **지금(MVP 10주)**: 권역 권한은 **DB에 넣지 말고** 앱 레이어에서 단순화해 처리.
@@ -114,7 +113,6 @@ REVOKE ALL ON DATABASE dcs FROM PUBLIC;
 1. **Items v2 전환 경로 고정**
 
 * 서버에 **내부 변환 레이어**만 만들면 무중단:
-
   * Read: v1(bundles) ←→ v2(groups/units) 맵핑.
   * Write: “섀도우-쓰기” → v1/v2 동시 기록(짧은 기간) → v1 수축.
 * 이때 호환 뷰/엔드포인트를 **새로 파지 말고** 기존 계약 유지가 핵심.
@@ -181,7 +179,6 @@ REVOKE ALL ON DATABASE dcs FROM PUBLIC;
 * **트랜잭션 단위**: 라벨 교체(removed→create)는 **한 트랜잭션**으로 원자 처리.
 
 ---
-
 
 ## MVP에서의 권한/API/SSE 설계(미래 호환형)
 
@@ -292,6 +289,4 @@ SELECT EXISTS (
 1. JWT에 `floors` 클레임으로 **층별장** 표현.
 2. SSE/응답 페이로드에 `floor_code` 포함(후일 `floor_id` 전환 용이).
 3. R8에서 정식 스키마/백필/저장함수로 권한체크 이관.
-
-
 
