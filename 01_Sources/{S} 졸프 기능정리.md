@@ -24,7 +24,6 @@ creation_date: 2025-09-03
 * **물품 등록**: 칸+라벨 번호로 등록(활성 중 라벨 번호 중복 불가).
 * **물품 검색/필터**: 내 물품, 칸별, 키워드 조회.
 * **물품 변경**
-
   * `수정(adjust)`: 수량/유통기한/메모 갱신.
   * `전량 제거(remove-all)`: 폐기/소진 처리 후 라벨 재사용 가능.
 * **번호 충돌 가이드**: 라벨 중복 시 표준 오류 + UI 가이드.
@@ -50,7 +49,6 @@ creation_date: 2025-09-03
 
 * **단일 폴링 엔드포인트**: `GET /events?after=<eventId>&limit=` 커서 기반 증분 수신.
 * **대표 이벤트**:
-
   * 물품: `items.created / items.updated / items.removed`
   * 검사: `inspection.opened / joined / left / locked / action_recorded / submitted`
   * (선택) 벌점: `penalties.adjusted`
@@ -61,7 +59,6 @@ creation_date: 2025-09-03
 
 * **RFC7807 오류 본문**: 코드/필드/사유/재시도 힌트 포함.
 * **409/422/423/429** 사용 지침:
-
   * 409: 상태 충돌(라벨 중복, 동시 변경 등)
   * 422: 규칙 위반(의미적 유효성 실패)
   * 423: 해당 칸 **검사 중** 쓰기 금지
