@@ -50,10 +50,10 @@ creation_date: 2025-09-01
 * [ ] **`/events/poll` 스텁**(“hello” 1건, `sinceId/limit` 커서 처리)
 * **Gate/DoD**: 헬스 200, 권한 밖 403, 폴링으로 hello 수신 캡처
 * 구현
-	* [dockercompose설정](../../00_Inbox/dockercompose설정.md)
-	* [헬스체크와 요청로그](../../00_Inbox/헬스체크와%20요청로그.md)
-	* [OpenApi골격](../../00_Inbox/OpenApi골격.md)
-	* [인증](../../00_Inbox/인증.md)
+	* [dockercompose설정](../../../00_Inbox/dockercompose설정.md)
+	* [헬스체크와 요청로그](../../../00_Inbox/헬스체크와%20요청로그.md)
+	* [OpenApi골격](../../../00_Inbox/OpenApi골격.md)
+	* [인증](../../../00_Inbox/인증.md)
 	* [[../00_Inbox/7주 프런트 AI 학습 패킷 (합본·보강 반영)|7주 프런트 AI 학습 패킷 (합본·보강 반영)]]
 
 ## Week 2 — 자원·아이템 등록/조회 + **이벤트 기록**
@@ -129,7 +129,7 @@ creation_date: 2025-09-01
 
 > **컷 스위치(지연 시 이동)**: Week 7(단일탭 공유), Week 9(자동배포), Week 10(DB 비교)은 **R1\~R2로 슬립**.
 
-![](../../99_System/images/2025_6/졸프/IMG-${parent}/IMG-20251007211046572.png)
+![](../../../99_System/images/2025_6/과거->원본/IMG-${parent}/IMG-20251011191012081.png)
 
 ---
 
