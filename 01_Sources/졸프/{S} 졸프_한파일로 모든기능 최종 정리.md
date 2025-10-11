@@ -13,16 +13,16 @@ creation_date: 2025-10-07
 
 ## **1) 요약 스택**
 
-- **프론트엔드**: React(Typescript) · Vite · Tailwind · shadcn/ui · TanStack Query · PWA
-- **백엔드**: Spring Boot **(Java 21)** · Spring Security(JWT) · Spring Data JPA · Redis(캐시/세션/PubSub) · PostgreSQL · Flyway · Actuator
-- **배포**
-    - 백엔드: **AWS Lightsail**(AWS 경로) / **OCI Always Free**(OCI 경로)
-    - 프론트: **Vercel**(정적 배포 + PWA)
-    - 공통: Docker/Compose, Nginx(리버스 프록시), GitHub Actions(CI/CD), Prometheus+Grafana, Sentry
-- **보안/네트워킹**: HTTPS(웹푸시 필수), JWT, 레이트리밋, CORS 최소화(정확한 오리진만 허용)
-- **AWS 경로**: Lightsail(서버) + ACM/ALB(HTTPS) + RDS(Postgres) + Elasticache(Redis) 가능
-- **OCI 경로**: Always Free(Compute + Managed PostgreSQL/Autonomous?) + Let’s Encrypt
-- 공통: Docker/Compose, Nginx 리버스 프록시, GitHub Actions CI/CD, 모니터링(Prometheus/Grafana), Sentry
+- **프론트**: React(TypeScript) · Vite · Tailwind · shadcn/ui · TanStack Query · PWA
+- **백엔드**: Spring Boot **Java 21** · Spring Security(JWT) · Spring Data JPA · PostgreSQL · Flyway · Actuator
+- **실시간**: **SSE**(단일 스트림)
+- **인프라**: **AWS Lightsail**(+ Nginx 리버스 프록시)
+- **모니터링/로그**: **Sentry** (Phase A: Prometheus+Grafana)
+- **보안**: HTTPS, CORS 화이트리스트, 레이트리밋(nginx 또는 Bucket4j 중 1)
+- **캐시/세션/메시징**: **미도입**(단일 인스턴스 기준). 다중 인스턴스 전환 시 Redis(PubSub) 도입.
+
+> 선택 근거: 초기 트래픽·운영 복잡도 최소화. 비용·학습부담 절감.
+
 - 개발환경
 	- **M1 MacBook**
 	- **IntelliJ IDEA / VS Code**
@@ -31,64 +31,58 @@ creation_date: 2025-10-07
 	- **Obsidian** – 설계/문서 관리
 ## **2) 기본 원칙**
 
-- **RBAC**: 최고관리자 / 일반관리자 / **층별장(검사자)** / 입주자. 코드값: ADMIN_ROOT|ADMIN|INSPECTOR|RESIDENT
-- **로그인 필수**, **딥링크 필수**, **감사로그 기본값**
-- **단순화**: 관리자/검사자 화면은 사용자 UI 재사용 + “추가 액션 버튼” 패턴
-- 점검 결과: 원본 불변 + 정정 세션(AMENDMENT)로만 보정. 최종 조회는 뷰(v_inspection_results_effective).
-- 락: 점검 세션 생성 전 resource_locks 선취. TTL 5분. 만료 시 인계 UPSERT.
-- 감사: 모든 쓰기 전에 GUC(app.user_id, app.change_reason) 설정 → event_log 적재.
-- 벌점 산정은 앱 로직이 수행하고 DB에는 penalties_original(원본) + penalties_adjustments(조정)만 기록.
+- **RBAC**: `ADMIN_ROOT` | `ADMIN` | `INSPECTOR` | `RESIDENT`
+- **로그인 필수**, **딥링크 필수**, **감사로그 기본값**
+- **관리/검사 화면**: 사용자 UI 재사용 + “추가 액션 버튼”
+- **정정 규칙**: 점검 결과 원본 불변. **AMENDMENT**로만 보정. 조회는 뷰 `v_inspection_results_effective`.
+- **락**: 점검 전 `resource_locks` 선취. TTL 5분 + **하트비트 30초**. 단절 90초 후 회수.
+- **감사**: 모든 쓰기 전 `GUC(app.user_id, app.change_reason)` 설정 → `event_log` 적재.
+- **벌점**: 앱 로직 산정. DB에는 원본/ 조정만 기록.
 ## **3) 실시간 & 알림**
 
 - **포그라운드 동기화 = SSE**: 자동 재연결, Last-Event-ID, 30s keepalive.
     프록시 버퍼링 off, read_timeout 확장(아래 구현상세 참조).
 - **백그라운드 알림 = Web Push(VAPID)**: iOS는 PWA 설치 상태에서만 수신/권한. **무음 푸시 금지**.
-    공통 페이로드: deeplink, event_code, target_type, target_id, meta (≤ 4KB).
 - **표시 원칙**
     - 문서 **visible**: 인앱 토스트/배지 우선, 시스템 알림 최소화(중복 방지)
     - **읽음 처리**: 관련 화면/팝업 진입 시 자동 읽음
 - **알림 채널 일원화**: 기존에 존재하는 관리자-기숙사생 소통앱인 band과 중복되는 “역할 임명/공지” 등은 **미발송**
 
-## **4) 시간/스케줄**
+## **4) 도메인 표준화**
 
-- **DB UTC 저장**, 클라이언트 표시/운영 스케줄은 **KST**.
-- 다목적실 RESERVATION_OPENED 트리거: **월요일 00:00 KST**(크론/스케줄러도 KST 기준)
+- **상태(enum, 공통)**: `AVAILABLE, IN_USE, RESERVED, DONE, UNAUTHORIZED_USE, ERROR_REPORTED, OUT_OF_SERVICE`
+- **용어**: 스키마는 `resource_id` 고정. UI에만 "칸" 사용.
+- **스티커 표기(SNNN)**
+    - `S`= 칸 번호, `NNN`= 칸 내부 라벨 번호(1..999, 제로패딩).
+    - **DB에는 `label_no`만 저장**. `SNNN`은 **런타임 파생**.
+    - `S` 산출: `resources.position_order` ASC 정렬 → 1..N(냉장), 냉동은 `N+1`.
+- **유니크 규칙**: `(resource_id, label_no)`는 **ACTIVE 상태에서만** 유니크(부분 인덱스).
 
----
+## **5) 모듈별 정책(핵심 요약)**
 
-## **5) 도메인 표준화**
+### **5.1 냉장고**
 
-- **상태(enum, 전 모듈 공통)**:
+- 등록: 단일/묶음. 번호 **재사용**(removed_at 설정 즉시 가능).
+- 검색: 식별번호 **정확/접두** 검색.
+- 검사: 칸 단위 잠금. 동시 2인. 제출 후 **사유 필수 수정**.
+- 충돌: 활성 (resource_id,label_no) 충돌 시 **409**.
+- 자동 재번호: **검사 컨텍스트에서만** next_free_label로 재부여 + event_log(auto_relabel).
+- 칸 이동: item_groups.resource_id 변경. 충돌 시 409.
+- 스티커 표기: S=position_order, NNN=label_no. 표시값 예 냉장1-123 (1123).
 
-    AVAILABLE, IN_USE, RESERVED, DONE, UNAUTHORIZED_USE, ERROR_REPORTED, OUT_OF_SERVICE
+### **5.2 세탁실**(상세구현에서 정의함)
 
-- **용어/역할**: 코드 INSPECTOR, UI 표기 “층별장”
-- **감사로그 스키마**: who(role)·what(event_code)·target(type/id)·when·why(memo)
-- **이벤트 코드 예시**: RESERVATION_OPENED / REMINDER_5M / DONE / NO_SHOW_SUSPECT / ADMIN_OVERRIDE
+### **5.3 도서관**
 
----
+- 원스톱 팝업: 대출/반납/연장/예약.
+- 알림: 반납 **D-5**, 당일, 연체, 예약 가능/만료.
+- 경량화: 예약 대기열 **1명**.
 
-## **6) 모듈별 정책(핵심 요약)**
+### **5.4 다목적실**
 
-### **6.1 냉장고**
-
-- **등록**: 단일/묶음 등록, 묶음단위로 식별번호 발급, 번호 **재사용**(REMOVED 즉시 가능)
-- **검색**: 식별번호 검색, 부분검색지원
-- **검사**: 칸 단위 잠금(TTL **5분**), 하나의 칸을 층별장 최대 두 명이 함께 검사가능, 한명이 제출 후 수정 가능(사유 필수·이력)
-- **충돌**: 수동 UI 보류, **자동 재번호** + 이력 기록
-- 칸 이동: item_groups.resource_id만 변경. 활성 라벨 충돌 시 409 반환.
-- 라벨 충돌 처리: next_free_label로 재번호 후 업데이트, event_log에 auto_relabel 기록.
-### **6.2 세탁실**(상세구현에서 정의함)
-
-### **6.3 도서관**
-
-- 원스톱 팝업(대출/반납/연장/예약), **반납 5일 전** 묶음 알림, 연체 자동 벌점
-- 예약 대기열 **1명 제한**(경량화 유지)
-
-### **6.4 다목적실**
-
-- **10분 단위** 예약, **주간 오픈 월 00:00 KST**
-- 합석 **뱃지 표시만**, 노쇼 원클릭 신고→관리 큐
+- **10분 단위** 예약. **매주 월 00:00 KST** 주간 오픈.
+- 합석=뱃지 표시만. 노쇼 원클릭 신고→관리 큐.
+- 관리자 강제 예약: 사용자 다이얼로그 재사용+스위치.
 
 ## 기능
 
