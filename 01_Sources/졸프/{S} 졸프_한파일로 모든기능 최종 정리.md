@@ -34,7 +34,10 @@ creation_date: 2025-10-07
 - **RBAC**: 최고관리자 / 일반관리자 / **층별장(검사자)** / 입주자. 코드값: ADMIN_ROOT|ADMIN|INSPECTOR|RESIDENT
 - **로그인 필수**, **딥링크 필수**, **감사로그 기본값**
 - **단순화**: 관리자/검사자 화면은 사용자 UI 재사용 + “추가 액션 버튼” 패턴
-
+- 점검 결과: 원본 불변 + 정정 세션(AMENDMENT)로만 보정. 최종 조회는 뷰(v_inspection_results_effective).
+- 락: 점검 세션 생성 전 resource_locks 선취. TTL 5분. 만료 시 인계 UPSERT.
+- 감사: 모든 쓰기 전에 GUC(app.user_id, app.change_reason) 설정 → event_log 적재.
+- 벌점 산정은 앱 로직이 수행하고 DB에는 penalties_original(원본) + penalties_adjustments(조정)만 기록.
 ## **3) 실시간 & 알림**
 
 - **포그라운드 동기화 = SSE**: 자동 재연결, Last-Event-ID, 30s keepalive.
@@ -73,7 +76,8 @@ creation_date: 2025-10-07
 - **검색**: 식별번호 검색, 부분검색지원
 - **검사**: 칸 단위 잠금(TTL **5분**), 하나의 칸을 층별장 최대 두 명이 함께 검사가능, 한명이 제출 후 수정 가능(사유 필수·이력)
 - **충돌**: 수동 UI 보류, **자동 재번호** + 이력 기록
-
+- 칸 이동: item_groups.resource_id만 변경. 활성 라벨 충돌 시 409 반환.
+- 라벨 충돌 처리: next_free_label로 재번호 후 업데이트, event_log에 auto_relabel 기록.
 ### **6.2 세탁실**(상세구현에서 정의함)
 
 ### **6.3 도서관**
@@ -146,7 +150,7 @@ creation_date: 2025-10-07
 	    기본 맵: `1=냉장1`, `2=냉장2`, `3=냉장3`, `4=냉동`.
 	    
 	- **라벨 번호 NNN**: 해당 칸 내부에서 유일한 1~999의 정수(스티커엔 3자리 제로패딩).
-	- DB에는 `item_bundles(compartment_id, label_no)`만 저장하고, 스티커 **SNNN은 저장하지 않음**.
+	- DB에는 `item_groups(compartment_id, label_no)`만 저장하고, 스티커 **SNNN은 저장하지 않음**.
 	- S(칸번호) 산출
 	- **저장 X**. 클라이언트/서버에서 **런타임 파생**.
 	- 현재 정책(층당 냉장고 1대 기준):
@@ -156,7 +160,7 @@ creation_date: 2025-10-07
 	        
 	- 서버에서 **“칸 -> S” 변환**을 제공하면 UI가 확정적으로 표기 가능.
 	-  NNN(칸 내부 라벨번호)
-		- DB `item_bundles.label_no`(INT, 1~999) 값에 **좌측 제로패딩**해 3자리 표기.
+		- DB `item_groups.label_no`(INT, 1~999) 값에 **좌측 제로패딩**해 3자리 표기.
 		- **유일성 범위**는 “해당 칸(compartment_id) + ACTIVE 상태” (부분 유니크 인덱스가 보장).
 		-  2.1 등록 플로우
 		

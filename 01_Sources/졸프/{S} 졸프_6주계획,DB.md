@@ -9,7 +9,7 @@ creation_date: 2025-10-07
 ## 6주 배포 MVP
 
 - 포함: 냉장고 전 흐름, DB-락, SSE, 벌점, 최소 관리자, 배포.
-- 제외: **Web Push**, Redis 분산락, Items v2, TRGM, 고급 대시보드.
+- 제외: **Web Push**, Redis 분산락, TRGM인덱스, 고급 대시보드.
 - 컷리스트: Week4 통계 위젯→텍스트 수치. D-1 스케줄러→앱 진입 시 계산.
 
 ### **Week 1: 기반**
@@ -20,13 +20,16 @@ creation_date: 2025-10-07
     - Flyway 적용 + **Fix Pack** 마이그(역할명 정합, resource_locks TTL=5m, event_log.actor_user_id/reason).
     - Security + JWT + RBAC(ADMIN_ROOT/ADMIN/INSPECTOR/RESIDENT).
     - CI 기초: 빌드·이미지 생성까지만.
+	- 운영 규칙 확정: 세션 생성 전 resource 락 선취 → 동일 세션에 2인 참가(좌석 1,2).
+	- 제출/정정 시 GUC(app.user_id, app.change_reason) 세팅 필수 → event_log에 모두 적재.
+	- 라벨 충돌 409 수신 시 next_free_label(resource_id)로 재시도 → event_log{action:auto_relabel,from,to}
 - 게이트: 로그인 샘플 200/403, Flyway clean→migrate 무오류.
 
 ### **Week 2: 냉장고 등록·조회**
 
 - 목표: 입주자 핵심 흐름 확보.
 - 과업
-    - 모델: **resources(FRIDGE_COMP)**, **item_bundles**만. SNNN= resource_id+label_no 런타임 생성.
+    - 모델: **resources(FRIDGE_COMP)**, **item_groups**만. SNNN= resource_id+label_no 런타임 생성.
     - API: 내 물품 등록(단일/묶음), 내 목록/상세, D-1 임박 조회.
     - 유일성: 활성 상태 (resource_id,label_no) 부분 UNIQUE.
     - event_log 적재(actor, reason 포함).
@@ -100,23 +103,35 @@ creation_date: 2025-10-07
 ```sql
 -- =========================================================
 -- Dorm Convenience System — Final DDL (PostgreSQL ≥ 11)
--- 규칙
+-- 목적: 핵심 무결성은 DB가 보장. 앱에서 처리 가능한 절차는 앱으로 이관.
+-- 핵심 규칙
 --   • ID: BIGINT IDENTITY
 --   • 시간: timestamptz(UTC)
---   • 확장필드: attrs(JSONB)로 분기 처리
+--   • 확장필드: attrs(JSONB)
 -- 라벨
 --   • label_no 1..999만 DB가 강제
 --   • 스티커 SNNN의 S(칸번호)는 앱이 계산. DB에는 NNN만 저장
 -- 검사/정정
---   • 제출된 세션과 결과는 원본·정정 모두 불변
---   • 정정은 AMENDMENT 세션에서만 허용. correction 체인으로 연결
+--   • “제출된 세션/결과”만 유효. 제출/취소 후 결과 불변
+--   • 정정은 AMENDMENT 세션에서만. correction 체인은 선형(분기 없음)
 -- 조회
---   • v_inspection_results_effective로 정정 반영된 최종 결과만 노출
+--   • v_inspection_results_effective: 제출된 원본/정정만 반영된 최종 결과
+-- 벌점
+--   • 저장 트리거 없음. penalty_rules + 뷰로 “조회 시 계산”
+--   • v_penalties_effective, v_penalties_totals 제공
+-- DB→앱 이관(이 DDL에는 포함하지 않음)
+--   • start_amendment_session(): 서비스 레이어 트랜잭션으로 처리
+--   • close_item_group(): 종료 + 유닛 removed_at 주입은 앱에서 2쿼리로 처리
+-- 단순화 사항
+--   • item_units: 종료그룹 UPDATE 트리거 2개 → 1개로 축약
+--   • JSONB GIN 인덱스는 사용패턴 확정 전 생성 지연(옵션)
+--   • 인덱스 다이어트: 초기 최소세트만 생성
+--   • 라벨 할당 재시도 5회
 -- =========================================================
 BEGIN;
 
 -- 0) Extensions ---------------------------------------------------------
-CREATE EXTENSION IF NOT EXISTS citext;  -- 대소문자 무시 계정/이메일
+CREATE EXTENSION IF NOT EXISTS citext;
 
 -- 1) Users / Roles ------------------------------------------------------
 CREATE TABLE users (
@@ -144,14 +159,16 @@ CREATE TABLE resources (
   status         TEXT NOT NULL DEFAULT 'ACTIVE'
                  CHECK (status IN ('ACTIVE','OUT_OF_SERVICE')),
   floor_code     TEXT NOT NULL,                     -- 동/층 구분
-  position_order SMALLINT,                          -- 칸 정렬 → S 계산에 사용
+  position_order SMALLINT,                          -- 칸 정렬 → S 계산
   comp_kind      TEXT,                              -- 예: FRIDGE/FREEZER
   attrs          JSONB NOT NULL DEFAULT '{}'::jsonb,-- 확장 속성
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(type, label)
 );
 CREATE INDEX idx_resources_floor ON resources(floor_code);
-CREATE INDEX idx_resources_attrs_gin ON resources USING GIN (attrs jsonb_path_ops);
+/* 필요 시 활성화(다형 JSONB 질의가 있을 때)
+CREATE INDEX idx_resources_attrs_gin ON resources USING GIN (attrs);
+*/
 
 -- 3) Items (Group / Unit) -----------------------------------------------
 -- 그룹 = 스티커 한 장의 논리 단위. 라벨 번호는 "자원 내 활성 그룹"에서만 유일.
@@ -163,15 +180,12 @@ CREATE TABLE item_groups (
   group_name    TEXT NOT NULL,                -- 대표명
   memo          TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  removed_at    TIMESTAMPTZ                    -- 소프트 종료. 번호 즉시 재사용 허용
+  removed_at    TIMESTAMPTZ                    -- 소프트 종료. 번호 즉시 재사용
 );
--- 활성 그룹만 라벨 유일 보장 → 번호 재사용 정책 충족
 CREATE UNIQUE INDEX ux_item_groups_label_active
   ON item_groups(resource_id, label_no) WHERE removed_at IS NULL;
 CREATE INDEX idx_item_groups_active_owner
   ON item_groups(owner_user_id) WHERE removed_at IS NULL;
-CREATE INDEX idx_item_groups_label_active_lookup
-  ON item_groups(resource_id, label_no) WHERE removed_at IS NULL;
 
 -- 유닛 = 그룹 내 개별 품목. 부분 소비/폐기에 대응해 유닛 단위로 제거 표시.
 CREATE TABLE item_units (
@@ -182,27 +196,45 @@ CREATE TABLE item_units (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   removed_at  TIMESTAMPTZ                      -- 부분/전량 제거 시각
 );
+-- 최소 인덱스 세트
 CREATE INDEX idx_item_units_group   ON item_units(group_id);
 CREATE INDEX idx_item_units_expires ON item_units(expires_on) WHERE removed_at IS NULL;
-CREATE INDEX idx_item_units_group_active_exp
-  ON item_units(group_id, expires_on)
-  WHERE removed_at IS NULL INCLUDE (name);
 
--- [무결성#1] 종료 그룹에 유닛 추가/갱신 금지 -------------------------------
-CREATE OR REPLACE FUNCTION ensure_unit_group_active()
+-- [무결성#1] 종료 그룹에 유닛 INSERT 금지 -----------------------------------
+CREATE OR REPLACE FUNCTION deny_insert_into_closed_group()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE v_removed TIMESTAMPTZ;
 BEGIN
   SELECT removed_at INTO v_removed FROM item_groups WHERE group_id = NEW.group_id;
   IF v_removed IS NOT NULL THEN
-    RAISE EXCEPTION '종료된 그룹에는 유닛을 추가/갱신할 수 없습니다';
+    RAISE EXCEPTION '종료된 그룹에는 유닛을 추가할 수 없습니다';
   END IF;
   RETURN NEW;
 END$$;
-CREATE TRIGGER trg_unit_group_active_ins BEFORE INSERT ON item_units
-FOR EACH ROW EXECUTE FUNCTION ensure_unit_group_active();
-CREATE TRIGGER trg_unit_group_active_upd BEFORE UPDATE ON item_units
-FOR EACH ROW EXECUTE FUNCTION ensure_unit_group_active();
+CREATE TRIGGER trg_unit_ins_closed_group
+BEFORE INSERT ON item_units
+FOR EACH ROW EXECUTE FUNCTION deny_insert_into_closed_group();
+
+-- [무결성#2] 종료 그룹의 UPDATE는 removed_at만 허용(단일 트리거) ------------
+CREATE OR REPLACE FUNCTION enforce_closed_group_update_policy()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE v_removed TIMESTAMPTZ;
+BEGIN
+  SELECT removed_at INTO v_removed FROM item_groups WHERE group_id = OLD.group_id;
+  IF v_removed IS NOT NULL THEN
+    -- 종료 그룹에서는 removed_at 외 컬럼 변경 금지
+    IF (NEW.group_id   IS DISTINCT FROM OLD.group_id)
+    OR (NEW.name       IS DISTINCT FROM OLD.name)
+    OR (NEW.expires_on IS DISTINCT FROM OLD.expires_on)
+    OR (NEW.created_at IS DISTINCT FROM OLD.created_at) THEN
+      RAISE EXCEPTION '종료된 그룹의 유닛은 removed_at만 수정할 수 있습니다';
+    END IF;
+  END IF;
+  RETURN NEW;
+END$$;
+CREATE TRIGGER trg_unit_upd_closed_group
+BEFORE UPDATE ON item_units
+FOR EACH ROW EXECUTE FUNCTION enforce_closed_group_update_policy();
 
 -- [편의] 활성 유닛이 0개가 되면 그룹 자동 종료 -----------------------------
 CREATE OR REPLACE FUNCTION auto_close_group_when_empty()
@@ -215,19 +247,11 @@ BEGIN
   END IF;
   RETURN COALESCE(NEW, OLD);
 END$$;
-CREATE TRIGGER trg_group_autoclose_ins  AFTER INSERT ON item_units  FOR EACH ROW EXECUTE FUNCTION auto_close_group_when_empty();
-CREATE TRIGGER trg_group_autoclose_upd  AFTER UPDATE OF removed_at ON item_units FOR EACH ROW EXECUTE FUNCTION auto_close_group_when_empty();
-CREATE TRIGGER trg_group_autoclose_del  AFTER DELETE ON item_units  FOR EACH ROW EXECUTE FUNCTION auto_close_group_when_empty();
-
--- [유틸] 그룹 종료 시 유닛 일괄 제거 타임스탬프 주입 -----------------------
-CREATE OR REPLACE FUNCTION close_item_group(p_group_id BIGINT)
-RETURNS VOID LANGUAGE plpgsql AS $$
-BEGIN
-  UPDATE item_groups SET removed_at = COALESCE(removed_at, now())
-  WHERE group_id = p_group_id;
-  UPDATE item_units SET removed_at = COALESCE(removed_at, now())
-  WHERE group_id = p_group_id AND removed_at IS NULL;
-END$$;
+-- INSERT 후에는 활성 유닛 수가 0일 수 없으므로 INSERT 트리거 생략
+CREATE TRIGGER trg_group_autoclose_upd  AFTER UPDATE OF removed_at ON item_units
+FOR EACH ROW EXECUTE FUNCTION auto_close_group_when_empty();
+CREATE TRIGGER trg_group_autoclose_del  AFTER DELETE ON item_units
+FOR EACH ROW EXECUTE FUNCTION auto_close_group_when_empty();
 
 -- [유틸] 다음 사용 가능 라벨 추천 -----------------------------------------
 CREATE OR REPLACE FUNCTION next_free_label(p_resource_id BIGINT)
@@ -239,8 +263,7 @@ seq AS (SELECT gs AS n FROM generate_series(1,999) gs)
 SELECT MIN(n) FROM seq s LEFT JOIN used u ON u.label_no = s.n WHERE u.label_no IS NULL;
 $$;
 
--- [유틸] 라벨 확정 + 그룹 생성(경합 안전) -----------------------------------
--- DB가 라벨 충돌을 최종적으로 차단. 프런트의 추천값은 힌트로만 사용.
+-- [유틸] 라벨 확정 + 그룹 생성(경합 안전, 재시도 5회) -----------------------
 CREATE OR REPLACE FUNCTION allocate_group_with_label(
   p_resource_id BIGINT,
   p_owner_user_id BIGINT,
@@ -249,7 +272,7 @@ CREATE OR REPLACE FUNCTION allocate_group_with_label(
 ) RETURNS item_groups LANGUAGE plpgsql AS $$
 DECLARE v_row item_groups;
 BEGIN
-  FOR i IN 1..15 LOOP
+  FOR i IN 1..5 LOOP
     WITH next AS (
       SELECT MIN(n) AS label_no
       FROM generate_series(1,999) AS s(n)
@@ -269,8 +292,7 @@ BEGIN
 END$$;
 
 -- 4) Inspection -------------------------------------------------------------
--- 검사 세션: 칸 단위 진행. IN_PROGRESS 단 하나만 허용(자원별).
--- 제출 시각을 확정하고 이후 불변. 정정은 별도 AMENDMENT 세션에서 수행.
+-- 세션: 칸 단위. 리소스별 IN_PROGRESS 단 하나. 제출/취소 후 불변.
 CREATE TABLE inspection_sessions (
   session_id    BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   resource_id   BIGINT NOT NULL REFERENCES resources(resource_id) ON DELETE RESTRICT,
@@ -280,7 +302,6 @@ CREATE TABLE inspection_sessions (
   ended_at      TIMESTAMPTZ,
   submitted_by  BIGINT REFERENCES users(user_id) ON DELETE SET NULL,
   submitted_at  TIMESTAMPTZ,
-  -- 정정용 링크
   parent_session_id BIGINT REFERENCES inspection_sessions(session_id) ON DELETE SET NULL,
   purpose      TEXT NOT NULL DEFAULT 'NORMAL'
                CHECK (purpose IN ('NORMAL','AMENDMENT')),
@@ -292,39 +313,7 @@ CREATE UNIQUE INDEX ux_inspection_res_inprog
   ON inspection_sessions(resource_id) WHERE status='IN_PROGRESS';
 CREATE INDEX idx_is_parent ON inspection_sessions(parent_session_id);
 
--- 세션 참여자: 동시 검사 기록 분리를 위한 명시적 참여 엔티티
-CREATE TABLE inspection_participants (
-  participant_id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-  session_id     BIGINT NOT NULL REFERENCES inspection_sessions(session_id) ON DELETE CASCADE,
-  user_id        BIGINT NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
-  joined_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (session_id, user_id)
-);
-CREATE INDEX idx_ip_session ON inspection_participants(session_id);
-Create INDEX idx_ip_user    ON inspection_participants(user_id);
-
--- 검사 결과: NO_STICKER는 아이템 참조 금지. 그 외에는 그룹/유닛 참조 필수.
-CREATE TABLE inspection_results (
-  result_id    BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-  session_id   BIGINT NOT NULL REFERENCES inspection_sessions(session_id) ON DELETE CASCADE,
-  group_id     BIGINT REFERENCES item_groups(group_id) ON DELETE SET NULL,
-  unit_id      BIGINT REFERENCES item_units(unit_id) ON DELETE SET NULL,
-  performer_participant_id BIGINT NOT NULL REFERENCES inspection_participants(participant_id) ON DELETE RESTRICT,
-  action       TEXT NOT NULL CHECK (action IN ('PASS','WARNING','DISCARD','DISCARD_WITH_PENALTY')),
-  violation_type TEXT CHECK (violation_type IS NULL OR violation_type IN ('EXPIRED','NO_STICKER','PACKAGING_DEFECT','INFO_MISMATCH')),
-  note         TEXT,
-  performed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  -- 정정 체인
-  correction_of_result_id BIGINT REFERENCES inspection_results(result_id) ON DELETE RESTRICT
-);
-CREATE INDEX idx_ir_session   ON inspection_results(session_id);
-CREATE INDEX idx_ir_group     ON inspection_results(group_id);
-CREATE INDEX idx_ir_unit      ON inspection_results(unit_id);
-CREATE INDEX idx_ir_performer ON inspection_results(performer_participant_id);
-CREATE INDEX idx_ir_time      ON inspection_results(performed_at DESC);
-CREATE INDEX idx_ir_correction_of ON inspection_results(correction_of_result_id);
-
--- 세션 상태 전이 가드: 제출/취소 후 불변. 제출 시 submitted_at/ended_at 자동 확정.
+-- 상태 전이 가드 ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION enforce_session_state_transitions()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
@@ -344,7 +333,59 @@ CREATE TRIGGER trg_is_state_transition
 BEFORE UPDATE ON inspection_sessions
 FOR EACH ROW EXECUTE FUNCTION enforce_session_state_transitions();
 
--- 결과-아이템-세션 자원 일치 가드 + NO_STICKER 규칙 강제
+-- 세션 참여자 --------------------------------------------------------------
+CREATE TABLE inspection_participants (
+  participant_id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  session_id     BIGINT NOT NULL REFERENCES inspection_sessions(session_id) ON DELETE CASCADE,
+  user_id        BIGINT NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
+  joined_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (session_id, user_id)
+);
+CREATE INDEX idx_ip_session ON inspection_participants(session_id);
+CREATE INDEX idx_ip_user    ON inspection_participants(user_id);
+
+-- 검사 결과 ---------------------------------------------------------------
+-- NO_STICKER는 아이템 참조 금지. 그 외에는 그룹/유닛 참조 필수.
+CREATE TABLE inspection_results (
+  result_id    BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  session_id   BIGINT NOT NULL REFERENCES inspection_sessions(session_id) ON DELETE CASCADE,
+  group_id     BIGINT REFERENCES item_groups(group_id) ON DELETE SET NULL,
+  unit_id      BIGINT REFERENCES item_units(unit_id) ON DELETE SET NULL,
+  performer_participant_id BIGINT NOT NULL REFERENCES inspection_participants(participant_id) ON DELETE RESTRICT,
+  action       TEXT NOT NULL CHECK (action IN ('PASS','WARNING','DISCARD','DISCARD_WITH_PENALTY')),
+  violation_type TEXT CHECK (violation_type IS NULL OR violation_type IN ('EXPIRED','NO_STICKER','PACKAGING_DEFECT','INFO_MISMATCH')),
+  note         TEXT,
+  performed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  correction_of_result_id BIGINT REFERENCES inspection_results(result_id) ON DELETE RESTRICT,
+  CONSTRAINT ck_penalized_requires_violation
+    CHECK (action <> 'DISCARD_WITH_PENALTY' OR violation_type IS NOT NULL)
+);
+-- 최소 인덱스 세트
+CREATE INDEX idx_ir_session       ON inspection_results(session_id);
+CREATE INDEX idx_ir_correction_of ON inspection_results(correction_of_result_id);
+CREATE INDEX idx_ir_time          ON inspection_results(performed_at DESC);
+
+-- 수행자-세션 일치 ----------------------------------------------------------
+CREATE OR REPLACE FUNCTION ensure_result_performer_valid()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE sid BIGINT;
+BEGIN
+  SELECT session_id INTO sid
+  FROM inspection_participants
+  WHERE participant_id = NEW.performer_participant_id;
+  IF sid IS NULL THEN
+    RAISE EXCEPTION '존재하지 않는 performer_participant_id';
+  END IF;
+  IF NEW.session_id <> sid THEN
+    RAISE EXCEPTION 'performer_participant_id는 동일 세션이어야 합니다';
+  END IF;
+  RETURN NEW;
+END$$;
+CREATE TRIGGER trg_ir_performer_ck
+BEFORE INSERT OR UPDATE ON inspection_results
+FOR EACH ROW EXECUTE FUNCTION ensure_result_performer_valid();
+
+-- 결과-아이템-세션 자원 일치 + NO_STICKER 규칙 ------------------------------
 CREATE OR REPLACE FUNCTION ensure_result_item_refs()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE v_gid BIGINT; v_session_res BIGINT; v_item_res BIGINT;
@@ -353,54 +394,57 @@ BEGIN
 
   IF NEW.violation_type = 'NO_STICKER' THEN
     IF NEW.group_id IS NOT NULL OR NEW.unit_id IS NOT NULL THEN
-      RAISE EXCEPTION 'NO_STICKER는 group_id/unit_id 없이 기록해야 합니다';
+      RAISE EXCEPTION 'NO_STICKER는 group_id/unit_id 없이 기록';
     END IF;
   ELSE
     IF NEW.group_id IS NULL AND NEW.unit_id IS NULL THEN
-      RAISE EXCEPTION 'group_id 또는 unit_id 중 하나는 필수입니다';
+      RAISE EXCEPTION 'group_id 또는 unit_id 중 하나는 필수';
     END IF;
 
     IF NEW.unit_id IS NOT NULL THEN
       SELECT group_id INTO v_gid FROM item_units WHERE unit_id = NEW.unit_id;
-      IF NOT FOUND THEN RAISE EXCEPTION '존재하지 않는 unit_id입니다'; END IF;
+      IF NOT FOUND THEN RAISE EXCEPTION '존재하지 않는 unit_id'; END IF;
       IF NEW.group_id IS NOT NULL AND NEW.group_id <> v_gid THEN
-        RAISE EXCEPTION 'unit_id는 지정된 group_id에 속해야 합니다';
+        RAISE EXCEPTION 'unit_id는 지정 group_id에 속해야 함';
       END IF;
       SELECT resource_id INTO v_item_res FROM item_groups WHERE group_id = v_gid;
     ELSE
       SELECT resource_id INTO v_item_res FROM item_groups WHERE group_id = NEW.group_id;
-      IF NOT FOUND THEN RAISE EXCEPTION '존재하지 않는 group_id입니다'; END IF;
+      IF NOT FOUND THEN RAISE EXCEPTION '존재하지 않는 group_id'; END IF;
     END IF;
 
     IF v_item_res IS DISTINCT FROM v_session_res THEN
-      RAISE EXCEPTION '세션 리소스와 결과 리소스가 다릅니다';
+      RAISE EXCEPTION '세션 리소스와 결과 리소스 불일치';
     END IF;
   END IF;
+
   RETURN NEW;
 END$$;
 CREATE TRIGGER trg_ir_item_refs_ck
 BEFORE INSERT OR UPDATE ON inspection_results
 FOR EACH ROW EXECUTE FUNCTION ensure_result_item_refs();
 
--- 제출 후 결과 변경 차단(원본·정정 모두 불변) -------------------------------
-CREATE OR REPLACE FUNCTION ensure_session_not_submitted()
+-- 제출/취소 세션의 결과 변경 차단(원본·정정 모두 불변) ----------------------
+CREATE OR REPLACE FUNCTION ensure_session_not_mutable()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE st TEXT;
 BEGIN
-  SELECT status INTO st FROM inspection_sessions WHERE session_id = COALESCE(NEW.session_id, OLD.session_id) FOR UPDATE;
-  IF st='SUBMITTED' THEN
-    RAISE EXCEPTION '이미 제출된 검사 세션입니다(결과 불변)';
+  SELECT status INTO st FROM inspection_sessions
+  WHERE session_id = COALESCE(NEW.session_id, OLD.session_id)
+  FOR UPDATE;
+  IF st IN ('SUBMITTED','CANCELED') THEN
+    RAISE EXCEPTION '해당 검사 세션은 결과 변경 불가(상태=%).', st;
   END IF;
   RETURN COALESCE(NEW, OLD);
 END$$;
 CREATE TRIGGER trg_ir_block_ins BEFORE INSERT ON inspection_results
-FOR EACH ROW EXECUTE FUNCTION ensure_session_not_submitted();
+FOR EACH ROW EXECUTE FUNCTION ensure_session_not_mutable();
 CREATE TRIGGER trg_ir_block_upd BEFORE UPDATE ON inspection_results
-FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*) EXECUTE FUNCTION ensure_session_not_submitted();
+FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*) EXECUTE FUNCTION ensure_session_not_mutable();
 CREATE TRIGGER trg_ir_block_del BEFORE DELETE ON inspection_results
-FOR EACH ROW EXECUTE FUNCTION ensure_session_not_submitted();
+FOR EACH ROW EXECUTE FUNCTION ensure_session_not_mutable();
 
--- 정정 규칙: AMENDMENT 세션 한정. parent_session 일치, 대상은 SUBMITTED, 사유 필수.
+-- 정정 규칙: AMENDMENT 한정, parent 일치, 대상 SUBMITTED, 사유 필수 ---------
 CREATE OR REPLACE FUNCTION enforce_amendment_rules()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
@@ -409,16 +453,18 @@ DECLARE
   this_resource   BIGINT;
   base_status     TEXT;
   this_purpose    TEXT;
+  this_parent     BIGINT;
 BEGIN
-  IF NEW.correction_of_result_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT purpose, resource_id INTO this_purpose, this_resource
+  SELECT purpose, resource_id, parent_session_id
+    INTO this_purpose, this_resource, this_parent
   FROM inspection_sessions WHERE session_id = NEW.session_id;
 
-  IF this_purpose <> 'AMENDMENT' THEN
-    RAISE EXCEPTION '정정 결과는 AMENDMENT 세션에서만 생성할 수 있습니다';
+  IF this_purpose = 'AMENDMENT' AND NEW.correction_of_result_id IS NULL THEN
+    RAISE EXCEPTION 'AMENDMENT 세션은 correction_of_result_id 필수';
+  END IF;
+
+  IF NEW.correction_of_result_id IS NULL THEN
+    RETURN NEW;
   END IF;
 
   SELECT s.session_id, s.resource_id, s.status
@@ -427,25 +473,12 @@ BEGIN
   JOIN inspection_sessions s ON s.session_id = r.session_id
   WHERE r.result_id = NEW.correction_of_result_id;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION '존재하지 않는 correction_of_result_id';
-  END IF;
-
-  IF base_status <> 'SUBMITTED' THEN
-    RAISE EXCEPTION '정정 대상 세션은 SUBMITTED 이어야 합니다';
-  END IF;
-
-  IF (SELECT parent_session_id FROM inspection_sessions WHERE session_id=NEW.session_id) <> base_session_id THEN
-    RAISE EXCEPTION 'AMENDMENT 세션의 parent_session_id가 대상 세션과 일치해야 합니다';
-  END IF;
-
-  IF this_resource IS DISTINCT FROM base_resource THEN
-    RAISE EXCEPTION '정정 세션 리소스와 대상 결과 리소스가 다릅니다';
-  END IF;
-
-  IF NEW.note IS NULL OR btrim(NEW.note) = '' THEN
-    RAISE EXCEPTION '정정 사유(note)는 필수입니다';
-  END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION '존재하지 않는 correction_of_result_id'; END IF;
+  IF this_purpose <> 'AMENDMENT' THEN RAISE EXCEPTION '정정은 AMENDMENT에서만'; END IF;
+  IF base_status <> 'SUBMITTED' THEN RAISE EXCEPTION '정정 대상 세션은 SUBMITTED'; END IF;
+  IF this_parent <> base_session_id THEN RAISE EXCEPTION 'AMENDMENT.parent_session_id 불일치'; END IF;
+  IF this_resource IS DISTINCT FROM base_resource THEN RAISE EXCEPTION '정정 세션/대상 리소스 불일치'; END IF;
+  IF NEW.note IS NULL OR btrim(NEW.note) = '' THEN RAISE EXCEPTION '정정 사유(note) 필수'; END IF;
 
   RETURN NEW;
 END$$;
@@ -453,43 +486,80 @@ CREATE TRIGGER trg_ir_amend_rules
 BEFORE INSERT ON inspection_results
 FOR EACH ROW EXECUTE FUNCTION enforce_amendment_rules();
 
--- 최종 유효 결과 뷰: correction 체인의 leaf만 노출 -------------------------
+-- 정정 체인 선형화 ----------------------------------------------------------
+CREATE UNIQUE INDEX ux_ir_single_correction
+ON inspection_results(correction_of_result_id)
+WHERE correction_of_result_id IS NOT NULL;
+
+-- 최종 유효 결과 뷰: 제출본만 대상 + 제출 정정 존재 시 원본 제외 -------------
 CREATE OR REPLACE VIEW v_inspection_results_effective AS
 SELECT r.*
 FROM inspection_results r
-WHERE NOT EXISTS (
-  SELECT 1 FROM inspection_results c
-  WHERE c.correction_of_result_id = r.result_id
+JOIN inspection_sessions s ON s.session_id = r.session_id
+WHERE s.status='SUBMITTED'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM inspection_results c
+    JOIN inspection_sessions sc ON sc.session_id = c.session_id
+    WHERE sc.status='SUBMITTED'
+      AND c.correction_of_result_id = r.result_id
+  );
+
+-- 5) Penalties (조회 시 계산형) --------------------------------------------
+-- 규칙 테이블: 위반유형별 기본 점수/사유
+--  • CHECK 제약 없음(inspection_results에서 타입 유효성 보장. 규칙 테이블 유연성)
+CREATE TABLE penalty_rules (
+  violation_type TEXT PRIMARY KEY,
+  points INTEGER NOT NULL CHECK (points>0),
+  reason TEXT NOT NULL
 );
 
--- 5) Penalties --------------------------------------------------------------
--- 벌점은 이벤트 로그성. ORIGINAL은 양수만, ADJUSTMENT는 가감조정.
-CREATE TABLE penalties (
-  penalty_id  BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-  user_id     BIGINT NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
-  inspection_result_id BIGINT REFERENCES inspection_results(result_id) ON DELETE SET NULL,
-  source      TEXT NOT NULL CHECK (source IN ('ORIGINAL','ADJUSTMENT')),
-  points      INTEGER NOT NULL,
-  reason      TEXT NOT NULL,
-  created_by  BIGINT REFERENCES users(user_id) ON DELETE SET NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK ((source='ORIGINAL' AND points>0) OR (source='ADJUSTMENT' AND points<>0))
-);
-CREATE INDEX idx_penalties_user ON penalties(user_id);
-CREATE INDEX idx_penalties_user_time ON penalties(user_id, created_at DESC);
+-- 결과별 “유효 벌점” 뷰 -----------------------------------------------------
+--  • 제출본 중 action='DISCARD_WITH_PENALTY' 대상
+--  • 오너 추적: unit_id→item_units→item_groups 또는 직접 group_id
+--  • 오너가 NULL(예: NO_STICKER 무주물)인 경우 제외
+CREATE OR REPLACE VIEW v_penalties_effective AS
+WITH eff AS (
+  SELECT r.result_id, r.session_id, r.group_id, r.unit_id, r.action, r.violation_type, r.performed_at
+  FROM v_inspection_results_effective r
+  WHERE r.action='DISCARD_WITH_PENALTY'
+),
+owner AS (
+  SELECT
+    e.result_id,
+    COALESCE(g1.owner_user_id, g2.owner_user_id) AS user_id
+  FROM eff e
+  LEFT JOIN item_units  u  ON e.unit_id = u.unit_id
+  LEFT JOIN item_groups g1 ON u.group_id = g1.group_id
+  LEFT JOIN item_groups g2 ON e.group_id = g2.group_id
+)
+SELECT
+  e.result_id,
+  o.user_id,
+  pr.points,
+  pr.reason,
+  e.violation_type,
+  e.performed_at,
+  e.session_id
+FROM eff e
+JOIN owner o ON o.result_id = e.result_id
+JOIN penalty_rules pr ON pr.violation_type = e.violation_type
+WHERE o.user_id IS NOT NULL;
 
--- 사용자별 합계 뷰(원본/조정/총점)
+-- 사용자별 총점 뷰 ----------------------------------------------------------
 CREATE OR REPLACE VIEW v_penalties_totals AS
-SELECT u.user_id,
-       COALESCE(SUM(p.points) FILTER (WHERE p.source='ORIGINAL'), 0)   AS original_points,
-       COALESCE(SUM(p.points) FILTER (WHERE p.source='ADJUSTMENT'), 0) AS adjusted_points,
-       COALESCE(SUM(p.points), 0)                                      AS total_points
-FROM users u
-LEFT JOIN penalties p ON p.user_id = u.user_id
-GROUP BY u.user_id;
+SELECT user_id, COALESCE(SUM(points),0) AS total_points
+FROM v_penalties_effective
+GROUP BY user_id;
+
+/* 성능 팁(사후 적용):
+-- 느린 경우 부분 인덱스 추가
+-- CREATE INDEX idx_ir_action_penalty ON inspection_results(result_id)
+--   WHERE action='DISCARD_WITH_PENALTY';
+-- 또는 물질화 뷰로 전환
+*/
 
 -- 6) Event Log --------------------------------------------------------------
--- 비즈니스 이벤트 감사. 파티셔닝 추천.
 CREATE TABLE event_log (
   event_id       BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -501,155 +571,24 @@ CREATE TABLE event_log (
   actor_user_id  BIGINT REFERENCES users(user_id),
   reason         TEXT
 );
+-- 주조회 패턴 1종만 우선(과인덱싱 방지)
 CREATE INDEX idx_eventlog_type_time ON event_log(type, created_at DESC);
--- 대량 이벤트 시 RANGE(created_at) 파티셔닝 권장
 
--- 7) 보조 유틸 --------------------------------------------------------------
--- 정정 세션 시작: 기준 세션은 SUBMITTED여야 하며 parent_session_id로 연결.
-CREATE OR REPLACE FUNCTION start_amendment_session(p_base_session_id BIGINT, p_started_by BIGINT)
-RETURNS inspection_sessions LANGUAGE plpgsql AS $$
-DECLARE v inspection_sessions; DECLARE st TEXT;
-BEGIN
-  SELECT status INTO st FROM inspection_sessions WHERE session_id=p_base_session_id;
-  IF st <> 'SUBMITTED' THEN
-    RAISE EXCEPTION '기준 세션은 SUBMITTED 상태여야 합니다';
-  END IF;
-
-  INSERT INTO inspection_sessions(resource_id, started_by, status, purpose, parent_session_id, started_at)
-  SELECT resource_id, p_started_by, 'IN_PROGRESS', 'AMENDMENT', p_base_session_id, now()
-  FROM inspection_sessions WHERE session_id=p_base_session_id
-  RETURNING * INTO v;
-
-  RETURN v;
-END$$;
+-- 7) 체크리스트 -------------------------------------------------------------
+--  • 제출본만 노출: v_inspection_results_effective
+--  • 결과 불변: SUBMITTED/CANCELED 세션 결과 I/U/D 차단
+--  • 정정 제약: AMENDMENT 전용 + parent 일치 + 대상 SUBMITTED + 사유 필수
+--  • 정정 체인 선형화: ux_ir_single_correction
+--  • 벌점은 penalty_rules + 뷰로 계산(필요 시 인덱스/물질화로 최적화)
+--  • 앱 처리: start_amendment_session, close_item_group
 
 COMMIT;
+
+-- 초기 벌점 규칙 예시(선택. 마이그레이션에서 주입)
+-- INSERT INTO penalty_rules(violation_type, points, reason) VALUES
+--   ('EXPIRED', 5, '유통기한 경과 물품 폐기'),
+--   ('NO_STICKER', 3, '스티커 미부착 물품 폐기'),
+--   ('PACKAGING_DEFECT', 2, '포장 불량'),
+--   ('INFO_MISMATCH', 2, '정보 불일치');
 ```
 
-제공된 데이터베이스 스키마에 담긴 시나리오를 기능 단위로 묶어 설명하면 다음과 같습니다. 이 스키마는 주로 기숙사 편의 시스템, 특히 **냉장고 관리**에 초점을 맞추고 있으며, **사용자 관리**, **점검 프로세스**, **벌점 시스템**, **시스템 지원** 기능으로 구성됩니다.
-
-### 👤 사용자 및 역할 관리 (Users & Roles)
-
-시스템의 모든 사용자와 권한을 관리하는 기본 기능입니다.
-
-- **사용자 등록 및 인증**: 사용자들은 고유한 아이디(`username`)와 비밀번호 해시(`password_hash`)를 **`users`** 테이블에 저장하여 계정을 관리합니다. `is_active` 컬럼을 통해 특정 계정의 로그인을 차단할 수 있습니다.
-- **역할 기반 접근 제어 (RBAC)**: 역할은 **`roles`** 테이블에 `ADMIN_ROOT`, `ADMIN`, `INSPECTOR`, `RESIDENT`로 고정되어 정의됩니다. 사용자와 역할의 관계는 **`user_roles`** 테이블을 통해 설정되며, 이를 통해 각 사용자의 접근 권한이 결정됩니다.
-
----
-
-### 🧊 냉장고 물품 관리 (Item Management)
-
-사용자가 냉장고에 보관하는 물품을 등록하고 관리하는 핵심 기능입니다.
-
-- **자원(냉장고 칸) 정의**: 관리자는 **`resources`** 테이블에 냉장고의 각 칸을 `FRIDGE_COMP` 타입으로 등록하고, `floor_code`, `position_order` (칸의 순서) 등을 설정합니다. 이 정보는 스티커 번호 생성의 기준이 됩니다.
-- **물품 묶음 및 개별 관리**:
-    - 사용자가 물품을 등록하면, 스티커 하나에 해당하는 정보가 **`item_groups`** 테이블에 저장됩니다.
-    - 묶음 내의 개별 품목(예: 계란 한 판 속 계란 1개)은 **`item_units`** 테이블에서 관리되며, 각각 별도의 유통기한(`expires_on`)을 가집니다.
-- **라벨 번호 자동 할당 및 재사용**:
-    - 새 물품 등록 시, **`next_free_label()`** 함수가 해당 칸에서 사용 가능한 가장 작은 라벨 번호(1~999)를 찾아 추천해줍니다.
-    - 사용자가 물품을 모두 제거하면(`removed_at` 기록), 해당 라벨 번호는 즉시 다른 사용자가 재사용할 수 있게 됩니다. 이는 `removed_at IS NULL` 조건이 걸린 **UNIQUE 인덱스**를 통해 보장됩니다.
-- **물품 교체 이력 관리**: 한 물품 묶음을 제거하고 동일한 라벨 번호로 새 물품을 등록할 경우, 이전 `item_groups` 행의 `replaced_by_group_id`에 새 묶음의 ID를 기록하여 교체 이력을 추적할 수 있습니다.
-
----
-
-### 🔍 점검 프로세스 (Inspection Process)
-
-층별장(Inspector)이 냉장고를 점검하고 그 결과를 기록하는 기능입니다.
-
-- **점검 세션 및 잠금**:
-    - 점검이 시작되면 **`inspection_sessions`** 테이블에 세션이 생성되고, 상태는 `IN_PROGRESS`가 됩니다.
-    - 동시에 **`acquire_resource_lock()`** 함수를 통해 **`resource_locks`** 테이블에 해당 칸에 대한 **논리적 락**이 설정됩니다. 이 락은 5분간 유지되며, 다른 사용자가 물품 정보를 수정하는 것을 막습니다.
-- **점검자 관리**: 한 점검 세션에 최대 2명의 점검자가 참여할 수 있으며, 이 정보는 **`inspection_participants`** 테이블에 기록됩니다.
-- **결과 기록 및 수정**:
-    - 점검 결과는 **`inspection_results`** 테이블에 `PASS`, `WARNING`, `DISCARD` 등의 조치로 기록됩니다.
-    - 세션이 `SUBMITTED` 상태로 제출된 후 결과를 수정할 경우, **DB 트리거**가 작동하여 모든 변경 이력을 **`inspection_result_revisions`** 테이블에 자동으로 기록합니다. 이를 통해 모든 수정 사항을 추적할 수 있습니다.
-
----
-
-### penal 벌점 시스템 (Penalty System)
-
-점검 결과나 규정 위반에 따라 사용자에게 벌점을 부과하고 관리하는 기능입니다.
-
-- **원본 벌점 기록**: 벌점은 **`penalties_original`** 테이블에 기록되며, 이 데이터는 **수정 및 삭제가 불가능**하도록 DB 트리거로 보호됩니다. 이는 벌점 부과 기록의 불변성을 보장합니다.
-- **벌점 조정**: 관리자는 **`penalties_adjustments`** 테이블에 조정 점수(`delta_points`)와 사유를 기록하여 벌점을 가감할 수 있습니다.
-- **통합 벌점 조회**: 사용자의 최종 벌점은 원본 벌점과 조정 내역을 합산하는 **`v_penalties_totals`** 뷰(VIEW)를 통해 조회됩니다.
-
----
-
-### ⚙️ 시스템 인프라 및 감사 (System Infrastructure & Auditing)
-
-시스템의 안정성과 확장성, 추적 가능성을 지원하는 기반 기능입니다.
-
-- **이벤트 로그**: 시스템에서 발생하는 모든 주요 활동(예: 물품 등록, 점검 결과 제출)은 **`event_log`** 테이블에 기록됩니다. 이 로그는 실시간 동기화(SSE)의 데이터 소스로 활용되거나, 사용자 활동 이력을 추적하는 데 사용됩니다.
-- **데이터베이스 확장 기능**:
-    - `citext`: 사용자 ID나 이메일 검색 시 대소문자를 구분하지 않도록 합니다.
-    - `pg_trgm`: 향후 물품 이름 등으로 텍스트 검색 기능을 구현할 때 성능을 높이기 위해 포함되었습니다.
-- **데이터 무결성 강화**: 스키마 전반에 걸쳐 **FOREIGN KEY**, **CHECK 제약 조건**, **DB 함수 및 트리거**를 사용하여 애플리케이션의 실수로 인한 잘못된 데이터 입력을 원천적으로 방지하고 데이터의 정합성을 유지합니다.
-
-네, 제공된 프로젝트 문서와 데이터베이스 스키마를 바탕으로 `ADMIN`, `INSPECTOR`, `RESIDENT` 역할별 기능 시나리오를 데이터베이스 관점에서 정리해 드리겠습니다.
-
----
-
-### **RESIDENT (입주자)**
-
-입주자는 시스템의 일반 사용자로, 주로 자신의 물품을 관리하고 시설 상태를 조회하는 기능을 수행합니다.
-
-#### **👤 계정 및 조회**
-
-- **로그인**: `users` 테이블의 `username`과 `password_hash`를 확인하여 인증을 거칩니다.
-- **내 정보 및 벌점 확인**: `v_penalties_totals` 뷰를 통해 자신의 누적 벌점을 조회합니다. `event_log` 테이블에서 자신의 `actor_user_id`와 관련된 활동 이력을 조회하여 '마이페이지'에 표시합니다.
-
-#### **🧊 냉장고 물품 관리**
-
-- **물품 등록 (단일/묶음)**:
-    
-    1. 사용자가 냉장고 칸(`resource_id`)을 선택하면, 서버는 `next_free_label()` 함수를 호출해 사용 가능한 라벨 번호(`label_no`)를 추천합니다.
-    2. 등록 요청 시, `item_groups` 테이블에 묶음 정보를, `item_units` 테이블에 개별 물품 정보를 `INSERT` 합니다. 이때 `owner_user_id`에 사용자의 ID가 기록됩니다.
-    3. `item_groups`의 `(resource_id, label_no)` 조합은 `removed_at IS NULL` 조건 하에 **UNIQUE 제약**이 걸려 있어, 활성화된 라벨 번호가 중복 등록되는 것을 DB단에서 방지합니다.
-        
-- **내 물품 조회**: `item_groups`와 `item_units` 테이블에서 자신의 `owner_user_id`로 필터링하여 물품 목록을 조회합니다. 유통기한(`expires_on`)이 임박한 물품을 별도로 조회할 수 있습니다.
-- **물품 정보 수정**: `item_groups`의 `group_name`, `memo`나 `item_units`의 `name`, `expires_on` 등의 정보를 `UPDATE` 합니다.
-- **물품 제거 (부분/전량)**:
-    - **부분 소비**: 특정 물품을 소비했을 경우, 해당하는 `item_units` 행의 `removed_at` 컬럼에 현재 시간을 기록합니다.
-    - **전량 제거**: 묶음 전체를 제거할 경우, `close_item_group()` 함수를 호출하여 연관된 `item_groups`와 모든 `item_units` 행의 `removed_at`을 일괄적으로 기록합니다. 이로써 해당 라벨 번호는 즉시 재사용 가능 상태가 됩니다.
-
----
-
-### **INSPECTOR (층별장/검사자)**
-
-층별장은 입주자의 권한을 모두 가지며, 추가적으로 냉장고 정기 점검을 수행하는 핵심적인 역할을 담당합니다.
-
-#### **🧊 냉장고 점검 수행**
-
-- **점검 시작 및 잠금**:
-    
-    1. 특정 냉장고 칸(`resource_id`)에 대한 점검을 시작하면, `inspection_sessions` 테이블에 `status='IN_PROGRESS'` 상태의 세션이 생성됩니다.
-    2. 동시에 `acquire_resource_lock()` 함수를 호출하여 `resource_locks` 테이블에 5분 TTL의 논리적 락을 설정합니다. 이 락이 활성화된 동안 일반 사용자는 해당 칸의 물품을 수정하거나 등록할 수 없게 됩니다.
-        
-- **점검 참여**: `inspection_participants` 테이블에 점검자 정보(`user_id`)와 좌석 번호(`seat_no`)를 기록합니다. 한 세션에는 최대 2명까지 참여할 수 있으며, 동일 사용자가 중복 참여하는 것은 **UNIQUE 제약**으로 금지됩니다.
-- **점검 결과 기록**:
-    - 각 물품(`item_groups` 또는 `item_units`)에 대해 `PASS`, `WARNING`, `DISCARD` 등의 조치를 `inspection_results` 테이블에 `INSERT` 합니다.
-    - 스티커가 없는 외부 물품(`NO_STICKER`)은 `group_id`와 `unit_id`를 `NULL`로 하여 기록합니다.
-    - **DB 트리거**(`ensure_result_item_refs`)가 점검 대상 물품이 실제 점검 중인 칸에 속하는지 무결성을 검증합니다.
-- **벌점 부과**: `DISCARD_WITH_PENALTY` 조치를 기록하면, 연관된 정보와 함께 `penalties_original` 테이블에 새로운 벌점 기록이 자동으로 추가됩니다. 이 테이블의 데이터는 **수정/삭제가 금지**되어 있습니다.
-- **점검 제출 및 수정**:
-    - 점검을 완료하면 `inspection_sessions`의 `status`를 `'SUBMITTED'`로 변경합니다. 이때 **DB 트리거**(`enforce_session_state_transitions`)가 `submitted_at`과 `ended_at` 타임스탬프를 자동으로 기록합니다.
-    - 제출된 이후 결과를 수정하면, **DB 트리거**(`trg_audit_ir_update`)가 변경 사유(`app.change_reason` 세션 변수)를 필수로 요구하며, 모든 변경 내역을 `inspection_result_revisions` 테이블에 기록하여 추적 가능성을 보장합니다.
-
----
-
-### **ADMIN (일반관리자)**
-
-관리자는 시스템의 거의 모든 영역에 대한 관리 권한을 가지며, 자원 관리, 사용자 권한 설정, 정책 조정 등을 수행합니다.
-
-#### **🛠️ 자원 및 사용자 관리**
-
-- **시설(냉장고 칸) 관리**: `resources` 테이블에 대해 모든 CRUD(생성, 조회, 수정, 삭제) 작업을 수행할 수 있습니다. 예를 들어, 새로운 냉장고 칸을 추가하거나, 특정 칸의 상태를 `OUT_OF_SERVICE`로 변경하여 사용을 중지시킬 수 있습니다.
-- **역할 임명 및 해제**: `user_roles` 테이블의 데이터를 추가하거나 삭제하여 특정 사용자에게 `INSPECTOR` 역할을 부여하거나 해제할 수 있습니다.
-- **사용자 계정 비활성화**: `users` 테이블의 `is_active` 플래그를 `FALSE`로 변경하여 특정 사용자의 시스템 로그인을 차단할 수 있습니다.
-
-#### **⚖️ 정책 및 데이터 관리**
-
-- **벌점 조정**: 사용자의 이의 제기 등을 반영하기 위해 `penalties_adjustments` 테이블에 조정 내역(`delta_points`)과 사유(`reason`)를 기록합니다. 원본 벌점(`penalties_original`)은 그대로 유지되며, `v_penalties_totals` 뷰를 통해 최종 합산된 점수만 사용자에게 보여줍니다.
-- **데이터 강제 변경 (휴관 모드 등)**: 운영상 필요에 따라 특정 `item_groups`의 `removed_at`을 일괄적으로 `UPDATE`하여 모든 냉장고 물품을 소프트 삭제 처리할 수 있습니다.
-- **잠금 강제 해제**: 점검 세션 오류 등으로 인해 `resource_locks`에 만료되지 않은 락이 남아있는 경우, 해당 행을 수동으로 `DELETE` 하여 문제를 해결할 수 있습니다.
