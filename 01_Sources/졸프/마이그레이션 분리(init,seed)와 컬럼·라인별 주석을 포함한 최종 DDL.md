@@ -364,6 +364,17 @@ CREATE TABLE inspection_actions (                        -- 검사 조치 이력
 CREATE INDEX ix_inspect_actions_session
   ON inspection_actions(session_id);                      -- 세션별 조회
 
+--**`inspection_sessions.lock_slot` 기본값 설정**
+ALTER TABLE inspection_sessions 
+  ALTER COLUMN lock_slot SET DEFAULT 1;
+
+--**검사 결과 알림 중복 방지 인덱스**
+CREATE UNIQUE INDEX ux_un_inspection_daily ON user_notifications( user_id, created_on, (payload->>'compartmentId')::bigint ) WHERE type_key = 'FRIDGE_INSPECTION_RESULT';
+
+-- **. `refresh_tokens.expires_at` 인덱스 추가**​
+CREATE INDEX ix_refresh_expires
+  ON refresh_tokens(expires_at) 
+  WHERE revoked_at IS NULL;
 -- =========================================================
 -- [AUTH] 디바이스·푸시 엔드포인트·리프레시 토큰
 -- =========================================================

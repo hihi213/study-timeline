@@ -97,3 +97,4 @@ creation_date: 2025-10-07
 - JWT/CORS 삽질 → Week1 예제 컨트롤러로 조기 검증.
 - 락 경합 → 단위 테스트 + 세션 종료/TTL 만료 케이스 포함.
 - 배포 실패 → GitHub Actions 수동 재배포 Job, 롤백 스크립트 상시 준비.
+
