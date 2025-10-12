@@ -79,7 +79,8 @@ CREATE TABLE Rooms (
 
 CREATE TABLE Users (
   id                BIGINT PRIMARY KEY AUTO_INCREMENT, -- PK
-  email             VARCHAR(120) NOT NULL, -- 로그인 ID
+  username       CITEXT NOT NULL UNIQUE,               -- 로그인 ID(대소문자 무시)
+  email             VARCHAR(120) NOT NULL, -- 비밀번호 변경용 이메일
   password_hash     VARCHAR(255) NOT NULL, -- 해시
   room_id           BIGINT NULL, -- 거주 호실
   personal_no       TINYINT NULL, -- 같은 방 내 개인 번호
