@@ -1,25 +1,21 @@
 module.exports = async (params) => {
     const { quickAddApi: qa, app } = params;
     
-    // 방법 1: activeLeaf 사용
-    const activeLeaf = app.workspace.activeLeaf;
-    const activeFile = activeLeaf?.view?.file;
+
 
     // 방법 2: getActiveFile() 사용 (더 간단)
-    // const activeFile = app.workspace.getActiveFile();
-    
+    const activeFile = app.workspace.getActiveFile();
     if (!activeFile) {
         new Notice("활성화된 파일이 없습니다.");
         return;
     }
-    
+
     const filePath = activeFile.path;
-    const fileBasename = activeFile.basename;
+    const fileBasename = activeFile.name;
 
     // 1. 01_Sources 폴더의 PDF 파일일 경우
     if (filePath.startsWith("01_Sources/") && activeFile.extension === "pdf") {
         const newNotePath = `01_Sources/{S} ${fileBasename}.md`;
-        
         if (app.vault.getAbstractFileByPath(newNotePath)) {
             new Notice("이미 해당 소스 노트가 존재합니다.");
             await app.workspace.openLinkText(newNotePath, '', false);
