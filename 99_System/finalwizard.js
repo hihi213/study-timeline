@@ -67,11 +67,12 @@ async function createSourceNote(app, pdfFile, config) {
     // 'Source:' 라인 전체를 교체하는 것이 더 안정적일 수 있습니다.
     //templateContent = templateContent.replace(/Source:.*$/m, `Source: ${pdfLink}`);
     // 또는 {{SOURCE}} 플레이스홀더 사용
-     templateContent = templateContent.replace(config.sourcePlaceholder, pdfLink);
+    templateContent = templateContent.replace(config.sourcePlaceholder, pdfLink);
 
     await app.vault.create(newNotePath, templateContent);
     new Notice(`"${fileBasename}"에 대한 소스 노트를 생성했습니다.`);
     await app.workspace.openLinkText(newNotePath, '', 'split');
+
 }
 
 /**
@@ -206,4 +207,20 @@ function generateRandomId(length = 6) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+}
+
+async function openfile(newNotePath, activeFile){
+// 모든 창(leaf)의 목록을 가져옵니다.
+const allLeaves = app.workspace.getLeavesOfType("markdown");
+
+// 현재 창이 아닌 다른 창을 찾습니다.
+let otherLeaf = allLeaves.find(leaf => leaf !== activeFile);
+
+// 만약 다른 창이 없다면, 새로 분할해서 엽니다 (기존 동작).
+if (!otherLeaf) {
+    otherLeaf = app.workspace.getLeaf('split');
+}
+
+// 찾아낸 'otherLeaf'에 파일을 새 탭으로 엽니다.
+await otherLeaf.openFile(app.vault.getAbstractFileByPath(newNotePath));
 }
