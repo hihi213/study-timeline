@@ -46,7 +46,12 @@ creation_date: 2025-10-17
 			- 유일성 Uniqueness - 각 record/instance/tuple 을 유일하게 구별할 수 있어야 한다
 			- 최소성 Minimality - key 의 구성에 있어 다른 key 가 포함되어서는 안된다.
 - ## 5. 테이블->ERD 1:N(또는 1:1)로 출제
+	- 엔티티 식별(네모)
+	- 속성 식별 (이름에 밑줄)
+	- 키 지정
+	- 관계지정 (마름모)
 - ## 6. SQL
 - ## 7. 요구사항을 주고 데이터모델링
 	- 1. ERD 작성
 	- 2. 설계
+	- https://jie0025.tistory.com/115
