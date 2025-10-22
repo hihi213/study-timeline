@@ -9,41 +9,163 @@ creation_date: 2025-10-17
 
 ## **1) [T/F] 빠른 정답표**
 
-1. **ERD에는 FK 개념이 없다** → **T**
-2. **관계(relationship)는 속성을 가질 수 있다** → **T**
-3. **관계 자체는 키를 가져야 한다** → **F**
-4. **1:N은 1쪽 PK를 N쪽 FK로 내장** → **T**
-5. **N:M도 내장으로 해결** → **F** (연결테이블 필수)
-6. **약한 엔터티는 항상 Total 참여** → **T**
-7. **약한 엔터티의 FK는 PK 구성 요소(식별관계)** → **T**
-8. **PK는 NULL/중복 가능** → **F**
-9. **FK는 중복·NULL 가능(부분참여), 단 참조 존재성 필수** → **T**
-10. **복합·다치 속성은 RM에서 그대로 둔다** → **F** (분해/전개)
-11. **SK는 유일성만, 최소성은 불필요** → **T**
-12. **삼진 관계는 되도록 이진으로 분해한다** → **T**
+**1. ERD에는 FK 개념이 없다**
 
-    (+ 보너스) **엔터티가 2개면 관계는 1개만 가능** → **F**(여러 개 가능)
+<details>
 
-데이터베이스시스템(DBS)은 DBMS(관리소프트웨어)+실제데이터(DB)의 조합이다
+<summary>정답 보기</summary>
 
+**T**
+
+</details>
+
+**2. 관계(relationship)는 속성을 가질 수 있다**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**T**
+
+</details>
+
+**3. 관계 자체는 키를 가져야 한다**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**F**
+
+</details>
+
+**4. 1:N은 1쪽 PK를 N쪽 FK로 내장**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**T**
+
+</details>
+
+**5. N:M도 내장으로 해결**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**F** (연결테이블 필수)
+
+</details>
+
+**6. 약한 엔터티는 항상 Total 참여**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**T**
+
+</details>
+
+**7. 약한 엔터티의 FK는 PK 구성 요소(식별관계)**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**T**
+
+</details>
+
+**8. PK는 NULL/중복 가능**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**F**
+
+</details>
+
+**9. FK는 중복·NULL 가능(부분참여), 단 참조 존재성 필수**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**T**
+
+</details>
+
+**10. 복합·다치 속성은 RM에서 그대로 둔다**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**F** (분해/전개)
+
+</details>
+
+**11. SK는 유일성만, 최소성은 불필요**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**T**
+
+</details>
+
+**12. 삼진 관계는 되도록 이진으로 분해한다**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**T**
+
+</details>
+
+**13. 엔터티가 2개면 관계는 1개만 가능**
+
+<details>
+
+<summary>정답 보기</summary>
+
+**F** (여러 개 가능)
+
+</details>
+
+- 데이터베이스시스템(DBS)은 DBMS(관리소프트웨어)+실제데이터(DB)의 조합이다
 - **PK는 자동 인덱스**, **AK는 세컨더리 인덱스 후보**
-스키마는 뼈대, 스키마에 채워진 데이터는 인스턴스
+- 스키마는 뼈대, 스키마에 채워진 데이터는 인스턴스
 
 ---
 
 ## **2) [서술] IC(무결성 제약조건) 4가지 이상 
 
-데이터베이스 상태를 실세계의 사실들과 일치시키는 조건
-
-장점: 갱신될때 DBMS가 자동검사-> 따로 검사할 필요없다
-
-단점: 복잡하다
-
+- 데이터베이스 상태를 실세계의 사실들과 일치시키는 조건
+- 장점: 갱신될때 DBMS가 자동검사-> 따로 검사할 필요없다
+- 단점: 복잡하다
+------
+<details> <summary>정답 보기</summary>
 - **엔터티 무결성**:릴레이션의 기본 키는 널값을 가질수없다
+</details>
+<details> <summary>정답 보기</summary>
 - 키 무결성: 릴레이션의 기본키나 UNIQUE는 중복된 값을 가질수없다
+</details>
+<details> <summary>정답 보기</summary>
 - **카디널리티 무결성**: **1:1 / 1:N / N:M** 으로 관계를 나타낸다
+</details>
+<details> <summary>정답 보기</summary>
 - **참여 제약**: 관계로의 참여 정도를 부분, 전체로 나타낸다.
+</details>
+<details> <summary>정답 보기</summary>
 - 비즈니스 룰(rule) 무결성 :사내 정책들을 DBMS 상에서 강제하기 위한 제약조건
+</details>
 ---
 
 ## **3) [계산] 각 테이블의 Key 종류 식별**
@@ -51,11 +173,13 @@ creation_date: 2025-10-17
 ![](../99_System/images/2025_6/00_Inbox/IMG-${parent}/IMG-20251021122955219.png)
 
 ### **절차(4스텝)**
-1. 후보키(CK) 선별: **단일 → 복합컬럼** 순으로 중복없는걸 후보키로 선정
-	-  외래 키로 의심되는 컬럼은 후보키 불가.
-	-  이미 키인 속성을 **포함하는 더 큰 조합은 최소성 위배**로 제외
-2. CK 중 **1개 PK 채택**-> **나머지는 AK가됨**
 
+<details> <summary>절차확인</summary
+1. 후보키(CK) 선별: **단일 → 복합컬럼** 순으로 중복없는걸 후보키로 선정
+	- 외래 키로 의심되는 컬럼은 후보키 불가.
+	- 이미 키인 속성을 **포함하는 더 큰 조합은 최소성 위배**로 제외
+2. CK 중 **1개 PK 채택**-> **나머지는 AK가됨**
+</details>
 ### 예시
 **사원(사원명, 부서, 근무연수)**
 1. 외래키 의심 컬럼 없다
@@ -81,7 +205,8 @@ creation_date: 2025-10-17
 ---
 
 ## **4) [역엔지니어링] 테이블 → ERD(1:N 또는 1:1) 
-
+### 절차
+<details> <summary> 절차확인</summary>
 1. 엔티티-> ㅁ
 2. 엔티티간의 관계(상호작용) =>🔸
 3. 속성-> ㅇ
@@ -95,7 +220,7 @@ creation_date: 2025-10-17
 6. 관계선위에 1, N, M 적기 : 카디널리티
 	- '하나'의 배에는 '여러'의 선원이 예약
 		- 이러면 1:N
-
+</details>
 ![](../99_System/images/2025_6/Pasted%20image%2020251021140353.png)
 
 ![](../99_System/images/2025_6/Pasted%20image%2020251021140411.png)
@@ -106,18 +231,17 @@ creation_date: 2025-10-17
 
 - Sailors(sid, sname, age, rating)
 - Boats(bid, bname, color), Reserves(sid, bid, date).
-1. **검정색 배를 예약한 선원의 이름**
-
-```sql
-SELECT DISTINCT s.sname
-FROM Reserves r
-JOIN Boats    b ON b.bid = r.bid
-JOIN Sailors  s ON s.sid = r.sid
-WHERE b.color = 'black';
-```
-
+1. **검정색 배를 예약한 선원의 이름**<details> <summary>정답 보기</summary>
+	```sql
+	SELECT DISTINCT s.sname
+	FROM Reserves r
+	JOIN Boats    b ON b.bid = r.bid
+	JOIN Sailors  s ON s.sid = r.sid
+	WHERE b.color = 'black';
+	```
+	</details>
 2. **배별 예약 건수**
-
+<details> <summary>정답 보기</summary>
 ```sql
 SELECT b.bid, b.bname, COUNT(*) AS cnt
 FROM Boats b
@@ -125,25 +249,25 @@ JOIN Reserves r ON r.bid = b.bid
 GROUP BY b.bid, b.bname
 ORDER BY cnt DESC;
 ```
-
+</details>
 3. **예약하지 않은 선원**
-
+<details> <summary>정답 보기</summary>
 ```sql
 SELECT s.sid, s.sname
 FROM Sailors s
 LEFT JOIN Reserves r ON r.sid = s.sid
 WHERE r.sid IS NULL;
 ```
-
+</details>
 ---
 ## 6) 데이터모델링이란?
-
+<details> <summary>정답 보기</summary>
 데이터 모델링이란 현실 세계의 요구사항을
 
 DB가 다룰 수 있도록 **추상화**하는 과정으로, 먼저 요구사항을 정의하고 그후
 
 **개념적 모델링** 단계에서 요구사항을 이해하여 **ERD**를 산출하고, 다음으로 **논리적 모델링** 단계에서 이를 RM으로 변환한다. 그리고 마지막으로 실제 DBMS에 저장하는 **물리적 모델링** 단계를 거친다
-
+</details>
 ## 7) 요구사항->데이터모델링
 
 ![](../99_System/images/2025_6/Pasted%20image%2020251021140213.png)
