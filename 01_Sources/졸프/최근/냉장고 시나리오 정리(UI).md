@@ -7,7 +7,7 @@ author:
 creation_date: 2025-10-12
 ---
 
-![](../../99_System/images/2025_6/졸프/IMG-${parent}/IMG-20251012194657524.png)
+![](../../../99_System/images/2025_6/최근/IMG-${parent}/IMG-20251024162519788.png)
 
 ## 1. 기숙사생(RESIDENT) 전체 시나리오
 
