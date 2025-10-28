@@ -1879,49 +1879,42 @@ SQL Developer GUI의 뷰 목록에서 '새 뷰(New View)'를 선택하여 생성
 **[Q1] 뷰(View)란 무엇이며, 왜 물리적 공간이 없는 '가상 테이블'이라고 부르는가? | 태그: 뷰(View), 가상 테이블**
 
 - **모범답(강의 기준)**: 뷰는 실제 물리적 공간(데이터)을 차지하지 않고, `SELECT` 쿼리문 자체만 저장하고 있는 논리적인 가상 테이블입니다. 뷰를 조회하면 저장된 `SELECT` 문이 실행되어 결과를 보여줍니다.
-    
 - **정석체크(면접 30초)**: 뷰는 `SELECT` 쿼리에 이름을 붙여 저장한 데이터베이스 객체입니다. 데이터는 원본 테이블에 있으며, 뷰는 *창문(Window)*처럼 원본의 특정 부분(행/열)만 보여줍니다. `CREATE VIEW v_name AS SELECT …`로 생성하며, 물리적 복사본인 Materialized View(MView)와 구별됩니다.
     
 
 **[Q2] 뷰(View)를 사용하는 주요 목적(보안/편의)은 무엇인가? | 태그: 뷰(View), 보안(Masking), 편의성(Join)**
 
 - **모범답(강의 기준)**: 1) **보안**: 민감한 데이터(예: 주민번호, 급여)를 숨기거나(Masking), 특정 사용자(예: 인사팀, 복지팀)별로 필요한 데이터만 선별적 노출(권한 분리)합니다. 2) **편의**: 3중 조인처럼 복잡한 쿼리를 뷰로 미리 정의하여 쿼리를 단순화합니다.
-    
 - **정석체크(면접 30초)**: 뷰의 목적은 1) **보안**: 민감한 _열_(예: 주민번호)을 제외(Masking)하거나, `WHERE` 절로 특정 _행_(예: 자기 부서)만 노출(RLS)합니다. 2) **단순성**: 복잡한 `JOIN`이나 집계 쿼리를 캡슐화하여 사용자가 쉽게 접근하게 합니다.
     
 
 **[Q3] `CREATE VIEW` 권한은 어떤 권한이며, 누가 부여해야 하는가? | 태그: 뷰(View), 시스템 권한(System Privilege), GRANT**
 
 - **모범답(강의 기준)**: `CREATE VIEW`는 시스템 권한(System Privilege)입니다. 따라서 `SYSTEM` 계정 같은 관리자가 `GRANT CREATE VIEW TO <user>;` 명령어로 해당 사용자에게 권한을 부여해야 뷰를 생성할 수 있습니다.
-    
 - **정석체크(면접 30초)**: `CREATE VIEW`는 객체를 생성하는 DDL 권한이므로 시스템 권한(System Privilege)입니다. DBA가 `GRANT CREATE VIEW TO <user>;`로 부여합니다. 단, 뷰를 _생성_하는 권한과 뷰의 _기반 테이블_(예: `emp`)을 `SELECT`할 권한은 별개입니다.
     
 
 **[Q4] 뷰 생성 후, 다른 사용자가 `SELECT` 할 수 있도록 하려면 어떤 권한을 부여해야 하는가? | 태그: 뷰(View), 객체 권한(Object Privilege), GRANT**
 
 - **모범답(강의 기준)**: 뷰의 소유자(예: '테스트' 계정)가 `GRANT SELECT ON <view_name> TO <user_name>;` 명령어로 해당 뷰에 대한 `SELECT` 권한(객체 권한)을 다른 사용자에게 부여해야 합니다.
-    
 - **정석체크(면접 30초)**: 뷰에 대한 `SELECT` 권한은 객체 권한(Object Privilege)입니다. 뷰 소유자가 `GRANT SELECT ON v_my_info TO emp_001;`처럼 부여합니다. 사용자는 원본 테이블이 아닌 뷰에 대한 권한만 받으므로 최소 권한 원칙(Least Privilege)을 만족합니다.
     
 
 **[Q5] 뷰(View)를 이용해 '열 수준 보안'(Column-level)과 '행 수준 보안'(Row-level)을 구현하는 방법은? | 태그: 뷰(View), RLS(행 수준 보안), 마스킹(열 수준 보안), USER**
 
 - **모범답(강의 기준)**: **열 수준**은 `SELECT` 절에서 인사팀 뷰를 만들 때 주민번호 같은 민감한 컬럼을 제외합니다. **행 수준**은 `WHERE` 절에서 `USER` 키워드(현재 접속자)를 사용해 `WHERE emp_id = SUBSTR(USER, …)`처럼 자기 정보만 보도록 필터링합니다.
-    
 - **정석체크(면접 30초)**: **열 수준(마스킹)**은 `CREATE VIEW v_hr AS SELECT emp_id, name FROM emp;`처럼 민감 컬럼(예: `salary`)을 제외합니다. **행 수준(RLS)**은 `CREATE VIEW v_my_info AS SELECT * FROM emp WHERE emp_id = SYS_CONTEXT('USERENV', 'SESSION_USER');` (또는 `USER` 키워드)로 동적 필터링을 구현합니다.
     
 
 **[Q6] 뷰(View)에 DML(INSERT/UPDATE) 사용이 제한적이거나 권장되지 않는 이유는? | 태그: 뷰(View), DML, 복합 뷰(Complex View)**
 
 - **모범답(강의 기준)**: 뷰는 주로 조회용(Read-Only)입니다. 조인(Join)된 뷰나 집계 함수가 포함된 복합 뷰(Complex View)는 DML이 불가능하거나 모호성(Ambiguity)이 발생할 수 있으므로, 원본 데이터 수정은 뷰를 통하지 않는 것을 권장합니다.
-    
 - **정석체크(면접 30초)**: 1개 테이블로 만든 단순 뷰(Simple View)는 DML이 가능하나, 2개 이상 테이블 조인, 집계 함수(`GROUP BY`), `DISTINCT` 등이 포함된 복합 뷰(Complex View)는 DML이 불가능합니다. DML이 가능한 뷰라도 `WITH CHECK OPTION`을 명시하여 뷰의 `WHERE` 조건(가시성)을 벗어나는 수정을 막는 것이 좋습니다.
     
 
 **[Q7] 실무에서 사용자 개인이 아닌 롤(Role)에 권한을 부여하는 이유는? | 태그: 롤(Role), RBAC, 권한 관리**
 
 - **모범답(강의 기준)**: 사원(사용자)이 많을 때, 한 명 한 명에게 권한을 주면 관리가 어렵습니다. '인사팀' 롤(Role)을 만들고 롤에 권한을 부여한 뒤, 사용자들을 롤에 포함시키면(그룹핑) 권한 관리가 효율적입니다.
-    
 - **정석체크(면접 30초)**: 롤(Role)은 RBAC(역할 기반 접근 제어)의 핵심입니다. 사용자에게 직접 권한(Privilege)을 `GRANT`하면 입/퇴사 및 부서 이동 시 권한 회수(REVOKE)가 복잡합니다. `CREATE ROLE hr_role;` 후 `GRANT SELECT ON v_hr_info TO hr_role;`로 롤에 권한을 부여하고, 사용자에게는 `GRANT hr_role TO user;`로 롤을 부여하면 관리가 간편해집니다.
     
 
@@ -1966,8 +1959,6 @@ SQL Developer GUI의 뷰 목록에서 '새 뷰(New View)'를 선택하여 생성
     오늘은 데이터베이스의 절차적/선언적 보안 기능을 학습했습니다. 1교시에는 저장 **프로시저(Procedure)**를 활용해 SELECT 결과를 **로 변형하는 데이터 마스킹(Masking)과, DBMS_DDL.WRAP을 이용한 소스 코드 난독화(Obfuscation)를 다뤘습니다. 2교시에는 DML 이벤트에 자동 반응하는 **트리거(Trigger)**를 이용해, AFTER 트리거로 변경 이력(감사 로그)을 기록하고 :OLD 값을 저장했으며, BEFORE 트리거와 RAISE_APPLICATION_ERROR로 불법 INSERT를 차단했습니다. 3교시에는 **뷰(View)**를 생성하여 민감한 열(주민번호)을 숨기고, USER 키워드를 이용해 접속자별로 접근 가능한 행(자기 정보)을 제한(RLS)했습니다. 마지막으로 CREATE VIEW (시스템 권한)와 GRANT SELECT ON (객체 권한)을 실습했습니다.
     
 2. **🔥 필수 질문 Top-5**
-    
-
 3. [P3] 뷰(View)를 이용해 '열 수준 보안'(Column-level)과 '행 수준 보안'(Row-level)을 구현하는 방법은?
     
     (열: SELECT 절에서 민감 컬럼 제외 / 행: WHERE 절에서 USER 키워드로 필터링)
@@ -1993,35 +1984,23 @@ SQL Developer GUI의 뷰 목록에서 '새 뷰(New View)'를 선택하여 생성
     
 
 - **프로시저(Procedure) 보안**: PL/SQL 코드로 `SELECT` 결과를 마스킹(Masking)하거나, `DBMS_DDL.WRAP`으로 소스 코드를 난독화(Obfuscation)하는 기법.
-    
 - **트리거(Trigger) 보안**: DML 이벤트에 자동 반응하여, `AFTER` 트리거로 변경 이력(감사 로그)을 기록하거나 `BEFORE` 트리거로 불법 DML을 차단(방지)하는 기법.
-    
 - **뷰(View) 보안**: 가상 테이블(쿼리 저장)을 생성하여 `SELECT` 절로 민감한 _열_을 숨기거나(Masking), `WHERE` 절(예: `USER` 키워드)로 접근 가능한 _행_을 제한(RLS)하는 기법.
-    
 - **[연결맵]**: 프로시저(데이터 마스킹) → 트리거(데이터 변경 감사/방지) → 뷰(데이터 접근/노출 제어)
     
 
-4. **💻 주요 실습 요약**
+1. **💻 주요 실습 요약**
     
 
 - **[S1] 데이터 마스킹(Masking) 프로시저 생성**
-    
     - **목적**: `SELECT` 시 이름 첫 글자 외 `**`로 마스킹 처리 / **단계요약**: 1) `CREATE PROCEDURE` (입력: `p_id`) 2) `SELECT SUBSTR(name, 1, 1) || '**' … INTO v_name … WHERE id = p_id` 3) `DBMS_OUTPUT.PUT_LINE(v_name)`
-        
 - **[S2] 프로시저 소스 코드 난독화(Obfuscation)**
-    
     - **목적**: `DBMS_DDL.WRAP`으로 프로시저 소스 숨기기 / **단계요약**: 1) `CREATE PROCEDURE`…`END;` 코드를 문자열 변수(`v_source`)에 할당 2) `EXECUTE IMMEDIATE DBMS_DDL.WRAP(v_source)` 실행 3) `SELECT TEXT FROM USER_SOURCE`로 난독화된 코드 확인
-        
 - **[S3] 트리거를 이용한 감사 로그(Audit Log) 기록**
-    
     - **목적**: `user_table` 변경 시 `user_backup` 테이블에 변경 전 데이터(`:OLD`) 로깅 / **단계요약**: 1) `user_backup` 테이블 생성 2) `CREATE TRIGGER … AFTER UPDATE OR DELETE ON user_table FOR EACH ROW` 3) `IF UPDATING…` 4) `INSERT INTO user_backup VALUES (:OLD.id, …, '수정', SYSDATE, USER);`
-        
 - **[S4] `BEFORE` 트리거를 이용한 DML 작업 방지 (INSERT 차단)**
-    
     - **목적**: `user_table`에 `INSERT` 시도 시 강제 오류 발생 / **단계요약**: 1) `CREATE TRIGGER … BEFORE INSERT ON user_table FOR EACH ROW` 2) `BEGIN` 3) `RAISE_APPLICATION_ERROR(-20001, '삽입 금지');` 4) `END;`
-        
 - **[S5] 역할별(행/열) 보안 뷰 생성 및 테스트**
-    
     - **목적**: 일반/인사/관리자 계정별로 다른 데이터(행/열)를 보도록 뷰와 권한 설정 / **단계요약**: 1) (`SYSTEM`) 3개 사용자(emp/hr/admin) 생성 및 `CONNECT` 권한 부여 2) (`TEST`) 3개 뷰 생성 (v_my: `WHERE emp_id = SUBSTR(USER, …)` (행), v_hr: `ssn` 컬럼 제외 (열), v_admin: `SELECT *`) 3) (`TEST`) `GRANT SELECT ON v_my_info TO emp_001;` (각 뷰 권한 부여) 4) (커맨드 라인) `CONN emp_001/1234` 접속 후 `SELECT * FROM test.v_my_info;` (결과 확인)
         
 
