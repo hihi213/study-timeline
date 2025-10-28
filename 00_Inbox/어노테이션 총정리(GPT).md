@@ -12,7 +12,8 @@ creation_date: 2025-09-09
 ### **@Entity**
 - **위치**: 클래스
 - **역할**: JPA가 이 클래스를 엔티티로 인식(영속성 컨텍스트 관리 대상).
-- **주의**: 기본 생성자 public/protected 필요. final, enum, interface, 내부클래스 금지.
+- **주의**: 기본 생성자 public/protected 필요
+- 금지: final, enum, interface, 내부클래스
 
 ### **@Table(name, schema, indexes)**
 - **위치**: 클래스

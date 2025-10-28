@@ -32,6 +32,10 @@ creation_date: 2025-10-28
 알림 설정 범위
 - 나중에 알림을 본격적으로 구현하므로, 지금은 플래그만 설계, 저장한다
 
+## DOMUSER 구현
+- @UUID 전세계 어디서 생성하더라도 거의 겹치지 않는 128비트 고유 식별자
+	- java.util.uuid 클래스를 사용해 UUID.radomUUID()로 새 값을 만들고, JPA에서 @Id 필드 타입을 UUID로 두고, @GenaratedValue 전략을 UUID 전용으로 설정해야함
+
 
 ---
 ## 💭 나의 추가적 생각/질문
