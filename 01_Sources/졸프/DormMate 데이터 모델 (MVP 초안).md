@@ -12,19 +12,18 @@ creation_date: 2025-10-28
 ## 1. 범위 및 설계 원칙
 - 계정·권한, 냉장고 포장, 검사/알림 모듈을 MVP 범위로 한정한다. Phase 2(세탁실·도서관 등)는 관계만 참고 항목으로 남긴다.
 - 문서가 소스 오브 트루스가 되도록, 모든 엔터티는 `docs/feature-inventory.md`와 `nogitReadME.md`에 정의된 정책을 근거로 정리한다.
-- 확장 가능성을 위해 식별자는 기본적으로 UUID를 사용하며, 호실·스티커 코드 등 도메인 키는 별도 컬럼으로 유지한다.
+- 확장 가능성을 위해 식별자는 기본적으로 UUID를 사용하며, 호실·스티커 번호 등 도메인 키는 별도 컬럼으로 유지한다.
 - 소프트 삭제가 필요한 객체(포장, 물품, 알림 등)는 `status` 또는 `deleted_at` 컬럼으로 표현한다.
 - 외부 메신저(Band 톡)와 연계된 메모는 보관하지 않으며, 승인/반려 기록은 시스템 내부 테이블에서만 추적한다.
 - 포장 라벨 코드는 칸별로 001~999 범위를 사용하고, 삭제된 포장은 시퀀스를 통해 재사용한다.
 
 > **현재 진행 상태 요약 (2025-10-25 기준)**  
-
-| 모듈 | 11/02 데모 | 11/11 확장 | 11/12 이후 |
-| --- | --- | --- | --- |
-| 인증/세션 | 로그인/세션 유지 | (후속) 가입/승인/탈퇴/재설정 | 벌점·감사, Phase2 연계 |
-| 냉장고 | 포장 CRUD, 기본 용량 | 임박/만료·검색, 다중 검사(여력 시 SSE) | 증설/통계/강제 수정 |
-| 검사·알림 | 단일 검사·즉시 알림 | 2인 합류, 알림 배치/설정 | dedupe/TTL/정책 UI |
-| 관리자 | 검사/알림 로그 조회 | 현황·통계 API, 알림 정책 UI | CSV/대시보드, 운영 도구 |
+> | 모듈 | 11/02 데모 | 11/11 확장 | 11/12 이후 |
+> | --- | --- | --- | --- |
+> | 인증/세션 | 로그인/세션 유지 | (후속) 가입/승인/탈퇴/재설정 | 벌점·감사, Phase2 연계 |
+> | 냉장고 | 포장 CRUD, 기본 용량 | 임박/만료·검색, 다중 검사(여력 시 SSE) | 증설/통계/강제 수정 |
+> | 검사·알림 | 단일 검사·즉시 알림 | 2인 합류, 알림 배치/설정 | dedupe/TTL/정책 UI |
+> | 관리자 | 검사/알림 로그 조회 | 현황·통계 API, 알림 정책 UI | CSV/대시보드, 운영 도구 |
 
 ## 2. 모듈별 핵심 엔터티 개요
 | 모듈 | 엔터티 | 핵심 목적 |
@@ -94,22 +93,23 @@ DormMate의 거주자는 호실과 개인 번호를 기반으로 가입 요청�
 - **식별 규칙**: `room_number-personal_no` 조합(예: `201-1`)으로 거주자를 식별하며, 거주 기간은 최대 1년, 중도 퇴사가 가능하다.
 
 ### 4.2 냉장고 리소스 및 포장
-각 층의 냉장고와 칸은 사전에 정의된 라벨 체계를 통해 호실과 연결된다. 포장(FridgeBundle)은 칸마다 001~999 범위의 스티커 코드를 순차적으로 부여받으며, 삭제된 포장은 코드를 재사용할 수 있도록 라벨 시퀀스를 관리한다. 칸 용량 검사는 포장 단위로 이뤄지고, 검사 시점 이후 수정된 물품 여부를 추적해 조치 통계를 보존한다.
+각 층의 냉장고와 칸은 `slot_index` 순번으로 식별하며, 사용자에게는 UI에서 해당 순번을 문자(예: A, B, C)로 변환해 노출한다. 포장(FridgeBundle)은 칸마다 001~999 범위의 3자리 번호를 순차적으로 부여받고, 삭제된 포장은 번호를 재사용할 수 있도록 칸별 라벨 시퀀스를 유지한다. 칸 허용량(`max_bundle_count`)은 라벨 범위 이하에서 기본값을 설정하고, 필요 시 관리자가 직접 조정한다. 검사는 칸 단위 잠금(`is_locked`, `locked_until`)으로 진행되며, 검사 이후 수정된 물품 여부를 추적해 조치 통계를 보존한다.
 
 | 엔터티 | 주요 필드 | 설명 및 정책 근거 |
 | --- | --- | --- |
-| `fridge_unit` | `id`, `floor`, `label`(예: "2F-A"), `cold_type`(`REFRIGERATOR`/`FREEZER`), `created_at` | 층당 냉장고 수 및 확장 시 재배분을 지원(`nogitReadME.md:27`) |
-| `fridge_compartment` | `id`, `fridge_unit_id`, `position`, `compartment_type`, `max_bundle_count`, `label_upper_bound`(고정값 999), `is_active`, `locked_until`, `created_at` | 검사 중 잠금(`docs/feature-inventory.md:79`)과 칸 용량 관리(`docs/feature-inventory.md:70`). `max_bundle_count`는 층별 호실 수를 칸 수로 나눈 값으로 자동 계산되며 필요 시 관리자가 수동 조정한다. 라벨은 칸별 001~999 범위 사용 |
-| `compartment_room_access` | `id`, `fridge_compartment_id`, `room_id`, `assigned_at`, `released_at`, `priority_order` | 칸-호실 매핑 테이블 정합성 검증 기본 데이터(`docs/feature-inventory.md:50`, `nogitReadME.md:31`) |
-| `bundle_label_sequence` | `fridge_compartment_id`, `current_index`, `updated_at` | 스티커 코드 자동 할당. `current_index`는 1~999 사이에서 순환하며, 포장 삭제 시 재사용 가능 상태로 되돌린다(`docs/feature-inventory.md:75`) |
-| `fridge_bundle` | `id`, `owner_user_id`, `fridge_compartment_id`, `label_code`(문자열 "001"~"999"), `bundle_name`, `memo`, `visibility`(`OWNER_ONLY`/`SHARED`), `status`(`ACTIVE`/`DELETED`), `created_at`, `updated_at`, `deleted_at` | 포장명·메모는 수정 가능하지만 스티커 코드는 변경 불가(`docs/feature-inventory.md:73`) |
-| `fridge_item` | `id`, `fridge_bundle_id`, `item_name`, `quantity`, `expires_on`, `status`(`ACTIVE`/`DELETED`), `last_modified_at`, `last_modified_by`, `post_inspection_modified`(bool) | 물품 수량은 “개” 단위로 고정 관리하며, 소프트 삭제 및 검사 이후 수정 여부를 표시한다(`docs/feature-inventory.md:77`) |
+| `fridge_unit` | `id`, `floor_no`, `display_name`, `status`(`ACTIVE`/`SUSPENDED`/`REPORTED`/`RETIRED`), `retired_at`, `created_at`, `updated_at` | 층별 냉장고 자원 상태를 공통 ENUM으로 관리한다. 확장·철거·신고 대응(`docs/feature-inventory.md:96`) |
+| `fridge_compartment` | `id`, `fridge_unit_id`, `slot_index`, `compartment_type`, `status`(`ACTIVE`/`SUSPENDED`/`REPORTED`/`RETIRED`), `max_bundle_count`, `is_locked`, `locked_until`, `created_at`, `updated_at` | 칸 순번과 상태를 관리한다. `max_bundle_count` 기본값은 라벨 범위(001~999)이며, 관리자 조정 가능(`docs/feature-inventory.md:40`) |
+| `compartment_room_access` | `id`, `fridge_compartment_id`, `room_id`, `assigned_at`, `released_at`, `created_at` | 칸-호실 배정 이력을 저장하고 현재 배정 여부를 판별한다(`docs/feature-inventory.md:47`, `nogitReadME.md:31`) |
+| `bundle_label_sequence` | `fridge_compartment_id`, `next_number`, `recycled_numbers`, `updated_at` | 칸별 스티커 번호 발급/재사용을 관리한다(`docs/feature-inventory.md:40`) |
+| `fridge_bundle` | `id`, `owner_user_id`, `fridge_compartment_id`, `label_number`, `bundle_name`, `memo`, `status`(`ACTIVE`/`DELETED`), `created_at`, `updated_at`, `deleted_at` | 칸별 3자리 번호만 저장하고 UI가 문자+번호 라벨을 조합한다(`docs/feature-inventory.md:73`) |
+| `fridge_item` | `id`, `fridge_bundle_id`, `item_name`, `quantity`, `unit_code`, `expiry_date`, `status`(`ACTIVE`/`DELETED`), `updated_after_inspection`, `created_at`, `updated_at`, `deleted_at` | 소프트 삭제 및 검사 이후 수정 여부를 추적한다(`docs/feature-inventory.md:48`) |
 | `unregistered_item_event` | `id`, `inspection_session_id`, `reported_by`, `approx_room_id`, `item_description`, `disposed_at` | 미등록 물품 간편 등록 후 즉시 폐기 기록(`docs/feature-inventory.md:82`) |
 
 #### 운영 정책 메모
 - **냉장고 배치**: 2~5층 각각 1대(기본), 냉장 칸 3개 + 냉동 칸 1개 구성. 추가 증설 시 `fridge_unit`를 추가하고 칸 수에 따라 호실 배분을 재계산한다.  
-- **호실 배분 규칙**: 냉장 칸 수에 따라 `compartment_room_access`를 재계산한다. 냉장 3칸 구성이면 24개 호실을 8개씩, 냉동 1칸은 24개 전체를 공용으로 매핑한다.  
-  - 기본 슬롯 예: slot1(01~08호), slot2(09~16호), slot3(17~24호), slot4(냉동, 전체 24호).  
+- **호실 배분 규칙**: 냉장 칸 수에 따라 `compartment_room_access`를 재계산한다. 기본 구성(냉장 3칸·냉동 1칸)에서는 접근 권한을 위해 냉장 칸마다 8호실씩, 냉동 칸은 24호실 전체를 공용으로 매핑한다. 칸의 실제 포장 허용량은 `fridge_compartment.max_bundle_count`(기본적으로 라벨 범위 001~999에 맞춰 설정)로 관리하며, 호실 수와 별도로 조정 가능하다.  
+- **초기 시드 기준**: `V6__seed_fridge_sample_data.sql`에서는 운영상 제한을 위해 냉장 칸 `max_bundle_count`를 8, 냉동 칸을 24로 초기화하지만, 이는 정책 변경 시 자유롭게 상향 조정할 수 있다.
+  - 기본 슬롯 예: `slot_index` 0(01~08호), 1(09~16호), 2(17~24호), 3(냉동, 전체 24호).  
   - 냉장고가 층당 2대로 늘어나고 냉장 칸이 6개가 되면 호실 당 4개씩 균등 분배한다.  
 - **층별장**: `user_role`에 `FLOOR_MANAGER`를 부여하며, 동일 칸 검사 시 최대 2명이 `inspection_session`을 공유해 참여한다.
 
