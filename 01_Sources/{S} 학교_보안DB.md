@@ -6,7 +6,8 @@ source_url: "{{SOURCE}}"
 author: 
 creation_date: 2025-09-08
 ---
-
+- **GRANT:** 권한을 **얹어줄 때** (Plus)
+- **ALTER:** 계정의 있는 설정을 **바꿀 때** (Change)
 ## 📖 소스 요약 (Summary) ^7q8mkl
 ## **2025-09-08 — 최종(1~3교시 통합)**
 
