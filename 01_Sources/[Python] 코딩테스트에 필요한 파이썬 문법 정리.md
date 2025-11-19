@@ -1,130 +1,7 @@
 
-## 🚀 리스트 메서드 및 효율적인 삭제 방식
 
-Python 리스트는 **데이터 조작**을 위한 **다양한 메서드**를 **제공**하며, 각 메서드는 **특정 시간 복잡도**를 **갖습니다.**
 
-### 1. 주요 리스트 메서드 및 시간 복잡도
 
-### 2. 효율적인 특정 값 원소 삭제 (권장)
-
-`list.remove(x)`는 **단일 원소 삭제 시**에도 **$O(N)$의 시간 복잡도**를 **가집니다.** 따라서 **다수의 특정 값**을 **삭제**해야 할 경우 **리스트 컴프리헨션**을 **사용**하는 것이 **더 효율적**입니다.
-
-- **비효율성:** `remove()`를 $K$번 **호출**하면 **총 시간 복잡도**가 $O(K \cdot N)$에 **근접**할 수 있습니다.
-- **권장 방식 (리스트 컴프리헨션):**
-    - **작동:** 기존 리스트를 **단 한 번** ($O(N)$) **순회**하며, **삭제할 집합**(`remove_set`)에 **포함되지 않은 값**만 **선택**하여 **새 리스트**를 **생성**합니다.
-    - **시간 복잡도:** $O(N)$을 **유지**합니다.
-        
-
-Python
-
-```Python
-# 특정 값을 갖는 원소 삭제 (효율적 방법)
-remove_set = {3, 5}
-a = [1, 2, 3, 4, 5, 5, 5]
-
-# remove_set에 포함되지 않은 값만을 저장
-result = [i for i in a if i not in remove_set] # 결과: [1, 2, 4]
-```
-### 특정 크기의 2차원 리스트를 초기화 할 때는 반드시 리스트 컴프리헨션을 사용
-
-```Java
-# N * M 크기의 2차원 리스트 초기화(잘못된 방법)
-n = 3
-m = 4
-array = [[0] * m] * n # [[0,0,0,0],[0,0,0,0], [0,0,0,0]]
-
-array[1][1] = 5 # [[0,5,0,0],[0,5,0,0], [0,5,0,0]]
-
-# 내부적으로 3개의 리스트가 모두 동일한 객체에 대한 3개의 레퍼런스로 인식되기 때문
-```
-
-## 리스트 관련 기타 메서드
-
-- append() O(1)
-- sort()
-- reverse()
-- insert() O(N)
-- count()
-- remove() O(N)
-
-```Java
-a = [1,4,3]
-
-# 리스트에 원소 삽입
-a.append(2)
-
-# 오름차순 정렬
-a.sort()
-
-# 내림차순 정렬
-a.sort(reverse = True)
-
-# 리스트 원소 뒤집기
-a.reverse()
-
-# 특정 인덱스에 데이터 추가
-a.insert(2,3) # 인덱스2에 3추가
-
-# 특정 값인 데이터 개수 세기
-a.count(3)
-
-# 특정 값 데이터 삭제 (인덱스가 낮은 것 하나)
-a.remove(1) 
-```
-
-특정한 값을 갖는 원소 삭제하려면?
-
-```Java
-# 시간복잡도를 고려해서 remove는 사용하지 않는 것을 추천
-
-a = [1,2,3,4,5,5,5]
-remove_set = {3,5}
-
-# remove_set에 포함되지 않은 값만을 저장
-result = [i for i in a if i not in remove_set] # [1,2,4]
-```
-
-## 문자열 자료형
-
-## 문자열 초기화
-
-```Java
-data = 'Hellow World'
-
-data =  "Don't you know \"Python\"?"
-print(data) # Don't you know "Python"?
-```
-
-## 문자열 연산
-
-```Java
-a = "Hello"
-b = "World"
-
-a + " " + b # Hello World
-
-a * 3 # HelloHelloHello
-
-# 파이썬 문자열은 내부적으로 리스트와 같이 처리 (인덱싱,슬라이싱) 사용 가능
-
-a = "ABCDEF"
-
-a[2:4] #CD
-```
-
-## 튜플 자료형
-
-- 튜플은 한 번 선언된 값을 변경할 수 없다.
-- 리스트는 대괄호[] 를 이용하지만 , 튜플은 소괄호 ()를 이용한다
-- 그래프 알고리즘을 구현할 때 자주사용
-    - 다익스트라 최단 경로 알고리즘 (우선순위큐 사용)
-        - (비용,노드번호) 형태로 튜플을 묶어서 관리한다.
-
-```Java
-a = (1, 2, 3, 4)
-
-a[2] = 7 # TypeError
-```
 
 ## 사전 자료형
 
@@ -382,68 +259,6 @@ print( (lambda a, b: a + b)(3,7) )
 
 ## 입력
 
-- map()
-    - 해당 리스트의 모든 원소에 int() 함수를 적용한다.
-- sys.stdin.readline()
-    - 입력을 최대한 빠르게 받아야하는 경우
-    - readline()으로 입력하면 입력후 엔터가 줄 바꿈 기호로 인식, 공백 문자를 제거하려면 rstrip()함수를 사용해야한다.
-
-```Java
-# 데이터의 개수 입력
-n = int(input())
-
-# 각 데이터를 공백으로 구분하여 입력
-data = list(map(int, input().split()))
-
-data.sort(reverse = True)
-print(data)
-
-# 공백을 기준으로 구분하여 적은수의 데이터 입력
-
-n, m, k = map(int, input().split()
-```
-
-```Java
-# 입력을 최대한 빠르게 받아야하는 경우
-
-import sys
-
-# 문자열 입력받기
-sys.stdin.readline().rstrip()
-```
-
-## 출력
-
-- print()
-    - 기본적으로 출력 이후에 줄 바꿈을 수행한다.
-- f-string
-
-```Java
-# 출력할 변수들
-a = 1
-b = 2
-
-print(a,b)
-```
-
-- 출력 시 오류가 발생하는 소스코드 예시 (자바와 다름 주의)
-
-```Java
-# 출력할 변수들
-
-answer = 7
-
-print("정답은 " + answer + "입니다.") # TypeError: can only concatenate str (not "int") to str
-
-# 올바른 예
-print("정답은 " + str(answer) + "입니다")
-print("정답은" , str(answer), "입니다")
-
-# Python 3.6 이상
-
-answer = 7
-print(f"정답은 {answer}입니다.")
-```
 
 ## 주요 라이브러리 문법과 유의점
 
@@ -465,34 +280,7 @@ print(f"정답은 {answer}입니다.")
 
 ## 내장 함수
 
-```Java
-result = [1,2,3,4,5]
 
-sum(result) #iterable 객체가 들어왔을 때 (반복 가능한 객체) 리스트, 사전자료형, 튜플자료형 등
-
-min(7,3,5,2)
-
-max(7,3,5,2)
-
-result = eval( "(3+5) * 7" )
-
-result = sorted([9,1,8,5,4]) # 오름차순 정렬
-result = sorted([9,1,5,1,4], reverse=True) # 기존 객체는 변경되지 않으며 return 값이 존재한다.
-
-result.sort() # void 문이다 result가 변경된다.
-
-data = [('홍길동', 35), ('이순신', 17), ('아무개', 88)]
-result = sorted(data, key = lambda x : x[1], reverse = True)
-print(result)
-
-# 위와 같은 값을 가진다.
-data.sort(key = lambda x: x[1], reverse = True)
-print(data)
-
-data = ["23", "59", "59"]
-print(":".join(data))
-# 23:59:59
-```
 
 ## itertools
 
@@ -503,34 +291,6 @@ print(":".join(data))
 - combinations_with_replacement (중복을 허용하는 모든 조합)
 - 순열 조합 모두 클래스이므로 객체 초기화 이후 리스트 자료형으로 변환하여 사용한다.
 
-```Java
-from itertools import permutations, combinations, product,
-                                            combinations_with_replacement
-
-data = ['a', 'b', 'c'] # 데이터 준비
-
-# 리스트에서 3개를 뽑아 나열하는 모든 경우를 출력
-result = list(permutations(data,3)) # 모든 순열 구하기
-
-print(result)
-
-result = list(combinations(data,2)) # 2개를 뽑는 모든 조합 구하기
-
-print(result)
-
-result = list(product(data,repeat = 2)) # 2개를 뽑는 모든 순열 구하기 (중복 허용)
-
-print (result)
-
-result = list(combinations_with_replacement(data,2)) # 2개를 뽑는 모든 조합 구하기 (중복 허용)
-
-print (result)
-
-[('a', 'b', 'c'), ('a', 'c', 'b'), ('b', 'a', 'c'), ('b', 'c', 'a'), ('c', 'a', 'b'), ('c', 'b', 'a')]
-[('a', 'b'), ('a', 'c'), ('b', 'c')]
-[('a', 'a'), ('a', 'b'), ('a', 'c'), ('b', 'a'), ('b', 'b'), ('b', 'c'), ('c', 'a'), ('c', 'b'), ('c', 'c')]
-[('a', 'a'), ('a', 'b'), ('a', 'c'), ('b', 'b'), ('b', 'c'), ('c', 'c')]
-```
 
 ## heapq (Min heap)
 
