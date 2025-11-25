@@ -169,6 +169,4 @@ ENCRYPTION USING 'AES256' DEFAULT STORAGE(ENCRYPT);
     - `NO SALT`: 암호화 시 솔트(Salt) 값을 추가하지 않습니다. (인덱스를 생성하려는 암호화 컬럼에는 필수적으로 지정해야 함).
         
 
-
-
 ## 💭 나의 추가적 생각/질문
