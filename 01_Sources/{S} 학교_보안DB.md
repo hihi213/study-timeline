@@ -243,6 +243,86 @@ creation_date: 2025-09-08
 - **[S4] `JOIN` 대체 함수**: 부서 번호를 받아 부서명을 반환하는 함수를 만든 후, `SELECT` 목록에서 직접 호출하여 `EMP` 테이블 조회 시 `DEPT` 테이블과의 `JOIN` 없이 부서명을 출력.
 
 끝.
+## 최종 - DB보안 3교시_2025.10.27
+
+오늘 수업은 **'저장 프로시저(PL/SQL)'**를 이용한 데이터 암호화부터 **'트리거(Trigger)'**를 이용한 감사 로그, 그리고 **'뷰(View)'**를 활용한 접근 제어까지 **DB 보안의 3단계 방어 체계**를 완성했습니다.
+
+---
+
+### 1. 📢 금일의 공지 (Notice)
+
+- **권한 부여 필수:** 오늘 실습한 `CREATE VIEW`는 `RESOURCE` 롤에 포함되지 않습니다. 반드시 **`SYSTEM` 계정에서 `GRANT CREATE VIEW TO [계정명]`**을 수행해야 에러가 발생하지 않습니다.
+- **시험/과제 포인트:**
+    - **프로시저:** `SUBSTR`을 이용한 마스킹 로직.
+    - **트리거:** `:OLD`(변경 전 값)를 이용한 로그 기록 시점.
+    - **뷰:** `USER` 변수를 활용한 본인 데이터만 조회하기(Row-Level Security).
+        
+
+---
+
+### 2. 하루 TL;DR (Summary)
+
+> **"보안은 데이터(Data)뿐만 아니라 로직(Logic)과 접근 경로(Access Path)까지 보호해야 한다."**
+
+1. **데이터 마스킹 (Masking):** 민감 정보(이름, 주민번호)를 그대로 보여주지 않고, 프로시저 내에서 `SUBSTR`로 가공하여 `**` 처리함.
+2. **코드 난독화 (Wrapping):** 비즈니스 로직이 담긴 프로시저 소스를 `DBMS_DDL`로 암호화하여, `USER_SOURCE`를 조회해도 해석할 수 없게 만듦.
+3. **감사 로그 (Audit Trigger):** 데이터 변경(`UPDATE/DELETE`) 시, 트리거가 `:OLD` 데이터를 캡처하여 백업 테이블에 자동으로 기록함.
+4. **논리적 격리 (Secure View):** 사용자에게 원본 테이블 권한을 뺏고, 필요한 컬럼만 정의된 **뷰(View)** 권한만 주어 데이터 접근을 통제함.
+    
+
+---
+
+### 3. 💻 금일의 핵심 SQL (Cheatsheet)
+
+#### **① 프로시저 마스킹 & 타입 참조**
+
+```SQL
+v_name userTBL.userName%TYPE; -- 타입 참조
+-- 이름 첫 글자만 남기기
+DBMS_OUTPUT.PUT_LINE(SUBSTR(v_name, 1, 1) || '**');
+```
+
+#### **② 감사 트리거 (Audit Log)**
+
+```SQL
+CREATE TRIGGER trg_audit
+AFTER UPDATE OR DELETE ON userTBL -- 변경 후 동작
+FOR EACH ROW
+BEGIN
+    -- 변경 전(:OLD) 데이터를 백업 테이블로 이관
+    INSERT INTO backupTBL VALUES (:OLD.id, :OLD.name, SYSDATE, USER);
+END;
+/
+```
+
+#### **③ 보안 뷰 (Row-Level Security)**
+
+```SQL
+-- 접속한 사용자(USER)의 사번과 일치하는 행만 조회
+CREATE OR REPLACE VIEW vw_my_data AS
+SELECT emp_id, name, salary
+FROM employee
+WHERE emp_id = TO_NUMBER(SUBSTR(USER, 5)); -- 예: EMP_1001 -> 1001
+```
+
+#### **④ 권한 제어 (Grant View Only)**
+
+```SQL
+-- 원본 테이블 접근 불가, 뷰만 조회 가능
+GRANT SELECT ON vw_my_data TO EMP_1001;
+```
+
+---
+
+### 4. 🔥 MVP 질문 Top-5 (Exam Prep)
+
+|**No.**|**질문 (Question)**|**핵심 답변 (Key Answer)**|
+|---|---|---|
+|**Q1**|**트리거에서 `:OLD`와 `:NEW`의 차이는?**|`:OLD`는 수정/삭제 **전** 데이터, `:NEW`는 입력/수정 **후** 데이터입니다. 로그 기록엔 주로 `:OLD`를 씁니다.|
+|**Q2**|**뷰 생성 시 `ORA-01031` 에러 해결법은?**|뷰 생성은 시스템 권한입니다. 관리자(SYSTEM)가 `GRANT CREATE VIEW`를 별도로 줘야 합니다.|
+|**Q3**|**프로시저 소스 코드를 숨기는 방법은?**|**Wrapping(래핑)** 기술을 씁니다. `DBMS_DDL.CREATE_WRAPPED` 등을 사용해 코드를 암호화합니다.|
+|**Q4**|**`USER` 변수의 역할은 무엇인가?**|현재 세션에 로그인한 **계정명(ID)**을 반환하는 시스템 변수입니다. 행 기반 보안(본인 정보 조회)에 필수적입니다.|
+|**Q5**|**뷰(VIEW)를 사용하는 보안적 이점은?**|사용자에게 불필요하거나 민감한 **컬럼을 숨길 수 있고(Column Security)**, 원본 테이블 구조를 몰라도 되게 합니다.|
 
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 - [학교DB보안09-08](../00_Inbox/학교DB보안09-08.md)
@@ -252,4 +332,5 @@ creation_date: 2025-09-08
 - [학교DB보안10-13](../00_Inbox/학교DB보안10-13.md)
 - [[00_Inbox/학교DB보안10-26.md|학교DB보안10-26]]
 - [[00_Inbox/학교DB보안10-27.md|학교DB보안10-27]]
+- 
 --문자열안에서 '를표현할려면'를 2번쓴다 매우중요
