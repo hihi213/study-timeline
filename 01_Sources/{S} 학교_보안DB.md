@@ -323,6 +323,67 @@ GRANT SELECT ON vw_my_data TO EMP_1001;
 |**Q3**|**프로시저 소스 코드를 숨기는 방법은?**|**Wrapping(래핑)** 기술을 씁니다. `DBMS_DDL.CREATE_WRAPPED` 등을 사용해 코드를 암호화합니다.|
 |**Q4**|**`USER` 변수의 역할은 무엇인가?**|현재 세션에 로그인한 **계정명(ID)**을 반환하는 시스템 변수입니다. 행 기반 보안(본인 정보 조회)에 필수적입니다.|
 |**Q5**|**뷰(VIEW)를 사용하는 보안적 이점은?**|사용자에게 불필요하거나 민감한 **컬럼을 숨길 수 있고(Column Security)**, 원본 테이블 구조를 몰라도 되게 합니다.|
+## 최종 - DB보안 1교시_2025.11.10(1교시만 진행)
+
+### 1. 📢 금일의 공지 (Admin & Assignments)
+
+- **수업 종료 알림:** 데이터베이스 보안(계정/권한/감사/암호화) 실습 과정이 금일로 종료됩니다.
+- **차주 예고:** 다음 주부터 **DB 설계 및 응용 개발(Python/Java 연동)** 과정이 시작됩니다.
+- **과제(Assignment):** 교재 8장~10장 종합 실습 문제 풀이 (기말고사 대비용, 필수 수행).
+- **환경 설정 주의:** `DBMS_CRYPTO` 패키지 사용 시 `SYS` 계정에서의 권한 부여(`GRANT EXECUTE`)가 선행되어야 함을 잊지 마세요.
+    
+
+---
+
+### 2. 하루 TL;DR (Security Logic Summary)
+
+오늘 수업은 **"방어 심층 구성(Defense in Depth)"**의 흐름으로 진행되었습니다.
+
+1. **관리 효율화 (RBAC):** 사용자마다 권한을 하나씩 주는 비효율을 막기 위해 **Role(역할)**을 생성하여 권한을 그룹핑했습니다.
+2. **침입 탐지 (Auditing):** 권한이 있더라도 "누가, 언제, 무엇을" 했는지 **Audit(감사)**를 통해 기록을 남기는 감시 체계를 구축했습니다.
+3. **데이터 보호 (Encryption):** DB 파일이 탈취되더라도 내용을 볼 수 없도록 **AES-256** 알고리즘으로 데이터를 암호화했습니다.
+4. **자동화 (Automation):** 사용자가 암호화를 의식하지 않도록 **Trigger(저장 시 암호화)**와 **View(조회 시 복호화)**를 통해 투명성을 확보했습니다.
+    
+
+---
+
+### 3. 💻 금일의 핵심 SQL (Cheatsheet)
+
+|**카테고리**|**핵심 명령어 패턴**|**비고**|
+|---|---|---|
+|**감사 설정**|`ALTER SYSTEM SET AUDIT_TRAIL=DB SCOPE=SPFILE;`|설정 후 **DB 재시작** 필수|
+|**감사 정책**|`AUDIT SELECT ON hr.employees BY ACCESS;`|`WHENEVER SUCCESSFUL` 옵션 확인|
+|**감사 해제**|`NOAUDIT [명령어/객체];`|로그 정리: `DELETE FROM sys.aud$;`|
+|**암호화**|`DBMS_CRYPTO.ENCRYPT(src, typ, key)`|`RAW` 타입 반환, `AES256` 사용|
+|**복호화**|`DBMS_CRYPTO.DECRYPT(src, typ, key)`|키(Key) 관리가 보안의 핵심|
+|**자동화**|`TRIGGER` (:NEW 값 변조) + `VIEW` (함수 래핑)|애플리케이션 수정 최소화 기법|
+
+---
+
+### 4. 🔥 MVP 질문 Top-5 (Interview Prep)
+
+1. **Q. `WITH GRANT OPTION`과 `WITH ADMIN OPTION`의 결정적 차이는?**
+    
+    - A. `REVOKE` 시 **Cascade(연쇄 회수)** 여부입니다. 객체 권한(`GRANT OPTION`)은 줄줄이 회수되지만, 시스템 권한(`ADMIN OPTION`)은 직접 부여한 당사자만 회수되고 파생된 권한은 남습니다.
+        
+2. **Q. DB 감사를 모든 작업에 걸면 안 되는 이유는?**
+    
+    - A. **성능 저하(Performance Overhead)**와 **디스크 용량 부족**을 초래합니다. 따라서 규제 준수(Compliance)에 필요한 핵심 데이터와 중요 계정(SYS, DBA) 위주로 최소화해야 합니다.
+        
+3. **Q. 암호화된 데이터를 `VARCHAR2`에 저장하면 왜 위험한가?**
+    
+    - A. 암호문은 바이너리 데이터입니다. 문자열 타입에 저장 시 **CharacterSet 변환** 과정에서 비트 정보가 손상되어 복호화가 불가능해질 수 있습니다. (`RAW` 타입 사용 권장)
+        
+4. **Q. 오라클에서 암호화를 적용하는 방식 두 가지는?**
+    
+    - A. **API 방식**(`DBMS_CRYPTO` 패키지를 이용해 애플리케이션 레벨에서 구현)과 **TDE 방식**(엔진 레벨에서 투명하게 암호화, 오늘 실습은 API 방식)이 있습니다.
+        
+5. **Q. `AUDIT SESSION`은 주로 무엇을 탐지하기 위해 사용하는가?**
+    
+    - A. `WHENEVER NOT SUCCESSFUL` 옵션과 함께 사용하여, 반복적인 **로그인 실패(Brute Force Attack)** 시도를 탐지하는 데 사용합니다.
+        
+
+---
 
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 - [학교DB보안09-08](../00_Inbox/학교DB보안09-08.md)
@@ -332,5 +393,6 @@ GRANT SELECT ON vw_my_data TO EMP_1001;
 - [학교DB보안10-13](../00_Inbox/학교DB보안10-13.md)
 - [[00_Inbox/학교DB보안10-26.md|학교DB보안10-26]]
 - [[00_Inbox/학교DB보안10-27.md|학교DB보안10-27]]
-- 
+- [[00_Inbox/학교DB보안11-3.md|학교DB보안11-3]]
+- [[00_Inbox/학교DB보안11-10.md|학교DB보안11-10]]
 --문자열안에서 '를표현할려면'를 2번쓴다 매우중요
