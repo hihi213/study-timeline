@@ -39,9 +39,6 @@ CREATE TABLE 테이블명 (
 프로시저는 `CREATE OR REPLACE PROCEDURE` 구문을 사용하여 생성하며, 선언부와 실행부로 구성된 PL/SQL 블록을 포함합니다.
 
 - **기본 문법 구조**
-    
-
-
 
 ```SQL
 CREATE [OR REPLACE] PROCEDURE 프로시저명
