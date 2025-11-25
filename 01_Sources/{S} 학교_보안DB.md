@@ -382,8 +382,92 @@ GRANT SELECT ON vw_my_data TO EMP_1001;
     
     - A. `WHENEVER NOT SUCCESSFUL` 옵션과 함께 사용하여, 반복적인 **로그인 실패(Brute Force Attack)** 시도를 탐지하는 데 사용합니다.
         
+## 최종 - DB보안 1-2교시_2025.11.17
+
+오늘은 **데이터베이스 설계(Modeling)**부터 **어플리케이션 연동(JDBC)**까지, 보안 프로젝트의 기초 뼈대를 구축했습니다.
+
+### 1. 📢 금일의 공지 (Admin & Assignments)
+
+- **기말 과제 (Final Project):**
+    - **주제:** 자유 주제 (단, 수업 예제인 '회원 관리' 제외).
+    - **목표:** DB 설계(ERD) + 구현(DDL) + 웹 연동(CRUD) 전체 프로세스 수행.
+- **개발 환경 (Environment):**
+    - `JDK` + `Eclipse` (또는 IntelliJ) 설치.
+    - `Oracle JDBC Driver (ojdbc.jar)` 다운로드 및 프로젝트 **Build Path** 추가 필수.
+        
 
 ---
+
+### 2. 하루 TL;DR (Summary)
+
+- **1교시: 데이터 모델링 & 엔지니어링**
+    - 이론적인 개념/논리 설계를 넘어, **SQL Developer**를 활용한 **물리적 설계(Physical Modeling)**에 집중했습니다.
+    - **Forward Engineering:** GUI로 그린 모델을 DDL(SQL)로 변환하여 DB 구축.
+    - **Reverse Engineering:** 구축된 DB 정보를 읽어와 ERD로 복원 (보안 감사/분석용).
+    - **Security Point:** 식별자(PK) 선정 시 개인정보(전화번호 등) 사용을 배제하고 **대리 키(Surrogate Key)** 사용을 권장.
+- **2교시: JDBC 연동 (Java Database Connectivity)**
+    - Java와 Oracle을 연결하는 `Driver` 개념을 익히고 실제 접속 테스트를 수행했습니다.
+    - **Security Point:** 소스 코드 내 DB 계정 정보(ID/PW) **하드코딩의 위험성** 인지 및 환경 변수 사용 필요성 학습.
+        
+
+---
+
+### 3. 💻 금일의 핵심 Code (Cheatsheet)
+
+#### **A. DDL (테이블 생성 및 관계 설정)**
+
+
+
+```SQL
+-- 1. 부모 테이블 (회원)
+CREATE TABLE user_table (
+    user_id     NUMBER NOT NULL,       -- 대리 키(Surrogate Key) 권장
+    user_name   VARCHAR2(20),
+    mobile      VARCHAR2(15),          -- 개인정보는 PK로 사용 금지
+    CONSTRAINT user_pk PRIMARY KEY (user_id)
+);
+
+-- 2. 자식 테이블 (구매)
+CREATE TABLE buy_table (
+    buy_id      NUMBER NOT NULL,
+    user_id     NUMBER NOT NULL,       -- FK 컬럼
+    prod_name   VARCHAR2(30),
+    CONSTRAINT buy_pk PRIMARY KEY (buy_id)
+);
+
+-- 3. 참조 무결성 (FK)
+ALTER TABLE buy_table
+    ADD CONSTRAINT buy_user_fk FOREIGN KEY (user_id)
+    REFERENCES user_table (user_id);
+    -- 옵션 생략 시 ON DELETE NO ACTION (삭제 제한) 적용
+```
+
+#### **B. Java (JDBC Connection Pattern)**
+
+
+
+```Java
+// 1. 드라이버 로딩
+Class.forName("oracle.jdbc.driver.OracleDriver");
+
+// 2. 연결 (보안 취약: 실무에선 Properties 파일 사용 권장)
+String url = "jdbc:oracle:thin:@localhost:1521:xe";
+Connection conn = DriverManager.getConnection(url, "test", "1234");
+```
+
+---
+
+### 4. 🔥 MVP 질문 Top-3 (Interview Prep)
+
+|**질문 (Question)**|**핵심 답변 (Key Answer)**|
+|---|---|
+|**Q1. 왜 전화번호를 PK로 쓰지 않나요?**|전화번호는 **개인정보(PII)**이며 변경 가능성이 있어 **불변성(Immutability)**을 지켜야 하는 식별자로 부적합합니다.|
+|**Q2. `ClassNotFoundException` 원인은?**|JDBC 드라이버(`ojdbc.jar`)가 프로젝트의 **Build Path**에 추가되지 않았기 때문입니다.|
+|**Q3. DB 계정 하드코딩의 위험성은?**|소스 코드가 유출될 경우 DB 접속 권한이 즉시 탈취되므로, **환경 변수**나 **암호화된 설정 파일**로 분리해야 합니다.|
+
+---
+
+
 
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 - [학교DB보안09-08](../00_Inbox/학교DB보안09-08.md)
@@ -395,4 +479,5 @@ GRANT SELECT ON vw_my_data TO EMP_1001;
 - [[00_Inbox/학교DB보안10-27.md|학교DB보안10-27]]
 - [[00_Inbox/학교DB보안11-3.md|학교DB보안11-3]]
 - [[00_Inbox/학교DB보안11-10.md|학교DB보안11-10]]
+- [[00_Inbox/학교DB보안11-17.md|학교DB보안11-17]]
 --문자열안에서 '를표현할려면'를 2번쓴다 매우중요
