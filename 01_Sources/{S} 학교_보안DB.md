@@ -467,7 +467,93 @@ Connection conn = DriverManager.getConnection(url, "test", "1234");
 
 ---
 
+## 최종 - DB보안 1교시_2025.11.24
 
+### 1. 📢 금일의 공지 (Announcements)
+
+- **수업 목표:** Java GUI(Swing)와 Oracle DB 연동 실습 및 보안 코딩 기법 학습.
+- **과제 안내:** 제공된 회원관리 샘플 코드를 기반으로 **본인만의 주제(DB 설계 + UI 변형)**로 커스터마이징하여 완성할 것.
+- **일정:** 금일 미완성 시 과제로 제출하며, 다음 주는 시험 대비 정리 및 프로젝트 마무리를 진행합니다.
+- **환경 점검:** 지난주 결석자는 개별적으로 Oracle DB 및 JDBC 환경 설정을 완료해야 합니다.
+    
+
+---
+
+### 2. 하루 TL;DR (Security Policy & Context)
+
+> **"DB 보안은 애플리케이션 코드 레벨에서 시작된다."**
+
+- **보안 위협 (Threat):** 사용자 입력값을 검증하지 않고 SQL 문자열에 직접 결합하면 **SQL Injection** 공격에 노출됩니다.
+- **대응 정책 (Policy):** 모든 동적 쿼리는 반드시 **`PreparedStatement`**를 사용하여 파라미터 바인딩(`?`) 방식으로 처리해야 합니다.
+- **가용성 확보 (Availability):** DB 연결 자원(Connection)은 유한하므로, 사용 후 반드시 **`close()`**를 호출하여 자원을 반환해야 서비스 거부(DoS) 상태를 방지할 수 있습니다.
+    
+
+---
+
+### 3. 💻 금일의 핵심 Implementation (Cheatsheet)
+
+#### **A. Secure Query Pattern (SQL Injection 방지)**
+
+
+```Java
+// ❌ [Bad] Statement 사용 (보안 취약)
+String query = "SELECT * FROM users WHERE id = '" + inputId + "'"; 
+
+// ✅ [Good] PreparedStatement 사용 (보안 권장)
+String query = "SELECT * FROM users WHERE id = ?";
+PreparedStatement pstmt = con.prepareStatement(query);
+pstmt.setString(1, inputId); // 자동 이스케이프 처리됨
+```
+
+#### **B. CRUD Methods Implementation (실습 정답)**
+
+_(강의 중 `//구현하기` 부분에 대한 모범 답안입니다)_
+
+
+```Java
+// 1. 데이터 추가 (INSERT)
+void funAdd() {
+    try {
+        DBConn();
+        String sql = "INSERT INTO student(stu_id, name, address) VALUES(?, ?, ?)";
+        pstmt = con.prepareStatement(sql);
+        pstmt.setString(1, tfs[0].getText().trim());
+        pstmt.setString(2, tfs[1].getText().trim());
+        pstmt.setString(3, tfs[2].getText().trim());
+        
+        if (pstmt.executeUpdate() > 0) {
+            // JTable UI 갱신 로직 생략
+        }
+    } catch (SQLException e) { e.printStackTrace(); } 
+    finally { DBClose(); }
+}
+
+// 2. 데이터 삭제 (DELETE)
+void funDel() {
+    // 사용자 확인 UX 추가
+    if (JOptionPane.showConfirmDialog(this, "삭제하시겠습니까?") == 0) {
+        try {
+            DBConn();
+            String sql = "DELETE FROM student WHERE stu_id = ?";
+            pstmt = con.prepareStatement(sql);
+            pstmt.setString(1, targetId); // 선택된 행의 PK
+            pstmt.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); } 
+        finally { DBClose(); }
+    }
+}
+```
+
+---
+
+### 4. 🔥 MVP 질문 Top-4 (Exam Prep)
+
+|**Q. 질문**|**A. 핵심 답변 (Keyword)**|
+|---|---|
+|**Q1. `PreparedStatement`를 사용하는 보안적 이유는?**|**SQL Injection 방지.** 쿼리를 미리 컴파일하고 입력값을 단순 데이터로 바인딩하여 악의적인 SQL 실행을 차단함.|
+|**Q2. `finally` 블록에서 `close()`를 하는 이유는?**|**자원 누수(Resource Leak) 방지.** 에러 발생 여부와 관계없이 DB 연결을 해제하여 가용성(Availability)을 확보하기 위함.|
+|**Q3. `executeQuery` vs `executeUpdate` 차이는?**|**반환 타입의 차이.** `executeQuery`는 조회(`SELECT`)용으로 `ResultSet` 반환, `executeUpdate`는 변경(`DML`)용으로 `int`(행 개수) 반환.|
+|**Q4. `ResultSet.next()`의 역할은?**|**커서(Cursor) 이동.** 데이터 포인터를 다음 행으로 이동시키며, 데이터가 있으면 `true`, 없으면 `false`를 반환함.|
 
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 - [학교DB보안09-08](../00_Inbox/학교DB보안09-08.md)
@@ -480,4 +566,5 @@ Connection conn = DriverManager.getConnection(url, "test", "1234");
 - [[00_Inbox/학교DB보안11-3.md|학교DB보안11-3]]
 - [[00_Inbox/학교DB보안11-10.md|학교DB보안11-10]]
 - [[00_Inbox/학교DB보안11-17.md|학교DB보안11-17]]
+- [[00_Inbox/학교DB보안11-24.md|학교DB보안11-24]]
 --문자열안에서 '를표현할려면'를 2번쓴다 매우중요
