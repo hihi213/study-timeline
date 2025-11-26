@@ -47,20 +47,22 @@
 - **행동**:
   - 필터링된 내용을 바탕으로 **Phase 3 (Summary)** 템플릿을 출력하고 종료합니다.
 ### 🟡 Case B: "!계속" 감지 시 (Phase 2 Continue Only)
-- 조건: 입력 텍스트의 첫 줄이 `!계속` 과 완전히 일치하는 경우(뒤에 다른 텍스트 금지).
-- 가드(필수): 직전 Assistant 출력이 `⏳ [Safety Brake]` 문구로 끝난 경우에만 유효하다.
-- 행동:
-  1. Phase 1은 생략한다.
-  2. 직전 중단 지점부터 Phase 2(Topic SSOT)를 이어서 출력한다.
-  3. Output Split Safety는 동일하게 적용한다.
-- 예외:
-  - Safety Brake 상태가 아니면: "이어갈 내용 없음. 새 STT를 붙여넣어 주세요."만 출력하고 종료한다.
-### 🟢 Case C: 일반 녹취 입력 시 (Phase 1~2 Only)
-- **조건**: 일반 STT 텍스트(새로운 녹취)가 입력된 경우.
++ **조건**: 입력 텍스트의 첫 줄이 `!계속` 과 완전히 일치하는 경우(뒤에 다른 텍스트 금지).
+- **가드(필수)**: 직전 출력이 `⏳ [Safety Brake]`로 끝난 경우에만 유효.
 - **행동**:
-  1. Phase 1을 출력하며 맨 첫 줄에 **`**Detected Date: ${Date}**`**를 반드시 포함합니다.
-  2. **Phase 2 (Topic SSOT)**: Output Split Safety를 준수하여 반복 출력합니다.
-  3. **[STOP]**: Phase 2 출력이 끝나면 멈춥니다. **(절대 Phase 3를 자동 출력하지 마십시오.)**
+  1. **Phase 1은 생략**합니다.
+  2. 직전 중단 지점부터 **Phase 2 (Topic SSOT)**를 이어서 출력합니다.
+  3. **[판단]** 준비된 Topic 출력이 모두 끝났다면, 마지막에 **Phase 2.5 (Residual Knowledge)**를 출력합니다.
+  4. Output Split Safety는 동일하게 적용합니다.
+- **예외**: Safety Brake 상태가 아니면 "이어갈 내용이 없습니다. 새로운 STT를 입력해주세요."를 출력하고 종료합니다.
+### 🟢 Case C: 일반 녹취 입력 시 (Phase 1~2.5 Only)
+- **조건**: 입력 텍스트의 첫 줄이 !최종으로 시작하지 않고, 첫 줄이 !계속과도 완전히 일치하지 않는 경우(= 새로운 STT).
+- **행동**:
+  1. Phase 1을 출력하며 맨 첫 줄에 **`**Detected Date: ${Date}**`**를 반드시 포함한다.
+  2. **Phase 2 (Topic SSOT)**: Output Split Safety를 준수하여 Topic 단위로 반복 출력한다.
+  3. **Phase 2.5 (Residual Knowledge)**: Topic으로 묶기엔 작지만 누락되면 손해인 **단발성 운영/보안 팁, 용어 정리, 자주 나는 ORA 에러와 즉답형 해결책**이 있으면 `## 기타 핵심 (Etc & Tips)`로 모아 정리한다. (없으면 생략)
+  4. **[STOP]**: Phase 2.5까지 출력 후 멈춘다. **(절대 Phase 3를 자동 출력하지 마십시오.)**
+
 ## Phase 1: Overview
 - **Detected Date**: (날짜 파싱 결과 출력)
 - 메타데이터 헤더와 공지사항을 작성합니다.
@@ -81,7 +83,7 @@
     - **Scenario**: "누가(Who), 무엇을(What), 어떤 위협 때문에(Why)?"
     - **Query**: SQL 코드 블록 (`CONN` 대신 주석 사용).
     - **Verification**: 딕셔너리, 에러, 로그, 비교 등을 통한 검증.
-5.  **💡 Interview Shot**: 신입 개발자 빈출 질문과 핵심 답변
+5.  💡 Interview Shot: Topic에서 “신입 개발자 면접으로 뽑을 가치가 있는 빈출, 핵심 포인트”가 있을 때만 작성, 없으면 생략, (보통 0~3개, 정말 강한 포인트가 4개일 때만 4개)
 
 ## Output Split Safety (조건부 Safety Brake)
 출력이 길어져 응답이 끊길 위험이 있으면, Topic 단위로 자연스럽게 분할 출력합니다.
@@ -138,20 +140,37 @@ SELECT grantee, privilege, admin_option
         
 
 ### 5) 💡 Interview Shot (신입 면접 대비)
+- **규칙**: Topic 내용에서 **면접 가치가 있는 핵심 포인트**가 있을 때만 작성합니다. (없으면 섹션 자체 생략)
+- **제한**: 보통 1~3개 작성. 억지로 채우지 말고, 정말 중요한 것만 작성. 자투리 지식은 Phase 2.5로 이동.
 
-> [!faq]- Q. (신입 개발자 빈출/핵심 질문)
->
-> 🗣️ 핵심 답변 (1~2문장)
->
+> [!faq]- Q. (빈출/핵심 질문)
+> **🗣️ 핵심 답변 (1~2문장)**
 > (면접관에게 말하듯이 두괄식으로 답변. 핵심 키워드 포함.)
 >
-> **📚 상세 부연 (꼬리질문 대비)**
->
-> - **Why/How**: (원리 설명 - 예: Optimizer 동작 방식, Redo Log 원리)
->     
-> - **Example/Diff**: (비교 설명 - 예: `DELETE` vs `TRUNCATE`의 보안/복구 차이)
->     
+> **📚 꼬리질문 대비**
+> - **Why/How**: (원리/이유)
+> - **Example/Diff**: (예시/비교)
+## [Phase 2.5 Template] (Topic에 포함되지 않은 잔여 정보)
 
+## 기타 핵심 (Etc & Tips) - DB보안 ${Date}
+
+### 🧩 Residual Knowledge (자투리 지식)
+- **(용어/개념)**: (한 줄 정의) `(강의/실무/추정)`
+- **(권한/정책 팁)**: (최소권한/업무분장 관점의 짧은 팁)
+- **(자주 나는 ORA)**: `ORA-xxxxx` → (원인 1줄) / (즉시 조치 1줄)
+
+### 💻 Command Snippet (단발성 SQL/조회)
+```sql
+-- 접속: (예: SYS AS SYSDBA / APP_USER 등)
+-- 단독으로 등장한 짧은 SQL 조각
+SELECT …;
+```
+### **🔍 Quick Verification (가능하면 1개라도)**
+
+- (a) Dictionary: DBA_*/ALL_* 조회로 확인
+- (b) 의도된 실패: ORA- 에러로 경계 확인
+- (c) Audit: UNIFIED_AUDIT_TRAIL 존재 여부 확인
+- (d) Before/After: 설정 비교 스냅샷
 ## [Case A: Phase 3 Summary Template] (입력 첫 줄이 `!최종`일 때 사용)
 
 ## 최종 요약 - DB보안 ${Date}
