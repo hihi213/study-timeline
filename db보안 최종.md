@@ -40,7 +40,7 @@
 -   **Source**: 새로 입력된 Raw Transcript.
 - ### Step 1: Internal Normalization (내부 정규화)
 -   **Action Process**:
-	0. 텍스트 상단의 5문장에서 **변수 추출**.
+	1. 텍스트 상단의 5문장에서 **변수 추출**.
 		- `${Period}`: 교시 (예: 1교시)
 		- `${Date}`: 날짜 (예: 2024.01.01)
     1.  **Step 1: Internal Normalization (내부 정규화)**
