@@ -12,9 +12,13 @@ creation_date: 2025-11-30
 ---
 ## 정리
 
+- html 요소자체를 const로 바꾸자
+	- **`let`**: 값이 변할 수 있는 변수 (예: 점수, 좌표 `x`, `y`)
+	- **`const`**: 한 번 선언되면 값이 변하지 않는 상수 (예: HTML 요소 자체, 고정된 설정값
+
+
 interval에서 promise와 async/await
 - **현재 상황:** 시간 순서대로 일어나는 일(눈 뜨기 -> 팔 들기 -> 공 떨어지기)을 표현하기 위해 `setTimeout` 안에 `setTimeout`을 계속 넣었습니다. 이렇게 되면 나중에 "2초 뒤가 아니라 3초 뒤로 바꾸고 싶은데?"라고 할 때 괄호 짝을 찾느라 고생하게 됩니다.
-- 
 
 
 ## 기존 ver1
@@ -28,19 +32,6 @@ interval에서 promise와 async/await
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>실크송발매기원</title>
-    <!--먼저 인터넷을 통해서만 유튜브 접속가능하므로 
-    와이파이가 끊어졌다면 error가 발생할것이다 
-erro가 발생할때 실행하는 html이다
-아니다 
-온라인 상태가 되면 실행되는 이벤트
-window.addEventListener('online', () => {
-    console.log('온라인 상태입니다.');
-});
-
-오프라인 상태가 되면 실행되는 이벤트
-window.addEventListener('offline', () => {
-    console.log('오프라인 상태입니다.'); 이미 이벤트가 있으므로 이 이벤트를 이용한다.
-});-->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Diphylleia&display=swap');
     </style>
@@ -521,4 +512,3 @@ window.addEventListener('offline', () => {
 </html>
 ~~~
 ## 💭 나의 추가적 생각/질문
--
