@@ -61,10 +61,10 @@
 
 ### 📢 공지사항
 - (내용 없을 시 "특이사항 없음")
-
-### ⏱️ 타임라인
-- (시간/구간): (주요 보안 실습 단계 및 트러블슈팅 요약)
-
+### 오늘의 Workflow (Steps)
+- Step 1) …
+- Step 2) …
+- Step 3) …
 ## [Phase 2 Topic Template]
 
 ## Topic N. {주제명} - DB보안 ${Period}_${Date}
