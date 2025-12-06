@@ -319,3 +319,25 @@ FROM TBL_BOOK b
 LEFT JOIN TBL_RENT r
 ON b.BOOK_NO = r.BOOK_NO AND r.RTN_DATE IS NULL;
 ```
+
+
+#### user1이 이미 대여중인 책 데이터를 추가
+```SQL
+-- 1. 새 책 추가 (처음부터 '대여중(Y)' 상태로 입력)
+INSERT INTO TBL_BOOK (BOOK_NO, TITLE, AUTHOR, RENT_YN)
+VALUES (SEQ_BOOK.NEXTVAL, '데이터베이스의 정석', '홍길동', 'Y');
+
+-- 2. 방금 넣은 책을 'user1'이 빌려간 것으로 기록 (연체 조작)
+INSERT INTO TBL_RENT (RENT_NO, MEM_NO, BOOK_NO, RENT_DATE, RTN_DUE, RTN_DATE)
+VALUES (
+    SEQ_RENT.NEXTVAL, 
+    (SELECT MEM_NO FROM TBL_MEMBER WHERE MEM_ID = 'user1'), -- user1 번호 찾기
+    SEQ_BOOK.CURRVAL, -- ★ 방금 추가한 그 새 책 번호
+    TO_DATE('2025-10-25', 'YYYY-MM-DD'), -- 대여일: 10월 25일
+    TO_DATE('2025-11-01', 'YYYY-MM-DD'), -- 반납 예정일: 11월 1일 (현재 12월 6일 기준 연체!)
+    NULL -- 반납 안 함
+);
+
+-- 3. 저장
+COMMIT;
+```

@@ -512,6 +512,77 @@ ENCRYPTION USING 'AES256' DEFAULT STORAGE(ENCRYPT);
 > );
 > ```
 ---
+
+
+## 7. 트리거 (Triggers)
+
+특정 테이블에 `INSERT`, `UPDATE`, `DELETE`와 같은 **이벤트가 발생할 때, 데이터베이스가 자동으로 실행(Fire)**하는 특수한 형태의 프로시저입니다. 주로 데이터 이력 관리(Audit), 복잡한 데이터 무결성 검증, 자동 백업 로직 등에 사용됩니다.
+
+### 🎯 핵심 메커니즘
+
+- **자동 실행:** 사용자가 직접 호출(`EXECUTE`)할 수 없으며, 지정된 이벤트(DML 등)가 발생하면 오라클 엔진이 자동으로 수행합니다.
+- **실행 시점 (`TIMING`):**
+    - **`BEFORE`:** 실제 데이터가 변경되기 **직전**에 실행 (데이터 검증에 유리).
+    - **`AFTER`:** 실제 데이터가 변경된 **직후**에 실행 (이력 로그 남기기에 유리).
+- **실행 레벨 (`LEVEL`):**
+    - **행 트리거 (`FOR EACH ROW`):** 변경되는 **각 행(Row)마다** 실행됩니다. (예: 5행 수정 시 5번 실행). `:OLD`, `:NEW` 변수 사용 가능.
+    - **문장 트리거 (생략 시):** 변경되는 행의 개수와 관계없이 **SQL 문장당 1번**만 실행됩니다.
+        
+
+### 🛠️ 기본 문법 구조
+
+
+
+```SQL
+CREATE OR REPLACE TRIGGER 트리거명
+    [BEFORE | AFTER] [INSERT | UPDATE | DELETE] ON 테이블명
+    [FOR EACH ROW]  -- 이 옵션이 있어야 :OLD, :NEW 사용 가능
+BEGIN
+    -- [자동으로 실행될 로직]
+    -- :OLD.컬럼명 (변경 전 값)
+    -- :NEW.컬럼명 (변경 후 값)
+END;
+/
+```
+
+### 🧩 가상 레코드 (:OLD vs :NEW)
+
+행 트리거(`FOR EACH ROW`) 내부에서는 **변경 전후의 데이터에 접근**할 수 있는 가상 변수를 제공합니다.
+
+|**이벤트**|**:OLD (변경 전 값)**|**:NEW (변경 될 값)**|**비고**|
+|---|---|---|---|
+|**INSERT**|`NULL`|**입력할 값**|새 데이터가 들어오므로 OLD는 없음|
+|**UPDATE**|**수정 전 값**|**수정 후 값**|전/후 값 모두 접근 가능|
+|**DELETE**|**삭제 전 값**|`NULL`|데이터가 사라지므로 NEW는 없음|
+
+> [!note]- 트리거(데이터 이력 자동 백업) 생성 예시
+>
+> **시나리오:** 사원 테이블(`employees`)에서 급여(`salary`)가 변경되거나 사원이 삭제될 때, 변경 전 데이터를 `emp_history` 테이블에 자동으로 백업합니다.
+> ```SQL
+> CREATE OR REPLACE TRIGGER trg_emp_audit
+>     BEFORE UPDATE OR DELETE ON employees -- 수정 또는 삭제 시 작동
+>     FOR EACH ROW                         -- 각 행마다 실행
+> BEGIN
+>     -- 업데이트 시: 급여가 변경된 경우에만 이력 저장
+>     IF UPDATING AND (:OLD.salary <> :NEW.salary) THEN
+>         INSERT INTO emp_history (emp_id, old_salary, new_salary, change_date, action)
+>         VALUES (:OLD.emp_id, :OLD.salary, :NEW.salary, SYSDATE, 'UPDATE');
+>     END IF;
+> -- 삭제 시: 삭제되는 사원 정보 백업
+> IF DELETING THEN
+>     INSERT INTO emp_history (emp_id, old_salary, new_salary, change_date, action)
+>     VALUES (:OLD.emp_id, :OLD.salary, NULL, SYSDATE, 'DELETE');
+> END IF;
+> END;
+> /
+> ```
+
+---
+
+### 추가 제안 (Next Step)
+
+작성해 드린 내용은 오라클의 PL/SQL 객체 중심 정리입니다. 혹시 이 문서 다음에 **"트랜잭션의 개념(ACID)과 TCL(COMMIT, ROLLBACK, SAVEPOINT) 제어"**에 대한 내용도 같은 형식으로 추가해 드릴까요?
+
 ## 💭 나의 추가적 생각/질문
 [[DBMS 심층 분석_ 엔진 메커니즘과 SQL 최적화|함수와 프로시저의 차이_DBMS 심층분석_ 엔진 매커니즘과 sql 최적화]]
  ^4k03am
