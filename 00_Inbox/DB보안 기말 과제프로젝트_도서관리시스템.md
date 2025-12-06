@@ -46,9 +46,10 @@ creation_date: 2025-12-01
 	2. **로그인:** 아이디/비밀번호가 맞는지 확인 (비밀번호 암호화함수 이용)
 		- 어떻게 구현할까?: 이 작업은 DB의 데이터를 수정하는 작업이 아니므로 함수로 구현한다
 	3. **도서 대여:** 대여 기록 생성 및 도서 상태 변경
+		- 어떻게 구현할까?: 이 작업은 DB의 데이터를 수정하는 작업이므로, 프로시저로 구현한다.
 	4. **연체료 계산:** 반납일 기준으로 연체료 산출
 	5. 도서반납: 도서반납(연체로 계산 함수 이용)
-	6. 목록조회: 현재 도서 상태를 보여줌(연체로 계산 함수 이용)
+	6. 목록조회: 현재 도서 상태를 보여줌(연체료 계산 함수 이용)
     
 ### 2. 물리적 테이블 설계
 
@@ -223,7 +224,24 @@ COMMIT;
 #### 로그인 함수: 비밀번호를 조회하고 결과값을 돌려준다.
 
 ```SQL
-
+---함수: 비밀번호를 조회하고 결과값을 돌려준다.
+CREATE OR REPLACE FUNCTION FUNC_LOGIN(p_id IN VARCHAR2, p_pw IN VARCHAR2)
+RETURN VARCHAR2
+AS 
+    v_db_pw TBL_MEMBER.MEM_PW%TYPE;
+BEGIN 
+    SELECT MEM_PW INTO v_db_pw FROM TBL_MEMBER WHERE MEM_ID= p_id;
+    IF v_db_pw = FUNC_ENCRYPT_PW (p_pw) THEN
+        RETURN 'TRUE';
+    ELSE 
+        RETURN 'FALSE';
+    END IF;
+EXCEPTION
+    --id가 없을경우
+    WHEN NO_DATA_FOUND THEN
+        RETURN 'NODATA';
+END;
+/
 ```
 #### [뷰(View)] 도서 목록 조회
 

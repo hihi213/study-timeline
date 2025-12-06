@@ -277,7 +277,12 @@ END;
 > ```
 ---
 
->[!tip] :=은 선 
+>[!tip] 선언부(AS)엔 `이름 타입:= 넣을값`, 실행부(BEGIN)에는 `SELECT 조회해넣을값 INTO 넣을변수 FROM..`
+>
+
+>[!tip] IF 조건 THEN 실행 ENDIF;
+>
+
 ## 4. 뷰 (Views)
 
 뷰는 물리적인 데이터를 저장하지 않고, **기본 테이블(Base Table)을 조회하는 `SELECT` 문장 자체를 저장**하는 가상 테이블(Virtual Table)입니다.
@@ -503,3 +508,4 @@ ENCRYPTION USING 'AES256' DEFAULT STORAGE(ENCRYPT);
 [[DBMS 심층 분석_ 엔진 메커니즘과 SQL 최적화|함수와 프로시저의 차이_DBMS 심층분석_ 엔진 매커니즘과 sql 최적화]]
  ^4k03am
  [[Oracle(PL,SQL) 변수 선언 부분에 사용할 수 있는 변수의 종류|Oracle(PL,SQL) 변수 선언 부분에 사용할 수 있는 변수의 종류]]
+[[00_Inbox/오라클 DDL,DML정리.md|오라클 DDL,DML정리]]
