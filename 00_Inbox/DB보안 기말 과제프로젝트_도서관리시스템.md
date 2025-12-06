@@ -4,6 +4,8 @@ status: inbox
 source:
 creation_date: 2025-12-01
 ---
+**데이터베이스 설계한 테이블 모델링(물리적모델링:테이블명세서 또는 ERD) 및 구현한 소스와 실행 화면 결과 화면 캡쳐하여 보고서 형식으로 제출합니다. 참고한 자료가 있으면 작성해 줘야하고 간단한 기능설명도 넣어주세요.**
+
 
 - 도서 대여시스템 구성
     - **함수:** 반납 예정일과 오늘 날짜를 비교해 **연체료** 계산.
@@ -78,26 +80,41 @@ creation_date: 2025-12-01
 ### 3. 데이터베이스 구축 및 초기 데이터 설정
 
 ```sql
-CREATE OR REPLACE TABLE TBL_MEMBER (
-	MEN_NO NUMBER PRIMARY KEY,
-	MEN_ID VARCHAR2(30) UNIQUE NOT NULL,
-	MEN_PW VARCHAR2(200) NOT NULL,
-	MEN_NAME VARCHAR2(20) NOT NULL,
-	MEM_TEL VARCHAR2(20)
-	
+-- 1. 회원 테이블 (암호화된 비번 저장을 위해 크기 넉넉하게)
+CREATE TABLE TBL_MEMBER (
+    MEM_NO    NUMBER          PRIMARY KEY, -- 내부 관리 번호
+    MEM_ID    VARCHAR2(30)    UNIQUE NOT NULL,
+    MEM_PW    VARCHAR2(200)   NOT NULL,    -- 암호화된 비밀번호 들어감
+    MEM_NAME  VARCHAR2(20)    NOT NULL,
+    MEM_TEL   VARCHAR2(20)
 );
 
-```
+CREATE SEQUENCE SEQ_MEM; -- 회원번호 자동생성기
 
-
-```sql
-CREATE OR REPLACE TABLE TBL_MEMBER (
-	MEN_NO NUMBER PRIMARY KEY,
-	MEN_ID VARCHAR2(30) UNIQUE NOT NULL,
-	MEN_PW VARCHAR2(200) NOT NULL,
-	MEN_NAME VARCHAR2(20) NOT NULL,
-	MEM_TEL VARCHAR2(20)
-	
+-- 2. 도서 테이블
+CREATE TABLE TBL_BOOK (
+    BOOK_NO   NUMBER          PRIMARY KEY,
+    TITLE     VARCHAR2(100)   NOT NULL,
+    AUTHOR    VARCHAR2(50),
+    RENT_YN   CHAR(1)         DEFAULT 'N' CHECK (RENT_YN IN ('Y', 'N')) -- Y:대여중, N:대여가능
 );
+
+CREATE SEQUENCE SEQ_BOOK; -- 도서번호 자동생성기
+
+-- 3. 대여 테이블 (핵심 트랜잭션)
+CREATE TABLE TBL_RENT (
+    RENT_NO   NUMBER          PRIMARY KEY,
+    MEM_NO    NUMBER          NOT NULL,
+    BOOK_NO   NUMBER          NOT NULL,
+    RENT_DATE DATE            DEFAULT SYSDATE, -- 대여일 (오늘)
+    RTN_DUE   DATE            DEFAULT SYSDATE+7, -- 반납예정일 (기본 7일)
+    RTN_DATE  DATE,           -- 실반납일 (반납 전엔 NULL)
+    
+    -- 관계 설정 (FK)
+    CONSTRAINT FK_RENT_MEM FOREIGN KEY (MEM_NO) REFERENCES TBL_MEMBER(MEM_NO),
+    CONSTRAINT FK_RENT_BOOK FOREIGN KEY (BOOK_NO) REFERENCES TBL_BOOK(BOOK_NO)
+);
+
+CREATE SEQUENCE SEQ_RENT; -- 대여번호 자동생성기
 
 ```
