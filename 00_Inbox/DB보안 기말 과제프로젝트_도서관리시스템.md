@@ -48,7 +48,9 @@ creation_date: 2025-12-01
 	3. **도서 대여:** 대여 기록 생성 및 도서 상태 변경
 		- 어떻게 구현할까?: 이 작업은 DB의 데이터를 수정하는 작업이므로, 프로시저로 구현한다.
 	4. **연체료 계산:** 반납일 기준으로 연체료 산출
+		- 어떻게 구현할까?: 이 작업은 DB의 데이터를 수정하는 작업이 아니므로 함수로 구현한다
 	5. 도서반납: 도서반납(연체로 계산 함수 이용)
+		- 어떻게 구현할까?: 이 작업은 DB의 데이터를 수정하는 작업이므로, 프로시저로 구현한다.
 	6. 목록조회: 현재 도서 상태를 보여줌(연체료 계산 함수 이용)
     
 ### 2. 물리적 테이블 설계
@@ -230,7 +232,7 @@ RETURN VARCHAR2
 AS 
     v_db_pw TBL_MEMBER.MEM_PW%TYPE;
 BEGIN 
-    SELECT MEM_PW INTO v_db_pw FROM TBL_MEMBER WHERE MEM_ID= p_id;
+    SELECT MEM_PW INTO v_db_pw FROM TBL_MEMBER WHERE MEM_NO= p_id;
     IF v_db_pw = FUNC_ENCRYPT_PW (p_pw) THEN
         RETURN 'TRUE';
     ELSE 
@@ -240,6 +242,30 @@ EXCEPTION
     --id가 없을경우
     WHEN NO_DATA_FOUND THEN
         RETURN 'NODATA';
+END;
+/
+```
+
+#### 대여 함수: 유저id, 책id를 받아 UPDATE(도서 상태 변경)와 INSERT(대여 기록 추가)
+
+```SQL
+CREATE OR REPLACE PROCEDURE PROC_RENT_BOOK (p_user_no IN TBL_MEMBER.MEM_NO%TYPE, p_book_no IN TBL_BOOK.book_NO%TYPE)
+AS 
+BEGIN
+    UPDATE TBL_BOOK SET RENT_YN='Y' WHERE book_no=p_book_no ;
+    INSERT INTO TBL_RENT VALUES (SEQ_RENT.NEXTVAL, p_user_no, p_book_no, SYSDATE, SYSDATE+7);
+END;
+/
+```
+
+#### 연체료 계산 함수
+
+```SQL
+CREATE OR REPLACE PROCEDURE PROC_RENT_BOOK (p_user_no IN TBL_MEMBER.MEM_NO%TYPE, p_book_no IN TBL_BOOK.book_NO%TYPE)
+AS 
+BEGIN
+    UPDATE TBL_BOOK SET RENT_YN='Y' WHERE book_no=p_book_no ;
+    INSERT INTO TBL_RENT VALUES (SEQ_RENT.NEXTVAL, p_user_no, p_book_no, SYSDATE, SYSDATE+7);
 END;
 /
 ```
