@@ -150,6 +150,7 @@ CREATE TABLE 테이블명 (
 
 - **트랜잭션 제어:** 내부에서 `COMMIT`, `ROLLBACK` 수행이 가능하여 데이터 상태 변경(DML) 작업에 최적화되어 있습니다.
 - **반환값 없음:** `RETURN` 문을 사용하지 않으며, 결과는 `OUT` 파라미터를 통해 외부로 전달합니다.
+	- 프로시저는 `RETURN`으로 값을 던지지 않아요 함수는 `RETURN 값;`으로 결과를 던지지만, 프로시저는 **`OUT` 파라미터에 값을 대입**하는 것으로 끝납니다
 ### 🛠️ 기본 문법 구조
 ```SQL
 CREATE OR REPLACE PROCEDURE 프로시저명 
@@ -280,8 +281,11 @@ END;
 >[!tip] 선언부(AS)엔 `이름 타입:= 넣을값`, 실행부(BEGIN)에는 `SELECT 조회해넣을값 INTO 넣을변수 FROM..`
 >
 
->[!tip] IF 조건 THEN 실행 ENDIF;
->
+>[!tip] **한 번에** 두 컬럼을 가져오도록
+>SELECT col1, col2 INTO 저장할변수1, 저장할변수2 ...
+
+>[!tip] NULL 여부로 다른 값을 쓸때 - NVL
+> NVL( NULL이 아닐때 쓸값, NULL일때 대신 쓸 값 ) …
 
 ## 4. 뷰 (Views)
 

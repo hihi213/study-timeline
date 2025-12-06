@@ -258,17 +258,45 @@ END;
 /
 ```
 
-#### 연체료 계산 함수
+#### 연체료 계산 함수: 실반납일이 비어있으면, 반납예정일과 오늘을 비교해 연체인지 판단후 연체일 계산 / 채워져있으면, 반납예정일과 실반납일을 비교해 연체 계산
 
 ```SQL
-CREATE OR REPLACE PROCEDURE PROC_RENT_BOOK (p_user_no IN TBL_MEMBER.MEM_NO%TYPE, p_book_no IN TBL_BOOK.book_NO%TYPE)
+CREATE OR REPLACE FUNCTION FUNC_CALC_LATE_FEE (p_rent_no IN TBL_RENT.RENT_NO%TYPE)
+RETURN NUMBER
 AS 
-BEGIN
-    UPDATE TBL_BOOK SET RENT_YN='Y' WHERE book_no=p_book_no ;
-    INSERT INTO TBL_RENT VALUES (SEQ_RENT.NEXTVAL, p_user_no, p_book_no, SYSDATE, SYSDATE+7);
+    v_rtn_date DATE;
+    v_rtn_due DATE;
+    v_diff NUMBER;
+    
+BEGIN 
+    SELECT RTN_DATE, RTN_DUE INTO v_rtn_date, v_rtn_due FROM TBL_RENT WHERE RENT_NO= p_rent_no;
+    --날짜 차이 계산
+    v_diff := TRUNC(NVL(v_rtn_date,SYSDATE)) -TRUNC(v_rtn_due);
+    IF v_diff>0 THEN
+        RETURN v_diff;
+    ELSE 
+        RETURN 0;
+    END IF;
 END;
 /
 ```
+
+
+#### 도서 반납 프로시저: 실제 반납할 도서인지 확인하고, book의 대여여부를 N로 update, rent의 실 반납일을 update하고 연체일함수를 이용해 연체일을 반환
+
+
+```SQL
+CREATE OR REPLACE VIEW VIEW_BOOK_LIST AS
+SELECT 
+    BOOK_NO, 
+    TITLE, 
+    AUTHOR, 
+    -- 코드를 사용자가 보기 편한 텍스트로 변환
+    DECODE(RENT_YN, 'Y', '대여중', 'N', '대여가능') AS STATUS
+FROM TBL_BOOK
+ORDER BY BOOK_NO;
+```
+
 #### [뷰(View)] 도서 목록 조회
 
 사용자 화면(UI)에서 복잡한 쿼리 없이 쉽게 도서 상태를 조회할 수 있도록 가상의 테이블(View)을 생성한다.
@@ -284,78 +312,4 @@ SELECT
     DECODE(RENT_YN, 'Y', '대여중', 'N', '대여가능') AS STATUS
 FROM TBL_BOOK
 ORDER BY BOOK_NO;
-```
-
-#### [프로시저] 대여 트랜잭션 처리
-
-'대여' 버튼 클릭 시 **[대여 이력 생성]**과 **[도서 상태 변경]**이 동시에 성공하거나, 실패 시 모두 취소되어야 하므로 트랜잭션 프로시저로 구현한다.
-
-
-
-```SQL
-CREATE OR REPLACE PROCEDURE PROC_RENT_BOOK (
-    p_mem_id  IN VARCHAR2, -- 회원 ID
-    p_book_no IN NUMBER,   -- 도서 번호
-    p_result  OUT VARCHAR2 -- 결과 메시지 (성공/실패 사유)
-)
-IS
-    v_mem_no NUMBER;
-    v_rent_yn CHAR(1);
-BEGIN
-    -- 1. 회원 번호 찾기
-    SELECT MEM_NO INTO v_mem_no FROM TBL_MEMBER WHERE MEM_ID = p_mem_id;
-    
-    -- 2. 도서 상태 확인 (이미 대여중인지)
-    SELECT RENT_YN INTO v_rent_yn FROM TBL_BOOK WHERE BOOK_NO = p_book_no;
-    
-    IF v_rent_yn = 'Y' THEN
-        p_result := '이미 대여중인 도서입니다.';
-        RETURN;
-    END IF;
-
-    -- 3. 트랜잭션 실행 (INSERT + UPDATE)
-    INSERT INTO TBL_RENT (RENT_NO, MEM_NO, BOOK_NO) 
-    VALUES (SEQ_RENT.NEXTVAL, v_mem_no, p_book_no);
-    
-    UPDATE TBL_BOOK SET RENT_YN = 'Y' WHERE BOOK_NO = p_book_no;
-    
-    COMMIT; -- 확정
-    p_result := '대여가 완료되었습니다.';
-    
-EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-        p_result := '회원 아이디 또는 도서 번호가 올바르지 않습니다.';
-    WHEN OTHERS THEN
-        ROLLBACK; -- 오류 발생 시 되돌리기
-        p_result := '오류 발생: ' || SQLERRM;
-END;
-/
-```
-
-#### [함수] 연체료 계산
-
-반납 시 반납 예정일(`RTN_DUE`)과 현재 날짜를 비교하여 연체료(1일당 500원)를 계산한다.
-
-
-
-```SQL
-CREATE OR REPLACE FUNCTION FUNC_CALC_LATE_FEE (p_rent_no NUMBER)
-RETURN NUMBER
-IS
-    v_due_date DATE;
-    v_diff NUMBER;
-BEGIN
-    -- 해당 대여 건의 반납 예정일 조회
-    SELECT RTN_DUE INTO v_due_date FROM TBL_RENT WHERE RENT_NO = p_rent_no;
-    
-    -- 날짜 차이 계산 (오늘 - 예정일)
-    v_diff := TRUNC(SYSDATE) - TRUNC(v_due_date);
-    
-    IF v_diff > 0 THEN
-        RETURN v_diff * 500; -- 연체일수 * 500원
-    ELSE
-        RETURN 0; -- 연체 없음
-    END IF;
-END;
-/
 ```
