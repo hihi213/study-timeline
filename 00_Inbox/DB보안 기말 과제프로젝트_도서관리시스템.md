@@ -52,6 +52,7 @@ creation_date: 2025-12-01
 	5. 도서반납: 도서반납(연체로 계산 함수 이용)
 		- 어떻게 구현할까?: 이 작업은 DB의 데이터를 수정하는 작업이므로, 프로시저로 구현한다.
 	6. 목록조회: 현재 도서 상태를 보여줌(연체료 계산 함수 이용)
+		- 도서 목록을 view로
     
 ### 2. 물리적 테이블 설계
 
@@ -136,14 +137,14 @@ creation_date: 2025-12-01
     - **성능 최적화:** 데이터가 누적되어도 미반납 도서를 빠르게 조회하기 위해 **`RTN_DATE` 컬럼에 별도의 인덱스(`IDX_RENT_RETURN`)** 를 생성하여 Full Table Scan을 방지한다.
 
 
-|**컬럼명 (Column)**|**한글명**|**데이터 타입**|**제약조건**|**비고**|
-|---|---|---|---|---|
-|**RENT_NO**|대여번호|`NUMBER`|**PK**|시퀀스(`SEQ_RENT`) 자동 채번|
-|**MEM_NO**|회원번호|`NUMBER`|**FK, NN**|`TBL_MEMBER` 참조|
-|**BOOK_NO**|도서번호|`NUMBER`|**FK, NN**|`TBL_BOOK` 참조|
-|**RENT_DATE**|대여일자|`DATE`|**NN**|Default `SYSDATE`|
-|**RTN_DUE**|반납예정|`DATE`|**NN**|Default `SYSDATE+7`|
-|**RTN_DATE**|실반납일|`DATE`||**Index 적용 대상 (NULL 검색)**|
+| **컬럼명 (Column)** | **한글명** | **데이터 타입** | **제약조건**   | **비고**                    |
+| ---------------- | ------- | ---------- | ---------- | ------------------------- |
+| **RENT_NO**      | 대여번호    | `NUMBER`   | **PK**     | 시퀀스(`SEQ_RENT`) 자동 채번     |
+| **MEM_NO**       | 회원번호    | `NUMBER`   | **FK, NN** | `TBL_MEMBER` 참조           |
+| **BOOK_NO**      | 도서번호    | `NUMBER`   | **FK, NN** | `TBL_BOOK` 참조             |
+| **RENT_DATE**    | 대여일자    | `DATE`     | **NN**     | Default `SYSDATE`         |
+| **RTN_DUE**      | 반납예정    | `DATE`     | **NN**     | Default `SYSDATE+7`       |
+| **RTN_DATE**     | 실반납일    | `DATE`     |            | **Index 적용 대상 (NULL 검색)** |
 
 
 ### 3. 데이터베이스 구축 및 초기 데이터 설정
@@ -177,10 +178,10 @@ CREATE TABLE TBL_RENT (
 	RENT_NO NUMBER PRIMARY KEY,
 	MEM_NO NUMBER NOT NULL,
 	BOOK_NO NUMBER NOT NULL,
-	RENT_DATE DATE NOT NULL DEFAULT SYSDATE, --시작일
-	RTN_DUE DATE NOT NULL DEFAULT SYSDATE+7, --반납 예정일
+	RENT_DATE DATE DEFAULT SYSDATE NOT NULL, --시작일
+	RTN_DUE DATE DEFAULT SYSDATE+7 NOT NULL, --반납 예정일
 	RTN_DATE DATE ,--실 반납일 (반납전은 NULL)
-	CONSTRAINT FK_RENT_MEN FOREIGN KEY(MEN_NO) REFERENCES TBL_MEMBER(MEN_NO),
+	CONSTRAINT FK_RENT_MEM FOREIGN KEY(MEM_NO) REFERENCES TBL_MEMBER(MEM_NO),
 	CONSTRAINT FK_RENT_BOOK FOREIGN KEY (BOOK_NO) REFERENCES TBL_BOOK(BOOK_NO)
 );
 
@@ -196,24 +197,21 @@ CREATE INDEX IDX_RENT_RETURN ON TBL_RENT(RTN_DATE);
 - 유저가 비밀번호 입력시 이 함수를 이용하여 일치여부를 확인하거나, 추후 회원가입 구현시 이 함수를 이용해 저장하면된다.
 
 ```SQL
--- 1. 암호화 함수 생성
-CREATE INDEX IDX_RENT_RETURN ON TBL_RENT(RTN_DATE);
 --- 함수: 문자열 입력을 받아, 암호화하여 반환한다.
+-- DBMS_CRYPTO.HASH 함수는 (데이터, 암호화타입)을 인자로 받는다
+    -- 하지만 우리는 문자열로 받으므로, 이를 raw타입으로 변환해서 넣어야한다)
+    -- 그래서 UTL_I18N.STRING_TO_RAW와 UTL_I18N 패키지를 사용한다. (문자열이므로 따음표필요)
 CREATE OR REPLACE FUNCTION FUNC_ENCRYPT_PW ( p_input IN VARCHAR2)
 RETURN VARCHAR2
 AS v_hash_type PLS_INTEGER := DBMS_CRYPTO.HASH_SH256;
 BEGIN
-    -- DBMS_CRYPTO.HASH 함수는 (데이터, 암호화타입)을 인자로 받는다
-    --하지만 우리는 문자열로 받으므로, 이를 raw타입으로 변환해서 넣어야한다)
-    -- 그래서 UTL_I18N.STRING_TO_RAW와 UTL_I18N 패키지를 사용한다. (문자열이므로 따음표필요)
     RETURN DBMS_CRYPTO.HASH(UTL_I18N.STRING_TO_RAW(p_input, 'AL32UTF8'), v_hash_type);
 END;
 /
 
--- 2. 데이터 입력 (위의 함수를 이용해 회원을 넣는다.)
--- 회원 데이터 
-INSERT INTO TBL_MEMBER VALUES (SEQ_MEM.NEXTVAL, 'user1', FUNC_ENCRYPT_PW('1234'), '김철수', '010-1111-2222');
-INSERT INTO TBL_MEMBER VALUES (SEQ_MEM.NEXTVAL, 'user2', FUNC_ENCRYPT_PW('5678'), '이영희', '010-3333-4444');
+--위의 함수를 이용해 회원을 넣는다.
+INSERT INTO TBL_MEMBER VALUES (SEQ_MEM.NEXTVAL,'user1',FUNC_ENCRYPT_PW('1234'),'김철수','010-1111-2222');
+INSERT INTO TBL_MEMBER VALUES (SEQ_MEM.NEXTVAL, 'user2', FUNC_ENCRYPT_PW('5678'),'이영희', '010-3333-4444');
 
 -- 도서 데이터 
 INSERT INTO TBL_BOOK VALUES (SEQ_BOOK.NEXTVAL, '이것이 자바다', '신용권', 'N');
@@ -232,7 +230,7 @@ RETURN VARCHAR2
 AS 
     v_db_pw TBL_MEMBER.MEM_PW%TYPE;
 BEGIN 
-    SELECT MEM_PW INTO v_db_pw FROM TBL_MEMBER WHERE MEM_NO= p_id;
+    SELECT MEM_PW INTO v_db_pw FROM TBL_MEMBER WHERE MEM_ID= p_id;
     IF v_db_pw = FUNC_ENCRYPT_PW (p_pw) THEN
         RETURN 'TRUE';
     ELSE 
@@ -249,11 +247,12 @@ END;
 #### 대여 함수: 유저id, 책id를 받아 UPDATE(도서 상태 변경)와 INSERT(대여 기록 추가)
 
 ```SQL
+--책 대여 함수: 유저id, 책id를 받아 UPDATE(도서 상태 변경)와 INSERT(대여 기록 추가)
 CREATE OR REPLACE PROCEDURE PROC_RENT_BOOK (p_user_no IN TBL_MEMBER.MEM_NO%TYPE, p_book_no IN TBL_BOOK.book_NO%TYPE)
 AS 
 BEGIN
     UPDATE TBL_BOOK SET RENT_YN='Y' WHERE book_no=p_book_no ;
-    INSERT INTO TBL_RENT VALUES (SEQ_RENT.NEXTVAL, p_user_no, p_book_no, SYSDATE, SYSDATE+7);
+    INSERT INTO TBL_RENT VALUES (SEQ_RENT.NEXTVAL, p_user_no, p_book_no, SYSDATE, SYSDATE+7, NULL);
 END;
 /
 ```
@@ -261,7 +260,8 @@ END;
 #### 연체료 계산 함수: 실반납일이 비어있으면, 반납예정일과 오늘을 비교해 연체인지 판단후 연체일 계산 / 채워져있으면, 반납예정일과 실반납일을 비교해 연체 계산
 
 ```SQL
-CREATE OR REPLACE FUNCTION FUNC_CALC_LATE_FEE (p_rent_no IN TBL_RENT.RENT_NO%TYPE)
+--연체로 계산 함수: 실반납일이 null일 경우 반납예정일과 현재 날짜를 비교해 날짜를 반환
+CREATE OR REPLACE FUNCTION FUNC_CALC_LATE_FEE (p_rent_no IN NUMBER)
 RETURN NUMBER
 AS 
     v_rtn_date DATE;
@@ -286,15 +286,25 @@ END;
 
 
 ```SQL
-CREATE OR REPLACE VIEW VIEW_BOOK_LIST AS
-SELECT 
-    BOOK_NO, 
-    TITLE, 
-    AUTHOR, 
-    -- 코드를 사용자가 보기 편한 텍스트로 변환
-    DECODE(RENT_YN, 'Y', '대여중', 'N', '대여가능') AS STATUS
-FROM TBL_BOOK
-ORDER BY BOOK_NO;
+--반납프로시저 (프로시저는 OUT파라미터사용)
+CREATE OR REPLACE PROCEDURE PROC_RETURN_BOOK(p_book_no in VARCHAR2, p_late_days out NUMBER)
+AS
+    v_rent_no NUMBER;
+BEGIN
+--검증: 지금 대여중인게 맞는지
+    SELECT RENT_NO INTO v_rent_no FROM TBL_RENT WHERE p_book_no= BOOK_NO AND RTN_DATE IS NULL; 
+--업데이트: BOOK 테이블(대여 가능으로) & RENT 테이블(반납일 찍기)
+    UPDATE TBL_BOOK SET RENT_YN='N' WHERE p_book_no= BOOK_NO;
+    UPDATE TBL_RENT SET rtn_date=SYSDATE WHERE v_rent_no= RENT_NO;
+--결과 반환: 연체일 알려주기
+    p_late_days:=FUNC_CALC_LATE_FEE(v_rent_no);
+    RETURN;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+    p_late_days:=-1;
+    RETURN;
+END;
+/
 ```
 
 #### [뷰(View)] 도서 목록 조회
@@ -303,13 +313,9 @@ ORDER BY BOOK_NO;
 
 
 ```SQL
-CREATE OR REPLACE VIEW VIEW_BOOK_LIST AS
-SELECT 
-    BOOK_NO, 
-    TITLE, 
-    AUTHOR, 
-    -- 코드를 사용자가 보기 편한 텍스트로 변환
-    DECODE(RENT_YN, 'Y', '대여중', 'N', '대여가능') AS STATUS
-FROM TBL_BOOK
-ORDER BY BOOK_NO;
+CREATE OR REPLACE VIEW V_BOOK_LIST AS
+SELECT b.BOOK_NO, b.TITLE, b.AUTHOR, DECODE(b.RENT_YN, 'Y', '대여중', 'N', '대여가능')AS RENT_STATUS, r.RENT_DATE, r.RTN_DUE
+FROM TBL_BOOK b 
+LEFT JOIN TBL_RENT r
+ON b.BOOK_NO = r.BOOK_NO AND r.RTN_DATE IS NULL;
 ```

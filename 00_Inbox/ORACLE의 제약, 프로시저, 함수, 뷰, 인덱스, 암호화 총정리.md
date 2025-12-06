@@ -287,6 +287,10 @@ END;
 >[!tip] NULL 여부로 다른 값을 쓸때 - NVL
 > NVL( NULL이 아닐때 쓸값, NULL일때 대신 쓸 값 ) …
 
+>[!tip] select에서 데이터를 짝지어주는
+> 문법: DECODE(컬럼명, '찾을값1', '바꿀결과1', '찾을값2', '바꿀결과2')
+> DECODE(RENT_YN, 'Y', '대여중', 'N', '대여가능')
+
 ## 4. 뷰 (Views)
 
 뷰는 물리적인 데이터를 저장하지 않고, **기본 테이블(Base Table)을 조회하는 `SELECT` 문장 자체를 저장**하는 가상 테이블(Virtual Table)입니다.
