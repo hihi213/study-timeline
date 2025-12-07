@@ -314,9 +314,6 @@ creation_date: 2025-09-08
     ```
     
 - **감사 정책 설정/해제**
-    
-    
-    
     ```SQL
     AUDIT SELECT ON HR.EMPLOYEES BY HR; -- 설정
     NOAUDIT SESSION; -- 해제
@@ -325,7 +322,7 @@ creation_date: 2025-09-08
 - **암호화 함수 (Core Logic)**
     
     
-    
+
     ```SQL
     DBMS_CRYPTO.encrypt(
         src => UTL_RAW.cast_to_raw(평문),
@@ -373,9 +370,6 @@ creation_date: 2025-09-08
 **[Java JDBC]**
 
 - **드라이버 로딩**:
-    
-    
-    
     ```Java
     Class.forName("oracle.jdbc.driver.OracleDriver");
     ```
