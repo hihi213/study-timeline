@@ -243,325 +243,58 @@ creation_date: 2025-09-08
 - **[S4] `JOIN` 대체 함수**: 부서 번호를 받아 부서명을 반환하는 함수를 만든 후, `SELECT` 목록에서 직접 호출하여 `EMP` 테이블 조회 시 `DEPT` 테이블과의 `JOIN` 없이 부서명을 출력.
 
 끝.
-## 최종 - DB보안 3교시_2025.10.27
 
-오늘 수업은 **'저장 프로시저(PL/SQL)'**를 이용한 데이터 암호화부터 **'트리거(Trigger)'**를 이용한 감사 로그, 그리고 **'뷰(View)'**를 활용한 접근 제어까지 **DB 보안의 3단계 방어 체계**를 완성했습니다.
+## 최종 요약 - DB보안 2025.10.27
 
----
+### 1) 하루 TL;DR
 
-### 1. 📢 금일의 공지 (Notice)
+오늘 수업은 **"DB 내부의 보안 방어 체계 구축"**을 주제로 진행되었습니다.
 
-- **권한 부여 필수:** 오늘 실습한 `CREATE VIEW`는 `RESOURCE` 롤에 포함되지 않습니다. 반드시 **`SYSTEM` 계정에서 `GRANT CREATE VIEW TO [계정명]`**을 수행해야 에러가 발생하지 않습니다.
-- **시험/과제 포인트:**
-    - **프로시저:** `SUBSTR`을 이용한 마스킹 로직.
-    - **트리거:** `:OLD`(변경 전 값)를 이용한 로그 기록 시점.
-    - **뷰:** `USER` 변수를 활용한 본인 데이터만 조회하기(Row-Level Security).
-        
-
----
-
-### 2. 하루 TL;DR (Summary)
-
-> **"보안은 데이터(Data)뿐만 아니라 로직(Logic)과 접근 경로(Access Path)까지 보호해야 한다."**
-
-1. **데이터 마스킹 (Masking):** 민감 정보(이름, 주민번호)를 그대로 보여주지 않고, 프로시저 내에서 `SUBSTR`로 가공하여 `**` 처리함.
-2. **코드 난독화 (Wrapping):** 비즈니스 로직이 담긴 프로시저 소스를 `DBMS_DDL`로 암호화하여, `USER_SOURCE`를 조회해도 해석할 수 없게 만듦.
-3. **감사 로그 (Audit Trigger):** 데이터 변경(`UPDATE/DELETE`) 시, 트리거가 `:OLD` 데이터를 캡처하여 백업 테이블에 자동으로 기록함.
-4. **논리적 격리 (Secure View):** 사용자에게 원본 테이블 권한을 뺏고, 필요한 컬럼만 정의된 **뷰(View)** 권한만 주어 데이터 접근을 통제함.
+1. **[1교시]** 프로시저 **소스 코드 자체를 암호화(Wrapping)**하여 로직 유출을 방지했고,
+2. **[2교시]** **트리거(Trigger)**를 이용해 몰래 데이터를 변경하는 행위를 **감사(Log)**하거나 **차단(Block)**했으며,
+3. **[3교시]** **뷰(View)**를 통해 사용자별로 **볼 수 있는 데이터의 행과 열을 제한**하는 접근 제어(Access Control)를 실습했습니다.
     
 
----
+### 2) 오늘의 연결고리 (Workflow Context Link)
 
-### 3. 💻 금일의 핵심 SQL (Cheatsheet)
+오늘의 흐름은 "은폐(Hiding) → 감시(Monitoring) → 제어(Controlling)" 단계로 이어집니다.
 
-#### **① 프로시저 마스킹 & 타입 참조**
+먼저 해커나 내부자가 소스 코드를 열어보지 못하게 Wrapping 기술로 방어막을 쳤습니다. 하지만 뚫릴 경우를 대비해, 데이터가 변조될 때마다 Trigger로 증적(로그)을 남기고 특정 작업은 강제로 에러를 띄워 막았습니다. 마지막으로, 애초에 민감한 정보(주민번호 등)는 아예 보이지 않도록 View라는 가상의 창문을 만들어 역할별(일반직원/인사팀/관리자)로 제공하는 **다층 방어 전략(Defense in Depth)**을 완성했습니다.
 
-```SQL
-v_name userTBL.userName%TYPE; -- 타입 참조
--- 이름 첫 글자만 남기기
-DBMS_OUTPUT.PUT_LINE(SUBSTR(v_name, 1, 1) || '**');
-```
+### 3) Key SQL/PLSQL 패턴 (Cheatsheet)
 
-#### **② 감사 트리거 (Audit Log)**
-
-```SQL
-CREATE TRIGGER trg_audit
-AFTER UPDATE OR DELETE ON userTBL -- 변경 후 동작
-FOR EACH ROW
-BEGIN
-    -- 변경 전(:OLD) 데이터를 백업 테이블로 이관
-    INSERT INTO backupTBL VALUES (:OLD.id, :OLD.name, SYSDATE, USER);
-END;
-/
-```
-
-#### **③ 보안 뷰 (Row-Level Security)**
-
-```SQL
--- 접속한 사용자(USER)의 사번과 일치하는 행만 조회
-CREATE OR REPLACE VIEW vw_my_data AS
-SELECT emp_id, name, salary
-FROM employee
-WHERE emp_id = TO_NUMBER(SUBSTR(USER, 5)); -- 예: EMP_1001 -> 1001
-```
-
-#### **④ 권한 제어 (Grant View Only)**
-
-```SQL
--- 원본 테이블 접근 불가, 뷰만 조회 가능
-GRANT SELECT ON vw_my_data TO EMP_1001;
-```
-
----
-
-### 4. 🔥 MVP 질문 Top-5 (Exam Prep)
-
-|**No.**|**질문 (Question)**|**핵심 답변 (Key Answer)**|
-|---|---|---|
-|**Q1**|**트리거에서 `:OLD`와 `:NEW`의 차이는?**|`:OLD`는 수정/삭제 **전** 데이터, `:NEW`는 입력/수정 **후** 데이터입니다. 로그 기록엔 주로 `:OLD`를 씁니다.|
-|**Q2**|**뷰 생성 시 `ORA-01031` 에러 해결법은?**|뷰 생성은 시스템 권한입니다. 관리자(SYSTEM)가 `GRANT CREATE VIEW`를 별도로 줘야 합니다.|
-|**Q3**|**프로시저 소스 코드를 숨기는 방법은?**|**Wrapping(래핑)** 기술을 씁니다. `DBMS_DDL.CREATE_WRAPPED` 등을 사용해 코드를 암호화합니다.|
-|**Q4**|**`USER` 변수의 역할은 무엇인가?**|현재 세션에 로그인한 **계정명(ID)**을 반환하는 시스템 변수입니다. 행 기반 보안(본인 정보 조회)에 필수적입니다.|
-|**Q5**|**뷰(VIEW)를 사용하는 보안적 이점은?**|사용자에게 불필요하거나 민감한 **컬럼을 숨길 수 있고(Column Security)**, 원본 테이블 구조를 몰라도 되게 합니다.|
-## 최종 - DB보안 1교시_2025.11.10(1교시만 진행)
-
-### 1. 📢 금일의 공지 (Admin & Assignments)
-
-- **수업 종료 알림:** 데이터베이스 보안(계정/권한/감사/암호화) 실습 과정이 금일로 종료됩니다.
-- **차주 예고:** 다음 주부터 **DB 설계 및 응용 개발(Python/Java 연동)** 과정이 시작됩니다.
-- **과제(Assignment):** 교재 8장~10장 종합 실습 문제 풀이 (기말고사 대비용, 필수 수행).
-- **환경 설정 주의:** `DBMS_CRYPTO` 패키지 사용 시 `SYS` 계정에서의 권한 부여(`GRANT EXECUTE`)가 선행되어야 함을 잊지 마세요.
+- **소스 코드 암호화**: `DBMS_DDL.CREATE_WRAPPED('CREATE … END;');`
+    - _포인트_: 동적 SQL 작성 시 `'` (작은따옴표) 이스케이프 처리에 주의 (`''`로 작성).
+- **트리거 가상 레코드**:
+    - `:OLD.컬럼명`: 변경 전 값 (`UPDATE`, `DELETE` 시 사용)
+    - `:NEW.컬럼명`: 변경 후 값 (`INSERT`, `UPDATE` 시 사용)
+- **강제 예외 발생 (방어)**: `RAISE_APPLICATION_ERROR(-20001, '경고메시지');`
+- **보안 뷰 생성 (내 정보만 보기)**:
+    
+    
+    
+    ```SQL
+    CREATE VIEW vw_my_profile AS
+    SELECT * FROM employee WHERE id = SUBSTR(USER, 5); -- 접속자 ID 기반 필터링
+    ```
+    
+- **권한 부여**: `GRANT SELECT ON [뷰이름] TO [유저명];`
     
 
----
+### 4) 오늘의 함정 Top 5
 
-### 2. 하루 TL;DR (Security Logic Summary)
-
-오늘 수업은 **"방어 심층 구성(Defense in Depth)"**의 흐름으로 진행되었습니다.
-
-1. **관리 효율화 (RBAC):** 사용자마다 권한을 하나씩 주는 비효율을 막기 위해 **Role(역할)**을 생성하여 권한을 그룹핑했습니다.
-2. **침입 탐지 (Auditing):** 권한이 있더라도 "누가, 언제, 무엇을" 했는지 **Audit(감사)**를 통해 기록을 남기는 감시 체계를 구축했습니다.
-3. **데이터 보호 (Encryption):** DB 파일이 탈취되더라도 내용을 볼 수 없도록 **AES-256** 알고리즘으로 데이터를 암호화했습니다.
-4. **자동화 (Automation):** 사용자가 암호화를 의식하지 않도록 **Trigger(저장 시 암호화)**와 **View(조회 시 복호화)**를 통해 투명성을 확보했습니다.
-    
-
----
-
-### 3. 💻 금일의 핵심 SQL (Cheatsheet)
-
-|**카테고리**|**핵심 명령어 패턴**|**비고**|
-|---|---|---|
-|**감사 설정**|`ALTER SYSTEM SET AUDIT_TRAIL=DB SCOPE=SPFILE;`|설정 후 **DB 재시작** 필수|
-|**감사 정책**|`AUDIT SELECT ON hr.employees BY ACCESS;`|`WHENEVER SUCCESSFUL` 옵션 확인|
-|**감사 해제**|`NOAUDIT [명령어/객체];`|로그 정리: `DELETE FROM sys.aud$;`|
-|**암호화**|`DBMS_CRYPTO.ENCRYPT(src, typ, key)`|`RAW` 타입 반환, `AES256` 사용|
-|**복호화**|`DBMS_CRYPTO.DECRYPT(src, typ, key)`|키(Key) 관리가 보안의 핵심|
-|**자동화**|`TRIGGER` (:NEW 값 변조) + `VIEW` (함수 래핑)|애플리케이션 수정 최소화 기법|
-
----
-
-### 4. 🔥 MVP 질문 Top-5 (Interview Prep)
-
-1. **Q. `WITH GRANT OPTION`과 `WITH ADMIN OPTION`의 결정적 차이는?**
-    
-    - A. `REVOKE` 시 **Cascade(연쇄 회수)** 여부입니다. 객체 권한(`GRANT OPTION`)은 줄줄이 회수되지만, 시스템 권한(`ADMIN OPTION`)은 직접 부여한 당사자만 회수되고 파생된 권한은 남습니다.
-        
-2. **Q. DB 감사를 모든 작업에 걸면 안 되는 이유는?**
-    
-    - A. **성능 저하(Performance Overhead)**와 **디스크 용량 부족**을 초래합니다. 따라서 규제 준수(Compliance)에 필요한 핵심 데이터와 중요 계정(SYS, DBA) 위주로 최소화해야 합니다.
-        
-3. **Q. 암호화된 데이터를 `VARCHAR2`에 저장하면 왜 위험한가?**
-    
-    - A. 암호문은 바이너리 데이터입니다. 문자열 타입에 저장 시 **CharacterSet 변환** 과정에서 비트 정보가 손상되어 복호화가 불가능해질 수 있습니다. (`RAW` 타입 사용 권장)
-        
-4. **Q. 오라클에서 암호화를 적용하는 방식 두 가지는?**
-    
-    - A. **API 방식**(`DBMS_CRYPTO` 패키지를 이용해 애플리케이션 레벨에서 구현)과 **TDE 방식**(엔진 레벨에서 투명하게 암호화, 오늘 실습은 API 방식)이 있습니다.
-        
-5. **Q. `AUDIT SESSION`은 주로 무엇을 탐지하기 위해 사용하는가?**
-    
-    - A. `WHENEVER NOT SUCCESSFUL` 옵션과 함께 사용하여, 반복적인 **로그인 실패(Brute Force Attack)** 시도를 탐지하는 데 사용합니다.
-        
-## 최종 - DB보안 1-2교시_2025.11.17
-
-오늘은 **데이터베이스 설계(Modeling)**부터 **어플리케이션 연동(JDBC)**까지, 보안 프로젝트의 기초 뼈대를 구축했습니다.
-
-### 1. 📢 금일의 공지 (Admin & Assignments)
-
-- **기말 과제 (Final Project):**
-    - **주제:** 자유 주제 (단, 수업 예제인 '회원 관리' 제외).
-    - **목표:** DB 설계(ERD) + 구현(DDL) + 웹 연동(CRUD) 전체 프로세스 수행.
-- **개발 환경 (Environment):**
-    - `JDK` + `Eclipse` (또는 IntelliJ) 설치.
-    - `Oracle JDBC Driver (ojdbc.jar)` 다운로드 및 프로젝트 **Build Path** 추가 필수.
-        
-
----
-
-### 2. 하루 TL;DR (Summary)
-
-- **1교시: 데이터 모델링 & 엔지니어링**
-    - 이론적인 개념/논리 설계를 넘어, **SQL Developer**를 활용한 **물리적 설계(Physical Modeling)**에 집중했습니다.
-    - **Forward Engineering:** GUI로 그린 모델을 DDL(SQL)로 변환하여 DB 구축.
-    - **Reverse Engineering:** 구축된 DB 정보를 읽어와 ERD로 복원 (보안 감사/분석용).
-    - **Security Point:** 식별자(PK) 선정 시 개인정보(전화번호 등) 사용을 배제하고 **대리 키(Surrogate Key)** 사용을 권장.
-- **2교시: JDBC 연동 (Java Database Connectivity)**
-    - Java와 Oracle을 연결하는 `Driver` 개념을 익히고 실제 접속 테스트를 수행했습니다.
-    - **Security Point:** 소스 코드 내 DB 계정 정보(ID/PW) **하드코딩의 위험성** 인지 및 환경 변수 사용 필요성 학습.
-        
-
----
-
-### 3. 💻 금일의 핵심 Code (Cheatsheet)
-
-#### **A. DDL (테이블 생성 및 관계 설정)**
-
-
-
-```SQL
--- 1. 부모 테이블 (회원)
-CREATE TABLE user_table (
-    user_id     NUMBER NOT NULL,       -- 대리 키(Surrogate Key) 권장
-    user_name   VARCHAR2(20),
-    mobile      VARCHAR2(15),          -- 개인정보는 PK로 사용 금지
-    CONSTRAINT user_pk PRIMARY KEY (user_id)
-);
-
--- 2. 자식 테이블 (구매)
-CREATE TABLE buy_table (
-    buy_id      NUMBER NOT NULL,
-    user_id     NUMBER NOT NULL,       -- FK 컬럼
-    prod_name   VARCHAR2(30),
-    CONSTRAINT buy_pk PRIMARY KEY (buy_id)
-);
-
--- 3. 참조 무결성 (FK)
-ALTER TABLE buy_table
-    ADD CONSTRAINT buy_user_fk FOREIGN KEY (user_id)
-    REFERENCES user_table (user_id);
-    -- 옵션 생략 시 ON DELETE NO ACTION (삭제 제한) 적용
-```
-
-#### **B. Java (JDBC Connection Pattern)**
-
-
-
-```Java
-// 1. 드라이버 로딩
-Class.forName("oracle.jdbc.driver.OracleDriver");
-
-// 2. 연결 (보안 취약: 실무에선 Properties 파일 사용 권장)
-String url = "jdbc:oracle:thin:@localhost:1521:xe";
-Connection conn = DriverManager.getConnection(url, "test", "1234");
-```
-
----
-
-### 4. 🔥 MVP 질문 Top-3 (Interview Prep)
-
-|**질문 (Question)**|**핵심 답변 (Key Answer)**|
-|---|---|
-|**Q1. 왜 전화번호를 PK로 쓰지 않나요?**|전화번호는 **개인정보(PII)**이며 변경 가능성이 있어 **불변성(Immutability)**을 지켜야 하는 식별자로 부적합합니다.|
-|**Q2. `ClassNotFoundException` 원인은?**|JDBC 드라이버(`ojdbc.jar`)가 프로젝트의 **Build Path**에 추가되지 않았기 때문입니다.|
-|**Q3. DB 계정 하드코딩의 위험성은?**|소스 코드가 유출될 경우 DB 접속 권한이 즉시 탈취되므로, **환경 변수**나 **암호화된 설정 파일**로 분리해야 합니다.|
-
----
-
-## 최종 - DB보안 1교시_2025.11.24
-
-### 1. 📢 금일의 공지 (Announcements)
-
-- **수업 목표:** Java GUI(Swing)와 Oracle DB 연동 실습 및 보안 코딩 기법 학습.
-- **과제 안내:** 제공된 회원관리 샘플 코드를 기반으로 **본인만의 주제(DB 설계 + UI 변형)**로 커스터마이징하여 완성할 것.
-- **일정:** 금일 미완성 시 과제로 제출하며, 다음 주는 시험 대비 정리 및 프로젝트 마무리를 진행합니다.
-- **환경 점검:** 지난주 결석자는 개별적으로 Oracle DB 및 JDBC 환경 설정을 완료해야 합니다.
-    
-
----
-
-### 2. 하루 TL;DR (Security Policy & Context)
-
-> **"DB 보안은 애플리케이션 코드 레벨에서 시작된다."**
-
-- **보안 위협 (Threat):** 사용자 입력값을 검증하지 않고 SQL 문자열에 직접 결합하면 **SQL Injection** 공격에 노출됩니다.
-- **대응 정책 (Policy):** 모든 동적 쿼리는 반드시 **`PreparedStatement`**를 사용하여 파라미터 바인딩(`?`) 방식으로 처리해야 합니다.
-- **가용성 확보 (Availability):** DB 연결 자원(Connection)은 유한하므로, 사용 후 반드시 **`close()`**를 호출하여 자원을 반환해야 서비스 거부(DoS) 상태를 방지할 수 있습니다.
-    
-
----
-
-### 3. 💻 금일의 핵심 Implementation (Cheatsheet)
-
-#### **A. Secure Query Pattern (SQL Injection 방지)**
-
-
-```Java
-// ❌ [Bad] Statement 사용 (보안 취약)
-String query = "SELECT * FROM users WHERE id = '" + inputId + "'"; 
-
-// ✅ [Good] PreparedStatement 사용 (보안 권장)
-String query = "SELECT * FROM users WHERE id = ?";
-PreparedStatement pstmt = con.prepareStatement(query);
-pstmt.setString(1, inputId); // 자동 이스케이프 처리됨
-```
-
-#### **B. CRUD Methods Implementation (실습 정답)**
-
-_(강의 중 `//구현하기` 부분에 대한 모범 답안입니다)_
-
-
-```Java
-// 1. 데이터 추가 (INSERT)
-void funAdd() {
-    try {
-        DBConn();
-        String sql = "INSERT INTO student(stu_id, name, address) VALUES(?, ?, ?)";
-        pstmt = con.prepareStatement(sql);
-        pstmt.setString(1, tfs[0].getText().trim());
-        pstmt.setString(2, tfs[1].getText().trim());
-        pstmt.setString(3, tfs[2].getText().trim());
-        
-        if (pstmt.executeUpdate() > 0) {
-            // JTable UI 갱신 로직 생략
-        }
-    } catch (SQLException e) { e.printStackTrace(); } 
-    finally { DBClose(); }
-}
-
-// 2. 데이터 삭제 (DELETE)
-void funDel() {
-    // 사용자 확인 UX 추가
-    if (JOptionPane.showConfirmDialog(this, "삭제하시겠습니까?") == 0) {
-        try {
-            DBConn();
-            String sql = "DELETE FROM student WHERE stu_id = ?";
-            pstmt = con.prepareStatement(sql);
-            pstmt.setString(1, targetId); // 선택된 행의 PK
-            pstmt.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); } 
-        finally { DBClose(); }
-    }
-}
-```
-
----
-
-### 4. 🔥 MVP 질문 Top-4 (Exam Prep)
-
-|**Q. 질문**|**A. 핵심 답변 (Keyword)**|
-|---|---|
-|**Q1. `PreparedStatement`를 사용하는 보안적 이유는?**|**SQL Injection 방지.** 쿼리를 미리 컴파일하고 입력값을 단순 데이터로 바인딩하여 악의적인 SQL 실행을 차단함.|
-|**Q2. `finally` 블록에서 `close()`를 하는 이유는?**|**자원 누수(Resource Leak) 방지.** 에러 발생 여부와 관계없이 DB 연결을 해제하여 가용성(Availability)을 확보하기 위함.|
-|**Q3. `executeQuery` vs `executeUpdate` 차이는?**|**반환 타입의 차이.** `executeQuery`는 조회(`SELECT`)용으로 `ResultSet` 반환, `executeUpdate`는 변경(`DML`)용으로 `int`(행 개수) 반환.|
-|**Q4. `ResultSet.next()`의 역할은?**|**커서(Cursor) 이동.** 데이터 포인터를 다음 행으로 이동시키며, 데이터가 있으면 `true`, 없으면 `false`를 반환함.|
-
+1. **Quotation Hell (따옴표 지옥)**: 1교시 Wrapping 실습 시, 문자열 내부의 따옴표를 `''` 두 개로 처리하지 않아 발생하는 `ORA-01756` 오류.
+2. **Trigger Overhead**: 트리거는 모든 트랜잭션마다 동기적으로 실행되므로, 불필요한 트리거를 삭제하지 않고 두면 DB 전체 성능이 급격히 저하됨.
+3. **권한 부족 (ORA-01031)**: `CREATE VIEW`는 시스템 권한이므로, 반드시 `SYSTEM` 계정에서 `GRANT CREATE VIEW TO [유저]`를 선행해야 함.
+4. **Schema Prefix 누락**: 타 계정(TestUser)이 만든 뷰를 조회할 때 `SELECT * FROM vw_name`이라 하면 오류 발생. 반드시 `SELECT * FROM TestUser.vw_name` 형식을 지켜야 함.
+5. **View 수정 제한**: 뷰를 통해 데이터를 `INSERT/UPDATE` 하려면, 뷰가 단순해야 하며(조인/집계 X) 원본 테이블의 `NOT NULL` 제약 조건을 만족해야 함. (보안상 뷰는 **조회 전용(Read-Only)** 사용을 권장)
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 - [학교DB보안09-08](../00_Inbox/학교DB보안09-08.md)
 - [학교DB보안09-15](../00_Inbox/학교DB보안09-15.md) ^2ijc9c
 - [학교DB보안09-22](../00_Inbox/학교DB보안09-22.md)
 - [[00_Inbox/학교DB보안09-29.md|학교DB보안09-29]]
 - [학교DB보안10-13](../00_Inbox/학교DB보안10-13.md)
-- [[00_Inbox/학교DB보안10-26.md|학교DB보안10-26]]
+---- 기말범위
 - [[00_Inbox/학교DB보안10-27.md|학교DB보안10-27]]
 - [[00_Inbox/학교DB보안11-3.md|학교DB보안11-3]]
 - [[00_Inbox/학교DB보안11-10.md|학교DB보안11-10]]
