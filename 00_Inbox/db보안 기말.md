@@ -280,33 +280,36 @@ END;
 > **시나리오:** 회원 테이블(`userTBL`)에서 데이터가 수정되거나 삭제되면, 그 내역을 백업 테이블(`backup_userTBL`)에 저장하라.
 
 ```SQL
--- 2. 트리거 생성 (기본 문법)
+-- 1. 트리거 생성 (기본 문법)
 CREATE OR REPLACE TRIGGER 트리거명
     AFTER UPDATE OR DELETE ON 테이블명 -- [필수] 시점과 이벤트 지정
     FOR EACH ROW                     -- [필수] 행 단위 트리거
-DECLARE
+DECLARE -- BEGIN에서 사용할 변수등을 선언하는 공간
     v_modeType VARCHAR2(10);
 BEGIN
-	-- [포인트] 동작 구분 (UPDATING, DELETING, INSERTING 시스템 변수 활용)
+	-- 동작 구분 (UPDATING, DELETING, INSERTING 시스템 변수 활용)
     IF UPDATING THEN
         v_modeType := '수정';
     ELSIF DELETING THEN
         v_modeType := '삭제';
     END IF;
-
     -- [포인트] 변경 전 데이터(:OLD)와 작업자(USER)를 백업 테이블에 저장
     INSERT INTO backup_userTBL (userID, userName, modType, modDate, modUser)
     VALUES (:OLD.userID, :OLD.userName, v_modeType, SYSDATE, USER); 
 END;
 /
--- 3. 동작 확인
+-- 2. 동작 확인
 SET SERVEROUTPUT ON;
 
--- 업데이트 실행 (1건) -> 메시지 1번 출력 예상
+-- 업데이트 실행 
 UPDATE testTBL SET text = 'IVE' WHERE id = 1;
 
+-- 3. 백업 테이블 확인 (로그가 남았는지)
+SELECT * FROM backup_userTBL;
+-- 결과: LSG는 '수정', KBS는 '삭제' 타입으로 기존 정보가 남아있어야 함.
+
 ```
-- **`USER`**: 현재 작업을 수행 중인 사용자 아이디를 반환하는 오라클 내장 함수.
+- **`USER`**: 실행한 사용자 계정명을 반환하는 오라클 내장함수
 ---
 
 ## 2. 뷰 (View)
@@ -314,13 +317,20 @@ UPDATE testTBL SET text = 'IVE' WHERE id = 1;
 ### 핵심 개념:
 
 실제 데이터를 저장하지 않는 가상 테이블입니다. SELECT 문의 실행 결과를 마치 테이블처럼 보여줍니다.
-
-### **보안적 활용 (시험 포인트):**
+뷰를 통해 뷰밖의 정보를 검색하는 건 불가능
+### **보안적 활용 (암기):**
 
 1. **데이터 마스킹 (민감 정보 은폐):** 주민등록번호, 급여 등 민감한 컬럼을 제외하고 필요한 정보만 보여주는 뷰를 생성하여 제공합니다.
 2. **접근 제어 (권한 분리):** 실제 테이블(`Table`)에는 접근 권한을 주지 않고, 필요한 데이터만 정의된 뷰(`View`)에만 `SELECT` 권한을 부여합니다.
 3. **복잡한 쿼리 은닉:** 복잡한 조인(Join) 쿼리를 뷰로 만들어 사용자에게는 단순한 테이블처럼 제공합니다.
 
+```SQL
+CREATE OR REPLACE [FORCE] VIEW 뷰이름 
+AS
+SELECT 쿼리문…
+[WITH READ ONLY]        -- DML(수정/삭제) 불가 설정
+[WITH CHECK OPTION];    -- 뷰의 WHERE 조건에 위배되는 데이터 입력/변경 차단 - 예: `dept_id = 10`인 부서원만 보여주는 뷰에서, 사용자가 `dept_id`를 20으로 변경(`UPDATE`)하려고 하면 차단됩니다.
+```
 
 ### **주요 옵션:** `WITH CHECK OPTION` (무결성 및 보안 강화)
 
@@ -332,16 +342,22 @@ UPDATE testTBL SET text = 'IVE' WHERE id = 1;
 
 - **인사팀:** 사원 이름, 입사일, 급여(민감 정보) 조회 가능
 - **일반 사원:** 사원 이름, 부서명만 조회 가능 (급여 컬럼 제외)
- 
 
 ```SQL
 -- 일반 사원에게 제공할 뷰 (급여 정보 숨김)
-CREATE OR REPLACE VIEW 뷰이름 AS
+CREATE [OR REPLACE] VIEW 뷰이름 AS
 SELECT employee_id, emp_name, department_id
 FROM 원본테이블 WHERE 조건;
 
--- 권한 부여
+-- 2. 사용자 계정 생성 
+CREATE USER 유저명 IDENTIFIED BY 비번 ACCOUNT UNLOCK;
+GRANT CONNECT TO 유저이름; --조회권한 부여
+--뷰 권한 부여
 GRANT SELECT ON 뷰이름 TO 유저이름;
+  
+--로그인후 조회
+CONNECT 유저이름/유저비번
+SELECT * FROM 원본테이블소유한유저이름.뷰이름
 ```
 
 ---
