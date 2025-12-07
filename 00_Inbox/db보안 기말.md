@@ -230,15 +230,13 @@ Q8. 다음 [쇼핑몰 주문 시스템] 시나리오를 보고 물리적 테이�
 
 # 📘 Chapter 7: 고급 DB 오브젝트 심층 탐구
 
-이 챕터는 단순한 DB 활용을 넘어, **데이터 무결성 유지, 감사(Auditing), 접근 제어** 등 **DB 보안의 핵심 기술**을 다룹니다. 시험에서는 개념 정의와 함께, 주어진 시나리오(예: 로그 기록, 데이터 숨기기)를 구현할 수 있는지가 중요합니다.
-
 ---
 
 ## 1. 트리거 (Trigger)
 
-### 핵심 개념:
+### 핵심 개념: 테이블 또는 뷰에 부착되는 프로그램 코드
 
-테이블에 **이벤트(INSERT, UPDATE, DELETE)** 가 발생할 때 자동으로 실행되는 PL/SQL 블록입니다. 사용자가 직접 호출하는 것이 아니라 DBMS가 자동으로 수행한다는 점이 핵심입니다.
+**이벤트(INSERT, UPDATE, DELETE)** 가 발생할 때 DBMS가 자동으로 실행하는 PL/SQL 블록입니다. 사용자가 직접 호출할 수 없습니다.
 
 ### **보안적 활용 (시험 포인트):**
 
@@ -248,13 +246,30 @@ Q8. 다음 [쇼핑몰 주문 시스템] 시나리오를 보고 물리적 테이�
 
 ### **주요 문법 및 키워드:**
 
+```SQL
+CREATE OR REPLACE TRIGGER 트리거명
+    [동작시점] [이벤트] ON 테이블명
+    FOR EACH ROW  -- 이 옵션이 있어야 :OLD, :NEW 사용 가능
+BEGIN
+    -- [자동으로 실행될 로직]
+    -- :OLD.컬럼명 (변경 전 값)
+    -- :NEW.컬럼명 (변경 후 값)
+END;
+/
+```
+
+- **동작 시점:** DML를 지시할때
+	- `BEFORE` :실제 데이터가 변경되기 **직전**에 실행
+	- `AFTER` :실제 데이터가 변경된 **직후**에 실행
+	- `INSTEAD OF` : DML를 실행하지 않고 대신 수행되는 작업
+		- 뷰에 설정해 뷰에대한 DML를 원본테이블를 수정하는 트리거로 사용(권장x)
 - **이벤트:** `INSERT`, `UPDATE`, `DELETE`
-- **동작 시점:** `BEFORE` (작업 전, 검증용), `AFTER` (작업 후, 로깅용), `INSTEAD OF` (뷰 전용).
-- **`FOR EACH ROW`**: 문장 단위가 아니라 변경되는 **각 행(Row)마다** 트리거가 실행됨을 명시합니다.
+- **`FOR EACH ROW`**: 변경되는 행마다 실행
+	- 없을시, 행개수와 상관없이 sql문장당 한번만 실행
 	- 이 옵션이 있어야 `:OLD`, `:NEW` 변수를 사용할 수 있습니다.
 - **`:OLD` vs `:NEW` 변수 (매우 중요)**
-    - `:OLD.컬럼명`: 변경 **전** 데이터 (UPDATE, DELETE 시 사용)
-    - `:NEW.컬럼명`: 변경 **후** 새 데이터 (INSERT, UPDATE 시 사용)
+    - `:OLD.컬럼명`: 변경 **전** 데이터
+    - `:NEW.컬럼명`: 변경 **후** 새 데이터
 
 
 ### 📝 실습 코드 예시 (로그 기록 트리거)
@@ -265,24 +280,31 @@ Q8. 다음 [쇼핑몰 주문 시스템] 시나리오를 보고 물리적 테이�
 > **시나리오:** 회원 테이블(`userTBL`)에서 데이터가 수정되거나 삭제되면, 그 내역을 백업 테이블(`backup_userTBL`)에 저장하라.
 
 ```SQL
-CREATE OR REPLACE TRIGGER trg_BackupUserTbl
-    AFTER UPDATE OR DELETE ON userTBL  -- [포인트 1] 시점과 이벤트 지정
-    FOR EACH ROW                       -- [포인트 2] 행 단위 트리거
+-- 2. 트리거 생성 (기본 문법)
+CREATE OR REPLACE TRIGGER 트리거명
+    AFTER UPDATE OR DELETE ON 테이블명 -- [필수] 시점과 이벤트 지정
+    FOR EACH ROW                     -- [필수] 행 단위 트리거
 DECLARE
     v_modeType VARCHAR2(10);
 BEGIN
-    -- [포인트 3] 동작 구분 (UPDATING, DELETING, INSERTING 시스템 변수 활용)
+	-- [포인트] 동작 구분 (UPDATING, DELETING, INSERTING 시스템 변수 활용)
     IF UPDATING THEN
         v_modeType := '수정';
     ELSIF DELETING THEN
         v_modeType := '삭제';
     END IF;
 
-    -- [포인트 4] 변경 전 데이터(:OLD)와 작업자(USER)를 백업 테이블에 저장
+    -- [포인트] 변경 전 데이터(:OLD)와 작업자(USER)를 백업 테이블에 저장
     INSERT INTO backup_userTBL (userID, userName, modType, modDate, modUser)
     VALUES (:OLD.userID, :OLD.userName, v_modeType, SYSDATE, USER); 
 END;
 /
+-- 3. 동작 확인
+SET SERVEROUTPUT ON;
+
+-- 업데이트 실행 (1건) -> 메시지 1번 출력 예상
+UPDATE testTBL SET text = 'IVE' WHERE id = 1;
+
 ```
 - **`USER`**: 현재 작업을 수행 중인 사용자 아이디를 반환하는 오라클 내장 함수.
 ---
@@ -314,12 +336,12 @@ END;
 
 ```SQL
 -- 일반 사원에게 제공할 뷰 (급여 정보 숨김)
-CREATE VIEW view_Emp_General AS
+CREATE OR REPLACE VIEW 뷰이름 AS
 SELECT employee_id, emp_name, department_id
-FROM employees;
+FROM 원본테이블 WHERE 조건;
 
 -- 권한 부여
-GRANT SELECT ON view_Emp_General TO general_user;
+GRANT SELECT ON 뷰이름 TO 유저이름;
 ```
 
 ---
@@ -405,15 +427,15 @@ CREATE PROFILE secure_prof LIMIT
     PASSWORD_LIFE_TIME 90      -- 90일마다 변경
     IDLE_TIME 10;              -- 10분 유휴 시 로그아웃
 -- 2. 사용자 생성 및 프로파일 적용
-CREATE USER secure_user IDENTIFIED BY password1234
+CREATE USER 유저명 IDENTIFIED BY 비번
   DEFAULT TABLESPACE users
-  PROFILE secure_profile;
+  PROFILE 프로파일명;
   
--- 2. 사용자에게 프로파일 적용
-ALTER USER student01 PROFILE secure_prof;
+-- 2. 이미있는 사용자에게 프로파일 적용
+ALTER USER 유저명 PROFILE 프로파일명;
 
 -- 3. 잠긴 계정 해제 (관리자 권한)
-ALTER USER student01 ACCOUNT UNLOCK; -- [시험 출제 유력]
+ALTER USER 유저명 ACCOUNT UNLOCK; -- [시험 출제 유력]
 ```
 
 ---
@@ -496,9 +518,9 @@ REVOKE SELECT ON employees FROM user1;
 
 > **시나리오:** '개발팀' 롤을 만들고, 테이블 생성 및 조회 권한을 넣은 뒤, `User1`에게 부여하라.
 
-1. **롤 생성:** `CREATE ROLE DevTeam;`
-2. **롤에 권한 부여:** `GRANT CREATE TABLE, CREATE SESSION TO DevTeam;`
-3. **사용자에게 롤 부여:** `GRANT DevTeam TO User1, User2;`
+1. **롤 생성:** `CREATE ROLE 롤이름;`
+2. **롤에 권한 부여:** `GRANT CREATE TABLE, CREATE SESSION TO 롤이름;`
+3. **사용자에게 롤 부여:** `GRANT 롤이름 TO 유저1, 유저2;`
 
 ---
 
@@ -543,9 +565,10 @@ REVOKE SELECT ON employees FROM user1;
 
 1. **감사 설정 (`AUDIT`):** 특정 작업(SELECT, DELETE 등)이나 특정 사용자의 행동을 감시하도록 설정합니다.
 2. **성공/실패 여부 기록:**
-		1.`WHENEVER SUCCESSFUL` 작업을 성공했을 때만 기록할지
-		2.`WHENEVER NOT SUCCESSFUL` 실패했을 때만 기록할지
-3. **로그 확인:** 감사 결과는 데이터 사전 뷰(`DBA_AUDIT_TRAIL`)를 통해 확인합니다.
+		1.`BY ACCESS`: 접근할 때마다 기록.
+		2.`WHENEVER SUCCESSFUL` 작업을 성공했을 때만 기록할지
+		3.`WHENEVER NOT SUCCESSFUL` 실패했을 때만 기록할지
+3. **로그 확인:** 감사 결과는 `DBA_AUDIT_TRAIL` (이 뷰 이름 꼭 기억!).통해 확인
     
 
 ### 1.2 감사 설정 및 해제 명령어 (필수 암기)
@@ -661,3 +684,277 @@ END;
     
     - 정답: `RAW` (또는 `BLOB`)
         
+## 📝 기말고사 대비 요약 (Chapter 9)
+
+1. **감사(Audit):**
+    
+    - 명령어: `AUDIT` (설정), `NOAUDIT` (해제).
+    - 뷰: **`DBA_AUDIT_TRAIL`** (로그 확인 장소, 필수 암기).
+    - 옵션: `WHENEVER NOT SUCCESSFUL` (실패 시에만 기록).
+        
+2. **암호화(Encryption):**
+    
+    - 알고리즘: **AES256** (대칭키).
+    - 저장 타입: **`RAW`** (암호문은 바이너리 데이터).
+    - 패키지: `DBMS_CRYPTO` (암/복호화 수행).
+    - 전략: `Trigger`(자동 암호화) + `View`(자동 복호화).
+        
+
+# 📚 Chapter 10. DB 보안 종합 실습 분석
+
+이 챕터는 크게 **4가지 영역**으로 나뉩니다. 각 영역별 핵심 문제와 예상 답안(SQL)을 정리해 드립니다.
+
+## 1. 사용자 계정 및 권한 관리 (문제 1~3)
+
+**핵심 목표:** 사용자를 생성하고, 최소한의 권한만 부여하며, 효율적인 관리를 위해 롤(Role)을 사용하는 과정을 평가합니다.
+
+✅ 문제 1: 사용자 계정 생성
+
+- **요구사항:** `student01` 계정 생성, 비밀번호 `stud1234`, 접속 권한(`CONNECT`)만 부여
+- **핵심 SQL:**
+    
+    ```SQL
+    -- 1. 계정 생성
+    CREATE USER student01 IDENTIFIED BY stud1234;
+    -- 2. 접속 권한 부여
+    GRANT CONNECT TO student01;
+    ```
+    
+
+✅ 문제 2: 권한 부여 및 회수
+
+- **요구사항:** `employees` 테이블 조회 권한 부여 후 다시 회수.
+- **핵심 SQL:**
+
+    ```SQL
+    -- 권한 부여
+    GRANT SELECT ON hr.employees TO student01;
+    -- 권한 회수 (시험 출제 유력)
+    REVOKE SELECT ON hr.employees FROM student01;
+    ```
+    
+
+✅ 문제 3: ROLE 생성 및 적용
+
+- **요구사항:** `data_user` 롤 생성 $\rightarrow$ `CREATE TABLE`, `SELECT` 권한 추가 $\rightarrow$ 롤을 `student01`에게 부여.
+- **핵심 SQL:**
+
+    ```SQL
+    CREATE ROLE data_user; -- 롤 생성
+    GRANT CREATE TABLE, SELECT ANY TABLE TO data_user; -- 롤에 권한 담기
+    GRANT data_user TO student01; -- 롤을 사용자에게 부여
+    ```
+    
+
+---
+
+## 2. 비밀번호 및 계정 정책 관리 (문제 4~5)
+
+**핵심 목표:** **프로파일(Profile)**을 사용하여 보안 정책(로그인 실패 제한 등)을 강제하고, 잠긴 계정을 관리자가 해제하는 능력을 평가합니다.
+
+✅ 문제 4: 비밀번호 정책(Profile) 적용
+
+- **요구사항:** 로그인 3회 실패 시 계정 잠금 정책이 담긴 `secure_prof` 프로파일 생성 및 적용
+- **핵심 SQL:**
+
+    ```SQL
+    -- 프로파일 생성 (FAILED_LOGIN_ATTEMPTS가 핵심 키워드)
+    CREATE PROFILE secure_prof LIMIT
+        FAILED_LOGIN_ATTEMPTS 3;
+    
+    -- 사용자에게 적용
+    ALTER USER student01 PROFILE secure_prof;
+    ```
+    
+
+✅ 문제 5: 계정 잠금 해제 (Account Unlock)
+
+- **요구사항:** 잠긴 계정을 관리자가 다시 풀어주는 명령어 작성
+- **핵심 SQL (필수 암기):**
+
+    ```SQL
+    ALTER USER student01 ACCOUNT UNLOCK;
+    ``` 
+
+---
+
+## 3. 객체 보안 및 데이터 마스킹 (문제 6~7)
+
+**핵심 목표:** **뷰(View)**를 활용하여 민감한 컬럼을 숨기고, 데이터 일부를 마스킹(Masking)하여 보여주는 기술을 평가합니다.
+
+✅ 문제 6: 특정 컬럼 제한 뷰
+
+- **요구사항:** `ename`, `job` 컬럼만 보이는 뷰 `emp_view` 생성 및 조회 권한 부여
+- **핵심 SQL:**
+    ```SQL
+    CREATE OR REPLACE VIEW emp_view AS
+    SELECT ename, job FROM employees;
+    
+    GRANT SELECT ON emp_view TO student01;
+    ```
+    
+
+✅ 문제 7: 데이터 마스킹 (주민번호 가리기)
+
+- **요구사항:** 주민번호 뒷자리를 `*****`로 가린 뷰 생성
+- **해결 포인트:** `SUBSTR` 함수와 연결 연산자(`||`) 사용
+- **핵심 SQL:**
+    ```SQL
+    CREATE VIEW person_masked AS
+    SELECT name, 
+           SUBSTR(ssn, 1, 6) || '-*******' AS ssn_masked 
+    FROM person;
+    ```
+    
+
+---
+
+## 4. 감사(Audit) 및 암호화 (문제 8~9)
+
+**핵심 목표:** 누가 데이터를 조회했는지 기록(**Audit**)하고, 데이터를 암호화하여 저장하는 개념을 확인합니다.
+
+✅ 문제 8: 감사(Audit) 설정
+
+- **요구사항:** `employees` 테이블에 `SELECT`가 발생할 때마다 로그 기록
+- **핵심 SQL:**
+
+    ```SQL
+    -- 감사 설정
+    AUDIT SELECT ON employees BY ACCESS; 
+    
+    -- 로그 확인 (뷰 이름 암기)
+    SELECT * FROM DBA_AUDIT_TRAIL;
+    ```
+    
+
+✅ 문제 9: 데이터 암호화 (TDE/함수)
+
+- **특이사항:** 수업 녹취록에 따르면 실습 환경(패키지 오류 등) 문제로 **"하지 마세요"** 혹은 **"개념만 알아두세요"**라고 언급된 부분입니다.
+- **대비 전략:** 직접 코딩보다는 **빈칸 채우기** 대비용으로 키워드만 확인하세요.
+    - **알고리즘:** `AES256`
+    - **데이터 타입:** `RAW` (이진 데이터)
+    - **함수:** `DBMS_CRYPTO`
+
+---
+
+## 📝 10챕터 시험 대비 요약
+
+1. **계정/권한:** `CREATE USER`, `GRANT`, `REVOKE` 명령어의 정확한 순서와 문법.
+2. **보안 정책:** `PROFILE` 생성과 `ACCOUNT UNLOCK` 명령어는 단답형 출제 1순위입니다.
+3. **뷰(View):** 보안 목적(데이터 숨기기)을 달성하기 위해 `SELECT` 문에서 특정 컬럼을 제외하거나 함수(`SUBSTR`)를 쓰는 방법을 서술할 수 있어야 합니다.
+4. **학습 팁:** 이 챕터의 문제들은 **"관리자 입장에서 보안 시스템을 구축하라"**는 시나리오 문제의 표본입니다. SQL 문장을 손으로 직접 써보며 연습하는 것이 좋습니다.
+---
+
+# 📘 Chapter 11: 데이터 모델링 (DB 설계) 심층 탐구
+
+---
+
+## 1. 물리적 데이터 모델링 (Physical Data Modeling) 핵심
+
+핵심 개념:
+
+현실 세계의 업무 요구사항을 실제 데이터베이스(Oracle)에 저장할 수 있는 테이블 구조(스키마)로 변환하는 과정입니다
+
+**시험 출제 유형 (매우 중요):**
+
+- **문제:** "쇼핑몰 운영을 위한 요구사항이 다음과 같다. 이에 맞는 테이블 명세서(물리적 설계도)를 작성하시오."
+- **작성 항목:** 테이블 명, 컬럼(열) 이름, 데이터 타입, 키(PK, FK), NULL 여부
+    
+---
+
+## 2. DB 설계 4단계 전략 (시험 문제 풀이법)
+
+시험에서 시나리오를 받으면 다음 순서대로 설계하세요.
+
+### **Step 1: 엔티티(Entity) 식별 -> 테이블 생성**
+
+- 시나리오에서 **"관리해야 할 주요 대상"**을 찾습니다. (예: 회원, 상품, 주문 등)
+- 이 대상들이 각각 하나의 **테이블(Table)**이 됩니다
+    
+
+### **Step 2: 속성(Attribute) 식별 -> 컬럼(Column) 정의**
+
+- 각 테이블이 저장해야 할 **세부 정보**를 찾습니다.
+- 예: 회원(이름, 아이디, 전화번호), 주문(주문일자, 수량)
+    
+
+### **Step 3: 데이터 타입(Data Type) 결정 (오라클 기준)**
+
+- 각 컬럼에 맞는 데이터 타입을 지정해야 합니다. **(시험 감점 요인 주의)**
+    - **문자:** `VARCHAR2(길이)` (가변 길이, 주로 사용), `CHAR(길이)` (고정 길이), `NCHAR`(한글 위주).
+    - **숫자:** `NUMBER` 또는 `INTEGER`.
+    - **날짜:** `DATE`.
+        
+
+### **Step 4: 키(Key) 및 관계(Relationship) 설정**
+
+- **Primary Key (PK):** 각 행을 유일하게 식별하는 컬럼 (예: `userID`, `emp_id`). **반드시 표시**해야 합니다
+- **Foreign Key (FK):** 다른 테이블을 참조하는 컬럼. 두 테이블 간의 **연결 고리**입니다. (예: 구매 테이블의 `userID`는 회원 테이블의 `userID`를 참조)
+    
+
+---
+
+## 3. 실습 시나리오 분석: 쇼핑몰 DB 설계
+
+수업 시간에 다룬 **"쇼핑몰 고객 및 구매 관리"** 예제를 완벽히 이해해야 합니다.
+
+**[요구사항]**
+
+1. 고객의 정보를 저장해야 한다 (이름, 출생년도, 주소, 연락처).
+2. 고객이 물건을 구매한 내역을 저장해야 한다 (물건명, 단가, 수량).
+3. 한 명의 고객은 여러 번 구매할 수 있다.
+    
+
+**[설계 결과: 테이블 명세서]**
+
+**1) 고객 테이블 (`userTBL`)**
+
+|**한글명**|**영문명(컬럼명)**|**데이터 타입**|**필수(NULL)**|**제약조건**|
+|---|---|---|---|---|
+|**아이디**|`userID`|`CHAR(8)`|NOT NULL|**PK**|
+|**이름**|`userName`|`NVARCHAR2(10)`|NOT NULL||
+|**출생년도**|`birthYear`|`NUMBER(4)`|NOT NULL||
+|**주소**|`addr`|`NCHAR(2)`|NOT NULL||
+|**연락처**|`mobile`|`CHAR(13)`|NULL||
+
+**2) 구매 테이블 (`buyTBL`)**
+
+| **한글명**   | **영문명(컬럼명)** | **데이터 타입**  | **필수(NULL)** | **제약조건** |
+| --------- | ------------ | ----------- | ------------ | -------- |
+| **순번**    | `num`        | `NUMBER(8)` | NOT NULL     | **PK**   |
+| **구매자ID** | `userID`     | `CHAR(8)`   | NOT NULL     | **FK**   |
+| **상품명**   | `prodName`   | `NCHAR(6)`  | NOT NULL     |          |
+| **단가**    | `price`      | `NUMBER(8)` | NOT NULL     |          |
+| **수량**    | `amount`     | `NUMBER(3)` | NOT NULL     |          |
+**🔑 설계 포인트 (시험 팁):**
+
+- **관계 설정:** 구매 테이블(`buyTBL`)에는 반드시 **누가** 샀는지를 알기 위해 회원 테이블의 PK인 `userID`가 **FK(Foreign Key)**로 포함되어야 합니다
+- **데이터 분리:** 고객 정보와 구매 정보를 하나의 테이블에 섞지 않고, **두 개의 테이블로 분리(정규화)**하는 것이 핵심입니다
+    
+>[!tip] **💡 답안 작성 팁:**
+> - **데이터 타입:** 오라클 기준 타입을 정확히 써야 합니다.
+>     - 한글 저장: `NCHAR`, `NVARCHAR2` .
+>     - 숫자 저장: `NUMBER`, `INTEGER` .
+>     - 고정 길이 문자: `CHAR` (ID 등 길이가 일정한 경우).
+> - **PK/FK 표시:** 어느 컬럼이 기본키이고, 어느 컬럼이 외래키인지 반드시 표기해야 합니다.
+---
+
+## 4. SQL Developer Data Modeler (참고)
+
+수업 시간에는 SQL Developer 내의 **Data Modeler** 기능을 사용하여 다이어그램(ERD)을 그리고, 이를 **DDL(SQL 코드)**로 변환하는 실습을 했습니다
+
+- **물리적 모델링 도구:** 테이블을 그리고(`Tables`), 컬럼을 추가하고(`Columns`), 관계를 연결(`Foreign Key`)하면 자동으로 DDL(`CREATE TABLE…`)을 생성해 줍니다
+- **시험 관련성:** 툴 사용법 자체보다는, 툴이 만들어내는 결과물인 **테이블 구조(박스 형태의 그림)**를 손으로 그릴 수 있거나 해석할 수 있어야 합니다
+    
+
+---
+
+## 💡 교수님 출제 예상 포인트 (Chapter 11)
+
+1. **테이블 설계 (가장 유력):** "학사 관리 시스템을 구축하려 한다. '학생'과 '수강 신청' 정보를 저장하기 위한 테이블들을 설계하고, 테이블 명세서(컬럼명, 데이터 타입, PK, FK 포함)를 작성하시오."
+    
+    - _정답 포인트:_ 학생 테이블(학번 PK), 과목 테이블(과목코드 PK), 수강 테이블(학번 FK, 과목코드 FK) 형태로 분리 설계.
+        
+2. **데이터 타입 선택:** "전화번호를 저장하기 위한 적절한 데이터 타입은?" (`VARCHAR2`), "금액을 저장하기 위한 타입은?" (`NUMBER`).
+3. **FK의 이해:** "두 테이블 간의 관계를 맺기 위해 자식 테이블에 반드시 포함되어야 하는 컬럼은 무엇인가?" (부모 테이블의 Primary Key).
+    

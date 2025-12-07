@@ -532,11 +532,12 @@ ENCRYPTION USING 'AES256' DEFAULT STORAGE(ENCRYPT);
 ### 🛠️ 기본 문법 구조
 
 
+### **주요 문법 및 키워드:**
 
 ```SQL
 CREATE OR REPLACE TRIGGER 트리거명
-    [BEFORE | AFTER] [INSERT | UPDATE | DELETE] ON 테이블명
-    [FOR EACH ROW]  -- 이 옵션이 있어야 :OLD, :NEW 사용 가능
+    [동작시점] [이벤트] ON 테이블명
+    FOR EACH ROW  -- 이 옵션이 있어야 :OLD, :NEW 사용 가능
 BEGIN
     -- [자동으로 실행될 로직]
     -- :OLD.컬럼명 (변경 전 값)
@@ -544,6 +545,20 @@ BEGIN
 END;
 /
 ```
+
+- **동작 시점:** DML를 지시할때
+	- `INSTEAD OF` DML를 실행하지 않고 대신 수행되는 작업
+		- 뷰에 설정해 뷰에대한 DML를 원본테이블를 수정하는 트리거로 사용(권장x)
+	- `BEFORE` :실제 데이터가 변경되기 **직전**에 실행
+	- `AFTER` :실제 데이터가 변경된 **직후**에 실행
+- **이벤트:** `INSERT`, `UPDATE`, `DELETE`
+- **`FOR EACH ROW`**: 변경되는 행마다 실행
+	- 없을시, 행개수와 상관없이 sql문장당 한번만 실행
+	- 이 옵션이 있어야 `:OLD`, `:NEW` 변수를 사용할 수 있습니다.
+- **`:OLD` vs `:NEW` 변수 (매우 중요)**
+    - `:OLD.컬럼명`: 변경 **전** 데이터
+    - `:NEW.컬럼명`: 변경 **후** 새 데이터
+
 
 ### 🧩 가상 레코드 (:OLD vs :NEW)
 
@@ -576,12 +591,6 @@ END;
 > END;
 > /
 > ```
-
----
-
-### 추가 제안 (Next Step)
-
-작성해 드린 내용은 오라클의 PL/SQL 객체 중심 정리입니다. 혹시 이 문서 다음에 **"트랜잭션의 개념(ACID)과 TCL(COMMIT, ROLLBACK, SAVEPOINT) 제어"**에 대한 내용도 같은 형식으로 추가해 드릴까요?
 
 ## 💭 나의 추가적 생각/질문
 [[DBMS 심층 분석_ 엔진 메커니즘과 SQL 최적화|함수와 프로시저의 차이_DBMS 심층분석_ 엔진 매커니즘과 sql 최적화]]
