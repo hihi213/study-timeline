@@ -638,49 +638,95 @@ END;
     FROM dba_users
     WHERE account_status = 'OPEN';
     ```
-### 2 [핵심] 프로파일(Profile)을 이용한 보안 정책
-
-단순히 계정만 만드는 것이 아니라, **패스워드 정책**과 **시스템 리소스 제한**을 걸어 보안을 강화합니다. 이 부분은 **단답형**이나 **괄호 채우기**로 출제될 확률이 높습니다 .
-
-**[실습 코드 예시]**
-
-```SQL
-conn sys/1234
---**전제 조건:** `RESOURCE_LIMIT` 파라미터가 `TRUE`여야 작동합니다.
-ALTER SYSTEM SET RESOURCE_LIMIT=true ;
--- 1. 프로파일 생성 (보안 정책 정의)
-CREATE PROFILE secure_prof LIMIT
-    FAILED_LOGIN_ATTEMPTS 3    -- 3회 실패 시 잠금
-    PASSWORD_LIFE_TIME 90      -- 90일마다 변경
-    IDLE_TIME 10;              -- 10분 유휴 시 로그아웃
--- 2. 이미있는 사용자에게 프로파일 적용
-ALTER USER 유저명 PROFILE 프로파일명;
-
--- 3. 잠긴 계정 해제 (관리자 권한)
-ALTER USER 유저명 ACCOUNT UNLOCK; -- [시험 출제 유력]
-```
 
 ---
 
-## 2. 권한 관리 (Privilege Management)
+### **2. 프로파일(Profile)을 이용한 보안 관리**
 
-**출제 포인트:** 시스템 권한 vs 객체 권한 구분, `GRANT`/`REVOKE` 문법, 권한 부여 옵션 차이.
+사용자의 **비밀번호 정책**이나 **시스템 자원 사용**을 제한하기 위해 프로파일을 생성하고 적용합니다.
 
-### 2.1 시스템 권한 vs 객체 권한
+|**정책 구분**|**파라미터**|**설명**|
+|---|---|---|
+|**패스워드 정책**|`FAILED_LOGIN_ATTEMPTS`|로그인 n회 실패 시 계정 잠금 .|
+||`PASSWORD_LOCK_TIME`|계정이 잠겼을 때 잠금 지속 시간(일 단위) .|
+||`PASSWORD_LIFE_TIME`|암호 유효 기간(만료일) 설정 .|
+||`PASSWORD_REUSE_TIME`|동일한 암호를 다시 사용할 수 없는 기간 .|
+|**리소스 정책**|`IDLE_TIME`|지정한 시간 동안 활동이 없으면 세션 강제 종료 .|
+||`SESSIONS_PER_USER`|한 계정으로 동시 접속 가능한 세션 수 제한 .|
 
-이 둘을 구분하는 것이 중요합니다 .
+#### **1) 비밀번호 프로파일 (Password Profile)**
 
-1. **시스템 권한 (System Privilege):** DB에 영향을 주는 행위.
+로그인 실패 횟수 제한, 비밀번호 만료 기간 등을 설정합니다.
+
+- **실습 예제:**
+
+    ```SQL
+    CREATE PROFILE prof_passwd LIMIT
+      FAILED_LOGIN_ATTEMPTS 5    -- 5회 실패 시 계정 잠금
+      PASSWORD_LOCK_TIME 30      -- 30일간 잠금 유지
+      PASSWORD_LIFE_TIME 40      -- 비밀번호 40일마다 변경
+      PASSWORD_REUSE_TIME 50;    -- 50일간 동일 암호 재사용 불가
+    ```
     
-    - 예: `CREATE SESSION`(접속), `CREATE TABLE`, `CREATE VIEW`, `DROP ANY TABLE`.
-        
-2. **객체 권한 (Object Privilege):** 특정 데이터(테이블) 조작 행위.
+
+#### **2) 자원 관리 프로파일 (Resource Profile)**
+
+CPU 사용 시간, 접속 유지 시간 등을 제한합니다. (사전 작업 필수)
+
+- **실습 예제:**
+
+    ```SQL
+    -- 0. 자원 제한 기능 활성화 (필수)
+    ALTER SYSTEM SET RESOURCE_LIMIT = true;
     
-    - 예: `SELECT`, `INSERT`, `UPDATE`, `DELETE` **ON 테이블명**.
-        
+    -- 1. 자원 프로파일 생성
+    CREATE PROFILE prof_resource LIMIT
+      CPU_PER_SESSION 1500       -- CPU 연속 사용 15초 제한
+      CONNECT_TIME 480           -- 하루 접속 8시간 제한
+      IDLE_TIME 15;              -- 15분간 활동 없으면 연결 끊기
+	-- 2. 사용자에게 프로파일 적용
+	ALTER USER 유저명 PROFILE 프로파일명;
+	
+	-- 참고: 잠긴 계정 해제 (관리자 권한)
+	ALTER USER 유저명 ACCOUNT UNLOCK; -- [시험 출제 유력]
+    ```
+    
 
-### 2.2 GRANT (권한 부여) & REVOKE (권한 회수)
+#### **3) 사용자에게 프로파일 적용 및 조회**
 
+- **적용:** `ALTER USER 계정명 PROFILE 프로파일명;`
+- **조회:**
+
+    ```SQL
+    SELECT username, profile FROM dba_users WHERE username = 'HR';
+    ```
+    
+- **삭제:** `DROP PROFILE 프로파일명 CASCADE;` (사용 중인 프로파일 삭제 시 `CASCADE` 필수)
+    
+
+---
+
+### **3. 관리자 계정과 권한(Privilege)의 분류**
+
+실습 전 알아야 할 핵심 계정 및 권한 개념입니다.
+
+- **관리자 계정:**
+    - **SYS:** DB 생성/삭제가 가능한 최상위 권한자 (Data Dictionary 소유).
+    - **SYSTEM:** DB 생성/삭제를 제외한 일반적인 관리자.
+- **권한(Privilege)의 종류:**
+    - **시스템 권한 (System Privilege):** DB 수준의 작업
+	    - 예: `CREATE SESSION`(접속), ``CREATE TABLE`, `CREATE VIEW`, `DROP ANY TABLE`.`
+    - **오브젝트 권한 (Object Privilege):** 특정 객체 조작
+	    - 예: `SELECT`, `INSERT`, `UPDATE`, `DELETE` **ON 테이블명**.
+ - **※참고:** `SYSDBA`는 계정이 아니라, 강력한 권한들을 묶어놓은 **역할(Role)**의 이름입니다.
+
+---
+
+### **4. 권한(Privilege) 관리: GRANT & REVOKE**
+
+계정만 생성해서는 아무것도 할 수 없습니다. **접속 권한**과 **테이블 사용 권한**을 부여해야 합니다.
+
+#### **1) 시스템 권한 부여 (접속 및 객체 생성)**
 **기본 문법:**
 
 ```SQL
@@ -691,28 +737,97 @@ GRANT 권한_리스트 ON 객체명 TO 사용자;
 REVOKE 권한_리스트 ON 객체명 FROM 사용자;
 ```
 
-### 2.3 [함정 문제] 재부여 옵션의 차이 (중요!)
+관리자(`SYS`) 권한으로 로그인하여 수행합니다.
 
-권한을 받은 사용자가 **"다른 사람에게 그 권한을 또 줄 수 있는가?"**를 결정하는 옵션입니다 .
-- **`WITH ADMIN OPTION`**: **시스템 권한**을 부여할 때 사용. 권한을 받은 사용자가 **다른 사용자에게 그 권한을 다시 부여**할 수 있음
-- **`WITH GRANT OPTION`**: **오브젝트 권한**을 부여할 때 사용. 마찬가지로 권한을 재부여할 수 있음
+- **접속 권한 부여:**
 
-| **구분**                | **옵션 키워드** | **적용 대상**                                                      | **특징** |
-| --------------------- | ---------- | -------------------------------------------------------------- | ------ |
-| **WITH ADMIN OPTION** | 시스템 권한     | `REVOKE` 시 **연쇄 회수 안 됨**. (내가 준 권한을 받은 제3자는 권한 유지)             |        |
-| **WITH GRANT OPTION** | 객체 권한      | `REVOKE` 시 **연쇄 회수 됨 (Cascade)**. (내가 권한을 뺏기면, 내가 줬던 애들도 다 뺏김) |        |
-**📝 실습 코드 예시 (권한 부여 및 회수)**
+    ```SQL
+    -- 시스템 관리자로 접속
+    CONN / AS SYSDBA;
+    
+    -- HR 계정 잠금 해제 및 비밀번호 변경
+    ALTER USER hr ACCOUNT UNLOCK IDENTIFIED BY 1234;
+    
+    -- salesman_1에게 DB 접속 권한(CONNECT) 부여
+    GRANT CONNECT TO salesman_1;
+    ```
+    
+- **테이블 생성 권한 부여:**
+
+    ```SQL
+    GRANT CREATE TABLE TO salesman_1;
+    ```
+    
+- 권한 재부여 옵션 (WITH ADMIN OPTION):
+    
+    권한을 받은 사용자가 다른 사용자에게도 그 권한을 줄 수 있게 설정합니다.
+
+    ```SQL
+    -- HR에게 뷰 생성 권한을 주면서, 남에게도 줄 수 있는 권한 포함
+    GRANT CREATE VIEW TO HR WITH ADMIN OPTION;
+    ```
+- **:** A가 B에게 권한을 주고(줄 수 있는 권한 포함), B가 C에게 권한을 줬을 때, A가 B의 권한을 뺏으면 C는 어떻게 되는가? (정답: 같이 뺏김)
+
+#### **2) 오브젝트 권한 부여 (테이블 공유)**
+
+`HR` 계정이 소유한 테이블을 `salesman_1`이 볼 수 있게 허용하는 실습입니다.
+
+- **실습 예제 (HR 계정에서 수행):**
+
+    ```SQL
+    -- 테이블 소유자인 HR 계정으로 접속
+    CONN hr/1234;
+    
+    -- salesman_1에게 employees 테이블 조회(SELECT), 입력(INSERT) 권한 부여
+    GRANT SELECT, INSERT ON EMPLOYEES TO salesman_1;
+    
+    -- salesman_1에게 departments 테이블 조회(SELECT) 권한 부여
+    GRANT SELECT ON DEPARTMENTS TO salesman_1;
+    ```
+    
+
+#### **3) 타 계정 테이블 조회 (스키마 개념)**
+
+권한을 받았더라도 테이블 소유자를 명시하지 않으면 오류가 발생합니다.
+
+- **올바른 조회 방법:**
+    
+    ```SQL
+    -- (salesman_1 계정으로 접속 후 실행)
+    -- SELECT * FROM DEPARTMENTS; (X) -> "테이블이 존재하지 않습니다" 오류
+    SELECT * FROM hr.DEPARTMENTS; -- (O) 소유자(hr)를 명시해야 함
+    ```
+
+#### **4) [중요] 권한 부족 확인 (ORA-01031)**
+
+조회 권한만 있고 수정 권한이 없을 때 발생하는 오류를 확인합니다.
 
 ```SQL
--- 접속 권한(시스템 권한) 부여
-GRANT CREATE SESSION TO user1;
-
--- 테이블 조회 권한(오브젝트 권한) 부여 및 재부여 권한 포함
-GRANT SELECT ON employees TO user1 WITH GRANT OPTION;
-
--- 권한 회수 (user1이 다른 사람에게 준 권한도 연쇄적으로 회수됨 )
-REVOKE SELECT ON employees FROM user1;
+-- salesman_1은 DEPARTMENTS 테이블의 조회(SELECT) 권한만 있음
+UPDATE hr.DEPARTMENTS SET LOCATION_ID = 1700 WHERE MANAGER_ID = 100;
+-- 결과: ORA-01031: 권한이 불충분합니다
 ```
+
+#### **5) 권한 회수 (REVOKE) 및 연쇄 회수**
+
+부여했던 권한을 회수합니다.
+
+- **기본 회수:**
+
+    ```SQL
+    -- salesman_1에게 주었던 EMPLOYEES 조회 권한 회수
+    REVOKE SELECT ON EMPLOYEES FROM salesman_1;
+    ```
+    
+- [중요] 연쇄 회수 (Cascading Revoke):
+    
+    A가 B에게 WITH GRANT OPTION으로 권한을 주고, B가 다시 C에게 권한을 줬을 때, A가 B의 권한을 회수하면 C의 권한도 자동으로 함께 회수됩니다.
+    
+| **구분**                | **옵션 키워드**  | **적용 대상**                                                      | **특징** |
+| --------------------- | ----------- | -------------------------------------------------------------- | ------ |
+| **WITH ADMIN OPTION** | 시스템 권한 부여시  | `REVOKE` 시 **연쇄 회수 안 됨**. (내가 준 권한을 받은 제3자는 권한 유지)             |        |
+| **WITH GRANT OPTION** | 오브젝트 권한 부여시 | `REVOKE` 시 **연쇄 회수 됨 (Cascade)**. (내가 권한을 뺏기면, 내가 줬던 애들도 다 뺏김) |        |
+
 ---
 
 ## 3. 롤 (ROLE) 관리
@@ -723,8 +838,6 @@ REVOKE SELECT ON employees FROM user1;
 
 - **정의:** 여러 권한들을 묶어놓은 **권한의 그룹(집합)**입니다 .
 - **목적:** 수십 개의 권한을 일일이 사용자마다 부여하는 번거로움을 줄여 관리의 효율성을 높입니다 .
-    
-
 ### 3.2 오라클 기본 롤 (Standard Roles)
 
 가장 많이 사용되는 3대 롤을 반드시 암기해야 합니다 .
@@ -732,20 +845,85 @@ REVOKE SELECT ON employees FROM user1;
 1. **CONNECT:** DB 접속에 필요한 기본 권한 (`CREATE SESSION` 등).
 2. **RESOURCE:** 객체(테이블, 시퀀스, 프로시저 등)를 생성할 수 있는 권한 집합.
 3. **DBA:** 모든 시스템 권한을 가진 최고 관리자 롤.
-    
 
-### 3.3 [실습] 사용자 정의 롤 생성 및 부여 절차
+#### **실습 시나리오**
 
-시험 문제로 **"순서대로 나열하시오"** 혹은 **"SQL을 작성하시오"**가 나올 수 있습니다 .
+개발팀(`team1`) 롤을 만들고, 4명의 개발자(`user1`~`user4`)에게 `HR` 테이블 접근 권한을 한 번에 부여합니다.
 
-> **시나리오:** '개발팀' 롤을 만들고, 테이블 생성 및 조회 권한을 넣은 뒤, `User1`에게 부여하라.
+**Step 1. 사용자 및 롤 생성 (관리자 수행)**
 
-1. **롤 생성:** `CREATE ROLE 롤이름;`
-2. **롤에 권한 부여:** `GRANT CREATE TABLE, CREATE SESSION TO 롤이름;`
-3. **사용자에게 롤 부여:** `GRANT 롤이름 TO 유저1, 유저2;`
+```SQL
+-- 시스템 관리자 접속
+CONN / AS SYSDBA;
+
+-- 사용자 생성
+CREATE USER user1 IDENTIFIED BY 1234;
+-- … (user2 ~ user4 동일하게 생성)
+
+-- 롤(Role) 생성
+CREATE ROLE team1;
+```
+
+**Step 2. 롤에 권한 부여 (객체 소유자 수행)**
+
+```SQL
+-- (HR 계정 실행)
+-- team1 역할에 EMPLOYEES(조회,입력,수정) 및 DEPARTMENTS(조회) 권한 부여
+GRANT SELECT, INSERT, UPDATE ON hr.EMPLOYEES TO team1;
+GRANT SELECT ON hr.DEPARTMENTS TO team1;
+```
+
+**Step 3. 사용자에게 롤 부여 (관리자 수행)**
+
+```SQL
+-- (관리자 계정 실행)
+-- user1 ~ user4에게 team1 역할을 부여 (한 번에 권한 할당 완료)
+GRANT team1 TO user1, user2, user3, user4;
+```
+
+Step 4. 특정 사용자에게 추가 권한 부여
+
+롤로 공통 권한을 주고, 특정인(user1)에게만 특별한 권한을 추가로 줍니다.
+
+```SQL
+-- user1에게만 DEPARTMENTS 테이블 입력/수정 권한 추가 부여
+GRANT INSERT, UPDATE ON hr.DEPARTMENTS TO user1;
+```
 
 ---
 
+### **6. 권한 및 롤 확인 (Data Dictionary)**
+
+시스템 뷰를 통해 권한 부여 상태를 확인합니다.
+
+- **시스템 권한 확인:** `DBA_SYS_PRIVS`
+- **테이블(오브젝트) 권한 확인:** `DBA_TAB_PRIVS`
+- **롤(Role) 부여 확인:** `DBA_ROLE_PRIVS`
+    
+
+**실습 예제:**
+
+```SQL
+-- TEAM1 롤이 가진 테이블 권한 확인
+SELECT * FROM DBA_TAB_PRIVS WHERE grantee = 'TEAM1';
+
+-- USER1이 가진 롤 확인
+SELECT * FROM DBA_ROLE_PRIVS WHERE grantee = 'USER1';
+
+-- HR 계정이 남에게 부여한(grantor='HR') 테이블 권한 확인
+SELECT * FROM DBA_TAB_PRIVS WHERE grantor = 'HR';
+
+-- 결과 예시:
+-- GRANTEE(받은사람) | TABLE_NAME(테이블) | PRIVILEGE(권한)
+-- SALESMAN_1       | EMPLOYEES         | SELECT
+-- SALESMAN_1       | EMPLOYEES         | INSERT
+```
+
+**롤 삭제:**
+
+```SQL
+DROP ROLE team1;
+```
 ## 📝 기말고사 대비 요약 (Chapter 8)
 
 1. **계정 관리:**
@@ -778,7 +956,7 @@ REVOKE SELECT ON employees FROM user1;
 
 **감사(Audit)는 실습 내용**까지, **암호화는 실습 환경 이슈로 개념 위주**로 출제하신다고 하셨으므로, 그에 맞춰 핵심을 정리해 드립니다.
 
-
+`AUDIT [이벤트] [BY 사용자] WHENEVER [SUCCESSFUL | NOT SUCCESSFUL];`
 
 **📝 실습 시나리오 (로그인 실패 및 특정 테이블 조회 감시)**
 ### 1.1 감사의 개념 및 필요성
@@ -791,49 +969,45 @@ REVOKE SELECT ON employees FROM user1;
 		2.`WHENEVER SUCCESSFUL` 작업을 성공했을 때만 기록할지
 		3.`WHENEVER NOT SUCCESSFUL` 실패했을 때만 기록할지
 3. **로그 확인:** 감사 결과는 `DBA_AUDIT_TRAIL` (이 뷰 이름 꼭 기억!).통해 확인
-    
 
-### 1.2 감사 설정 및 해제 명령어 (필수 암기)
-
-기본 문법은 `AUDIT` 명령어입니다. **성공/실패 여부**에 따라 기록을 다르게 남길 수 있습니다 .
-
-| **기능**     | **명령어 예시**                      | **설명**                                    |
-| ---------- | ------------------------------- | ----------------------------------------- |
-| **로그인 감사** | `AUDIT SESSION;`                | 접속/접속종료 기록 (가장 기본) .                      |
-| **감사 해제**  | `NOAUDIT SESSION;`              | 감사 설정을 끄는 명령어 .                           |
-| **권한 감사**  | `AUDIT CREATE TABLE;`           | 누가 테이블을 생성했는지 기록 (시스템 권한) .               |
-| **객체 감사**  | `AUDIT SELECT ON hr.employees;` | 특정 테이블 조회 시 기록 (객체 권한) .                  |
-| **조건부 감사** | `… WHENEVER NOT SUCCESSFUL;`    | **실패한 작업만** 기록 (예: 로그인 실패, 권한 없는 접근 시도) . |
-
-### 1.3 [실습] 감사 활성화 및 로그 확인 프로세스
-
-시험 문제로 **"순서대로 나열하시오"**가 나올 수 있는 프로세스입니다 .
-
-1. 현재 감사 기능이 켜져 있는지 확인
+-  현재 감사 기능이 켜져 있는지 확인
 	`SHOW PARAMETER audit_trail;`
 	- **`NONE`**: 비활성화
     - **`DB`**: 활성화 (DB 테이블 `SYS.AUD$`에 저장)
     - **`DB, EXTENDED`**: 활성화 + 실행한 SQL 문장까지 저장 (가장 상세함)
-2. **감사 활성화:**
-	`ALTER SYSTEM SET audit_trail=DB,EXTENDED SCOPE=SPFILE;`
-    - `DB`: 로그를 DB 테이블(`SYS.AUD$`)에 저장 .
-    - `EXTENDED`: 실행한 **SQL 문장까지** 상세히 기록 .
-3. **DB 재시작:** `
-	SHUTDOWN IMMEDIATE;` -> `STARTUP;` (재시작해야 적용됨) .
-4. **감사 설정:**
 ```SQL
--- 로그인 실패 시도 기록 (해킹 시도 감지)
+-- 접속: SYS (CMD 권장)
+
+-- 1. 감사 파라미터 확인 및 활성화
+SHOW PARAMETER AUDIT_TRAIL; 
+-- 결과가 NONE이면 활성화 필요 (DB, EXTENDED는 SQL Text까지 저장)
+ALTER SYSTEM SET AUDIT_TRAIL=DB,EXTENDED SCOPE=SPFILE;
+
+-- 2. DB 재시작 (파라미터 적용)
+SHUTDOWN IMMEDIATE;
+STARTUP;
+
+-- 3. 감사 정책 설정
+-- 3-1. 로그인 실패 감사 (세션)
 AUDIT SESSION WHENEVER NOT SUCCESSFUL;
 
--- HR 사용자가 EMPLOYEES 테이블을 조회(SELECT)하는 것 감시
-AUDIT SELECT ON hr.employees BY hr;
-```
-5. **로그 확인:
-```SQL
-SELECT username, action_name, timestamp, sql_text
-FROM DBA_AUDIT_TRAIL
-WHERE username = 'HR';
-```
+-- 3-2. 특정 유저(HR)의 EMPLOYEES 테이블 조회 감사
+AUDIT SELECT ON HR.EMPLOYEES BY HR;
+
+-- 접속: HR (행위 유발)
+SELECT * FROM EMPLOYEES WHERE ROWNUM <= 5;
+
+-- 접속: SYSTEM/SYS (로그 확인)
+-- 전체 감사 로그 확인
+SELECT username, timestamp, obj_name, action_name, sql_text 
+FROM DBA_AUDIT_TRAIL 
+WHERE username = 'HR' 
+ORDER BY timestamp DESC;
+
+-- 4. 감사 해제 (Cleanup)
+NOAUDIT SESSION;
+NOAUDIT SELECT ON HR.EMPLOYEES;
+``````
 ## 2. 데이터 암호화 (Data Encryption)
 
 핵심 개념:
@@ -845,24 +1019,12 @@ WHERE username = 'HR';
 1. **알고리즘:** 오라클은 강력한 대칭키 암호화 방식인 **AES256** (256비트 키 사용)을 주로 사용합니다.
 2. **패키지:** 암호화/복호화 기능을 제공하는 오라클 내장 패키지는 **`DBMS_CRYPTO`** 입니다.
 3. **데이터 타입:** 암호화된 데이터는 읽을 수 없는 바이너리 형태가 되므로, 테이블에 저장할 때는 **`RAW`** 타입을 사용해야 합니다. (예: `ssn RAW(2000)`)
-    
-
-📝 개념 코드 예시 (트리거를 이용한 자동 암호화)
-
-수업 시간에 `DBMS_CRYPTO` 패키지를 사용했지만, 환경 설정 문제로 실행이 안 될 수 있다고 하셨습니다. 따라서 **코드의 흐름과 키워드**를 이해하는 것이 중요합니다 .
-
-- **INSERT 시 (트리거 활용):**
-    - 데이터가 입력될 때 **트리거**가 작동하여, 평문을 암호화 함수로 변환 후 테이블에 저장합니다.
-- **SELECT 시 (뷰 활용):**
-    - 사용자는 테이블을 직접 조회하지 않고, **뷰(View)**를 통해 조회합니다.
-    - 뷰 내부에서 복호화 함수를 호출하여 평문으로 보여줍니다.
-   
-1. **암호화 (Encrypt):** 평문(Plain Text) $\rightarrow$ 암호문(Cypher Text/RAW).
+4. **암호화 (Encrypt):** 평문(Plain Text) $\rightarrow$ 암호문(Cypher Text/RAW).
     
     - 함수: `DBMS_CRYPTO.ENCRYPT`
     - 입력: 평문, 암호화 키, 알고리즘 타입.
         
-2. **복호화 (Decrypt):** 암호문(RAW) $\rightarrow$ 평문(Plain Text).
+5. **복호화 (Decrypt):** 암호문(RAW) $\rightarrow$ 평문(Plain Text).
     
     - 함수: `DBMS_CRYPTO.DECRYPT`
     - **중요:** 암호화할 때 쓴 **키(Key)**와 똑같은 키를 써야 풀립니다 (대칭키 특징) .
@@ -1090,7 +1252,7 @@ END;
 
 ### **Step 1: 엔티티(Entity) 식별 -> 테이블 생성**
 
-- 시나리오에서 **"관리해야 할 주요 대상"**을 찾습니다. (예: 회원, 상품, 주문 등)
+- 시나리오에서 **"관리해야 할 주요 대상"** 을 찾습니다. (예: 회원, 상품, 주문 등)
 - 이 대상들이 각각 하나의 **테이블(Table)**이 됩니다
     
 
