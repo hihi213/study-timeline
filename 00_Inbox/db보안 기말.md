@@ -595,57 +595,64 @@ END;
 ## 1. 사용자 계정 관리 (User Account)
 - User는 DB에 접속하는 주체이며, Schema는 그 사용자가 소유한 객체(테이블, 뷰 등)의 집합.
 - 보안을 위해 **프로파일(Profile)** 을 적용하여 패스워드 정책과 리소스 사용을 제한할 수 있습니다.
-### 오라클은 2계층의 데이터베이스가 존재한다.
-- 공통사용자: 전체 데이터베이스 접근가능, C##를 계정명 앞에 붙임
-	- CDB에 관리자 계정으로 로그인후 생성
-- 로컬사용자: 특정 PDB에 대해서만 접근가능
-	- 특정 PDF에 관리자 계정으로 로그인한 상태에서 생성할 수 있다
+### **1. 사용자 계정 생성 및 관리**
 
-### **보안적 활용 (시험 포인트):**
+오라클 데이터베이스는 **2계층 구조(CDB, PDB)**로 되어 있어 사용자 유형도 두 가지로 나뉩니다.
 
-1. **계정 생성:** `CREATE USER` 문을 사용하여 계정을 생성하고, `DEFAULT TABLESPACE`를 지정합니다
-2. **프로파일(Profile)을 이용한 보안 정책:** 단순 생성이 아니라, **패스워드 만료, 로그인 실패 시 잠금** 등의 정책을 적용하는 것이 핵심입니다.
+#### **1) 사용자 유형**
 
-### 1.1 계정 생성 기본 문법
+- **① 공통 사용자 (Common User)**
+    - **접근 범위:** 전체 데이터베이스 (**CDB** 및 모든 **PDB**)
+    - **생성 위치:** CDB (관리자 접속 필요)
+    - **특징:** 계정명 앞에 반드시 **`C##`** 접두어를 붙여야 함 (예: `C##SCOTT`)
+- **② 로컬 사용자 (Local User)**
+    - **접근 범위:** 특정 **PDB** (Pluggable Database)
+    - **생성 위치:** 해당 PDB (관리자 접속 필요)
+    - **특징:** 특정 PDB 안에서만 사용 가능
+        
+
+#### **2) 사용자 생성 실습 (CREATE USER)**
 
 시스템 관리자(`SYS`, `SYSTEM`)만이 수행할 수 있는 작업입니다 .
 
-```SQL
-CREATE USER 사용자명
-IDENTIFIED BY 비밀번호
-DEFAULT TABLESPACE 테이블스페이스명; -- 데이터가 저장될 기본 공간 지정
-```
+- **기본 문법:**
 
-- **보안 포인트:** 오라클 12c 이후 아키텍처에서는 **공통 사용자**(CDB, 모든 DB 접근, `C##` 접두어 필요)와 **로컬 사용자**(PDB, 특정 DB 접근)로 나뉩니다 . 시험 실습 환경은 주로 로컬 사용자 개념을 사용합니다.
-
-### 1.2 [핵심] 프로파일(Profile)을 이용한 보안 정책
+    ```SQL
+    CREATE USER 사용자명
+    IDENTIFIED BY 비밀번호
+    DEFAULT TABLESPACE 테이블스페이스명; -- 데이터가 저장될 기본 공간 지정
+    ```
+    
+- **실습 예제:**
+    ```SQL
+    -- 1. 관리자 접속
+    CONN / AS SYSDBA;
+    
+    -- 2. 사용자 생성 (이름: salesman_1, 비번: 1234, 저장소: USERS)
+    CREATE USER salesman_1
+    IDENTIFIED BY 1234
+    DEFAULT TABLESPACE USERS;
+    
+    -- 3. 생성된 사용자 확인 (Data Dictionary 조회)
+    SELECT username, default_tablespace
+    FROM dba_users
+    WHERE account_status = 'OPEN';
+    ```
+### 2 [핵심] 프로파일(Profile)을 이용한 보안 정책
 
 단순히 계정만 만드는 것이 아니라, **패스워드 정책**과 **시스템 리소스 제한**을 걸어 보안을 강화합니다. 이 부분은 **단답형**이나 **괄호 채우기**로 출제될 확률이 높습니다 .
-
-|**정책 구분**|**파라미터**|**설명**|
-|---|---|---|
-|**패스워드 정책**|`FAILED_LOGIN_ATTEMPTS`|로그인 n회 실패 시 계정 잠금 .|
-||`PASSWORD_LOCK_TIME`|계정이 잠겼을 때 잠금 지속 시간(일 단위) .|
-||`PASSWORD_LIFE_TIME`|암호 유효 기간(만료일) 설정 .|
-||`PASSWORD_REUSE_TIME`|동일한 암호를 다시 사용할 수 없는 기간 .|
-|**리소스 정책**|`IDLE_TIME`|지정한 시간 동안 활동이 없으면 세션 강제 종료 .|
-||`SESSIONS_PER_USER`|한 계정으로 동시 접속 가능한 세션 수 제한 .|
 
 **[실습 코드 예시]**
 
 ```SQL
 conn sys/1234
+--**전제 조건:** `RESOURCE_LIMIT` 파라미터가 `TRUE`여야 작동합니다.
 ALTER SYSTEM SET RESOURCE_LIMIT=true ;
 -- 1. 프로파일 생성 (보안 정책 정의)
 CREATE PROFILE secure_prof LIMIT
     FAILED_LOGIN_ATTEMPTS 3    -- 3회 실패 시 잠금
     PASSWORD_LIFE_TIME 90      -- 90일마다 변경
     IDLE_TIME 10;              -- 10분 유휴 시 로그아웃
--- 2. 사용자 생성 및 프로파일 적용
-CREATE USER 유저명 IDENTIFIED BY 비번
-  DEFAULT TABLESPACE users
-  PROFILE 프로파일명;
-  
 -- 2. 이미있는 사용자에게 프로파일 적용
 ALTER USER 유저명 PROFILE 프로파일명;
 
