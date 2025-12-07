@@ -6,8 +6,7 @@ source_url: "{{SOURCE}}"
 author: 
 creation_date: 2025-09-08
 ---
-- **GRANT:** 권한을 **얹어줄 때** (Plus)
-- **ALTER:** 계정의 있는 설정을 **바꿀 때** (Change)
+
 ## 📖 소스 요약 (Summary) ^7q8mkl
 ## **2025-09-08 — 최종(1~3교시 통합)**
 
@@ -305,9 +304,6 @@ creation_date: 2025-09-08
 ### 3) Key SQL/PLSQL 패턴 (Cheatsheet)
 
 - **감사 활성화 (재시작 필수)**
-    
-    
-    
     ```SQL
     ALTER SYSTEM SET AUDIT_TRAIL=DB,EXTENDED SCOPE=SPFILE;
     -- SHUTDOWN IMMEDIATE; -> STARTUP;
@@ -320,8 +316,6 @@ creation_date: 2025-09-08
     ```
     
 - **암호화 함수 (Core Logic)**
-    
-    
 
     ```SQL
     DBMS_CRYPTO.encrypt(
@@ -424,9 +418,6 @@ creation_date: 2025-09-08
 **[JDBC Logic]**
 
 - **PreparedStatement (보안/성능)**:
-    
-    
-    
     ```Java
     String sql = "INSERT INTO STUDENT VALUES(?, ?, ?)";
     pstmt = con.prepareStatement(sql);
@@ -435,9 +426,7 @@ creation_date: 2025-09-08
     ```
     
 - **OracleDataSource (연결)**:
-    
-    
-    
+
     ```Java
     OracleDataSource ods = new OracleDataSource();
     ods.setURL("jdbc:oracle:thin:@localhost:1521:xe");
@@ -448,8 +437,6 @@ creation_date: 2025-09-08
 **[GUI Sync]**
 
 - **화면 갱신 (DB 성공 후)**:
-    
-    
     
     ```Java
     if (result > 0) {
@@ -485,3 +472,5 @@ creation_date: 2025-09-08
 - [[00_Inbox/학교DB보안11-17.md|학교DB보안11-17]]
 - [[00_Inbox/학교DB보안11-24.md|학교DB보안11-24]]
 --문자열안에서 '를표현할려면'를 2번쓴다 매우중요
+- **GRANT:** 권한을 **얹어줄 때** (Plus)
+- **ALTER:** 계정의 있는 설정을 **바꿀 때** (Change)

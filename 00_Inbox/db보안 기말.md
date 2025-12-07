@@ -71,6 +71,161 @@ creation_date: 2025-12-07
 > - 실습을 잘 수행했고 기본 개념을 알고 있다면 어렵지 않음.
 > - **DB 설계 문제(11장)**가 서브 문제로 확장되어 나올 가능성이 높음.
 
+# 📝 기말고사 대비 핵심 요약 노트 (Cheat Sheet)
+
+시험 직전, 이 페이지의 내용을 달달 외우고 들어가세요.
+
+## 1. 문법 및 키워드 총정리
+
+|**영역**|**핵심 명령어/키워드**|**설명 및 주의사항**|
+|---|---|---|
+|**계정 관리**|`CREATE USER … IDENTIFIED BY …`|계정 생성|
+||`ALTER USER … ACCOUNT UNLOCK`|**(중요)** 잠긴 계정 해제|
+||`PROFILE`|패스워드 실패 횟수 등 보안 정책 설정|
+|**권한 관리**|`GRANT … TO …`|권한 부여|
+||`REVOKE … FROM …`|권한 회수|
+||`WITH GRANT OPTION`|객체 권한 재부여 가능 (회수 시 연쇄 회수됨)|
+|**롤(Role)**|`CREATE ROLE`, `CONNECT`, `RESOURCE`|권한 그룹핑, 기본 롤 암기|
+|**프로시저/함수**|`CREATE PROCEDURE` / `FUNCTION`|프로시저는 반환값 X, **함수는 `RETURN` 필수**|
+||`%TYPE`, `%ROWTYPE`|변수 선언 시 테이블 컬럼/행 타입 참조|
+|**트리거**|`AFTER UPDATE OR DELETE`|시점과 이벤트 지정|
+||**`FOR EACH ROW`**|행 단위 실행 (이게 있어야 `:OLD` 사용 가능)|
+||**`:OLD`, `:NEW`**|수정 전/후 데이터 참조 변수|
+|**뷰(View)**|`CREATE OR REPLACE VIEW`|가상 테이블 생성|
+||**`WITH CHECK OPTION`**|조건에 맞지 않는 데이터 변경 방지 (무결성)|
+|**인덱스**|`CREATE INDEX`|검색 속도 향상|
+||**함수 기반 인덱스**|`ON table( SUBSTR(col, 1, 6) )` 처럼 가공된 값에 인덱싱|
+|**감사(Audit)**|**`AUDIT`**, `NOAUDIT`|감사 설정 및 해제|
+||**`DBA_AUDIT_TRAIL`**|**(필수 암기)** 감사 로그가 저장되는 뷰 이름|
+|**암호화**|`AES256`|대칭키 알고리즘 (키값 동일해야 함)|
+||**`RAW`**|암호화된 데이터가 저장될 타입 (이진 데이터)|
+
+---
+
+# 🎯 실전 예상 문제 (유형별)
+
+교수님의 출제 스타일(단답형, 괄호 채우기, 서술형, 설계)을 반영한 예상 문제입니다. 스스로 답을 적어보세요.
+
+## [제1영역] 단답형 & 괄호 채우기
+
+Q1. 다음 빈칸에 알맞은 PL/SQL 키워드를 작성하시오.
+
+트리거 작성 시, 변경된 각 행(Row)마다 트리거가 실행되도록 하기 위해 ( A ) 옵션을 사용해야 하며, 변경 전의 기존 데이터를 참조하기 위해서는 ( B ) 변수를 사용한다.
+
+- **답:** A: `FOR EACH ROW`, B: `:OLD`
+    
+
+Q2. 다음 설명에 해당하는 오라클의 기본 롤(Role) 이름을 쓰시오.
+
+사용자가 데이터베이스에 접속(Login)하기 위해 가장 기본적으로 필요한 권한(CREATE SESSION 등)을 묶어 놓은 롤이다.
+
+- **답:** `CONNECT`
+    
+
+**Q3. 감사(Audit) 로그를 확인하기 위해 조회해야 하는 시스템 뷰(View)의 이름은 무엇인가?**
+
+- **답:** `DBA_AUDIT_TRAIL`
+    
+
+**Q4. 사용자 `student`의 계정이 로그인 실패 횟수 초과로 잠겼다. 관리자가 이를 해제하기 위한 명령어를 작성하시오.**
+
+- **답:** `ALTER USER student ACCOUNT UNLOCK;`
+    
+
+---
+
+## [제2영역] SQL 작성 및 서술형 (보안 코딩)
+
+**Q5. [트리거 작성] 다음 조건에 맞는 트리거를 작성하시오.**
+
+- **트리거 명:** `trg_audit_emp`
+- **조건:** `employees` 테이블의 데이터가 **수정(UPDATE)**되거나 **삭제(DELETE)**될 때 작동
+- **동작:** `audit_emp` 테이블에 수정 전 사번(`emp_id`), 이름(`name`), 그리고 작업을 수행한 사용자명(`USER`)과 날짜(`SYSDATE`)를 저장.
+    
+
+**[모범 답안]**
+
+```SQL
+CREATE OR REPLACE TRIGGER trg_audit_emp
+    AFTER UPDATE OR DELETE ON employees
+    FOR EACH ROW
+BEGIN
+    INSERT INTO audit_emp (emp_id, name, mod_user, mod_date)
+    VALUES (:OLD.emp_id, :OLD.name, USER, SYSDATE);
+END;
+/
+```
+
+**Q6. [뷰 작성] 보안을 위한 뷰 생성 SQL을 작성하시오.**
+
+- **원본 테이블:** `member (id, name, ssn, phone)`
+- **요구사항:** `ssn`(주민번호) 컬럼은 제외하고 나머지 정보만 조회할 수 있는 뷰 `vw_member_safe`를 생성하시오.
+    
+
+**[모범 답안]**
+
+```SQL
+CREATE OR REPLACE VIEW vw_member_safe AS
+SELECT id, name, phone
+FROM member;
+```
+
+**Q7. 암호화된 데이터를 저장하기 위해 테이블 설계 시 문자열 타입(`VARCHAR2`) 대신 사용해야 하는 오라클의 데이터 타입은 무엇인가?**
+
+- **답:** `RAW`
+    
+
+---
+
+## [제3영역] 데이터 모델링 (DB 설계)
+
+Q8. 다음 [쇼핑몰 주문 시스템] 시나리오를 보고 물리적 테이블 설계(명세서)를 작성하시오.
+
+(※ 실제 시험에서는 그림을 그리거나 표를 채우는 형식일 가능성이 높습니다)
+
+> [시나리오]
+>
+> 우리 쇼핑몰은 회원이 상품을 구매하는 시스템이다.
+>
+> 1. **회원(UserTBL)**은 아이디, 이름, 주소, 전화번호를 가진다. 아이디는 중복될 수 없다.
+>     
+> 2. **구매(BuyTBL)**는 어떤 회원이 어떤 상품을 샀는지 기록한다.
+>     
+> 3. 구매 테이블에는 순번(자동증가), 구매한 회원아이디, 상품명, 가격, 수량이 기록되어야 한다.
+>     
+> 4. 한 명의 회원은 여러 번 구매할 수 있다.
+>     
+
+**[작성 포인트]**
+
+1. **테이블 분리:** `UserTBL`과 `BuyTBL`로 나눈다.
+2. **PK 설정:** `UserTBL`의 PK는 `아이디`, `BuyTBL`의 PK는 `순번`.
+3. **FK 설정:** `BuyTBL`의 `회원아이디`는 `UserTBL`의 `아이디`를 참조하는 외래키(FK)이다.
+4. **데이터 타입:** 이름/주소는 `NCHAR` 혹은 `NVARCHAR2`, 가격/수량은 `NUMBER`로 설정.
+    
+
+**[예시 답안 - 테이블 명세서]**
+
+1. 회원 테이블 (UserTBL)
+
+| 컬럼명      | 데이터 타입        | 제약조건         | 비고     |
+| :------- | :------------ | :----------- | :----- |
+| userID   | CHAR(8)       | PK, NOT NULL | 회원 아이디 |
+| userName | NVARCHAR2(10) | NOT NULL     | 이름     |
+| addr     | NVARCHAR2(50) |              | 주소     |
+| mobile   | VARCHAR2(13)  |              | 전화번호   |
+
+1. 구매 테이블 (BuyTBL)
+
+| 컬럼명      | 데이터 타입        | 제약조건         | 비고               |
+| :------- | :------------ | :----------- | :--------------- |
+| seq      | NUMBER        | PK, NOT NULL | 순번               |
+| userID   | CHAR(8)       | FK, NOT NULL | 구매자 (UserTBL 참조) |
+| prodName | NVARCHAR2(20) | NOT NULL     | 상품명              |
+| price    | NUMBER        |              | 가격               |
+| amount   | NUMBER        |              | 수량               |
+
+---
 
 # 📚 Chapter 7. 고급 DB 오브젝트 심층 분석
 
