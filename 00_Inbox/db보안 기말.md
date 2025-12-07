@@ -90,7 +90,7 @@ creation_date: 2025-12-07
 |               | `%TYPE`, `%ROWTYPE`                  | 변수 선언 시 테이블 컬럼/행 타입 참조                        |
 | **트리거**       | `AFTER UPDATE OR DELETE`             | 시점과 이벤트 지정                                    |
 |               | **`FOR EACH ROW`**                   | 행 단위 실행 (이게 있어야 `:OLD` 사용 가능)                 |
-|               | **`:OLD`, `:NEW`**                   | 수정 전/후 데이터 참조 변수                              |
+|               | **`:OLD.컬럼`, `:NEW.컬럼`**             | 수정 전/후 데이터 참조 변수                              |
 | **뷰(View)**   | `CREATE OR REPLACE VIEW`             | 가상 테이블 생성                                     |
 |               | **`WITH CHECK OPTION`**              | 조건에 맞지 않는 데이터 변경 방지 (무결성)                     |
 | **인덱스**       | `CREATE INDEX`                       | 검색 속도 향상                                      |
@@ -99,7 +99,9 @@ creation_date: 2025-12-07
 |               | **`DBA_AUDIT_TRAIL`**                | **(필수 암기)** 감사 로그가 저장되는 뷰 이름                  |
 | **암호화**       | `AES256`                             | 대칭키 알고리즘 (키값 동일해야 함)                          |
 |               | **`RAW`**                            | 암호화된 데이터가 저장될 타입 (이진 데이터)                     |
-
+1. **VPD 대체 (View):** `WHERE login_id = USER`
+2. **VPD 대체 (Trigger):** `IF USER <> :OLD.login_id THEN RAISE_APPLICATION_ERROR…`
+3. **FGA 대체 (Trigger):** `WHEN (NEW.컬럼명 > 값)` (괄호 필수!)
 ---
 
 # 🎯 실전 예상 문제 (유형별)
@@ -335,67 +337,241 @@ SELECT 쿼리문…
 
 - **기능:** 뷰를 생성할 때 사용한 `WHERE` 조건에 위배되는 데이터의 **수정(UPDATE)이나 입력(INSERT)을 막습니다.**
 - **예시:** '인사팀' 부서원만 조회하는 뷰에서, 부서를 '개발팀'으로 수정하려고 하면 에러를 발생시켜 **데이터 변조를 방지**합니다.
-    
 
-**📝 VPD 대체 구현 (부서별 보안 뷰)**
+### 뷰(조회제한)+트리거(수정제한)으로 VPD의 기능을 대체한다.
+- VPD란: 사용자가 SQL을 실행하면 DB가 자동으로 **`WHERE` 절(조건)** 을 추가해 실행하는 보안
+- 사용자마다 접근가능한 데이터 즉, 행을 제한하는 기술이다.
+- **핵심 패키지:** **`DBMS_RLS`** (RLS = Row Level Security)
+- 단점: 비효율적일경우 성능저하
+#### 사전 작업(기존과 동일)
+```SQL
+-- 1. 기존 계정이 있다면 삭제 (초기화)
+DROP USER 유저이름 CASCADE;
+-- 2. 계정 생성 (비밀번호: 1234)
+CREATE USER 유저이름 IDENTIFIED BY 비밀번호 ACCOUNT UNLOCK;
+-- 3. 기본 접속 권한 부여
+GRANT CONNECT TO 유저이름;
+-- 4. 테이블생성과 샘플데이터 삽입 
+```
 
-- **인사팀:** 사원 이름, 입사일, 급여(민감 정보) 조회 가능
-- **일반 사원:** 사원 이름, 부서명만 조회 가능 (급여 컬럼 제외)
+#### **① 조회 제한 (View)**: 권한별로 뷰를 생성한다
+- **원리:** where절로 권한이외의 행을 거른다.
 
 ```SQL
--- 일반 사원에게 제공할 뷰 (급여 정보 숨김)
-CREATE [OR REPLACE] VIEW 뷰이름 AS
-SELECT employee_id, emp_name, department_id
-FROM 원본테이블 WHERE 조건;
+-- 1. 일반 직원용 뷰 (자신의 정보만 조회 가능)
+-- 조건: login_id가 현재 접속자(USER)와 같은 행만 필터링
+CREATE OR REPLACE VIEW vw_my_profile AS
+SELECT * FROM employee2
+WHERE login_id = USER; -- 이게 시험포인트
 
--- 2. 사용자 계정 생성 
-CREATE USER 유저명 IDENTIFIED BY 비번 ACCOUNT UNLOCK;
-GRANT CONNECT TO 유저이름; --조회권한 부여
---뷰 권한 부여
-GRANT SELECT ON 뷰이름 TO 유저이름;
-  
---로그인후 조회
+-- 2. 인사팀용 뷰 (모든 직원 조회 가능, 단 주민번호 제외)
+-- 조건: ssn 컬럼을 SELECT 절에서 제외
+CREATE OR REPLACE VIEW vw_hr_view AS
+SELECT emp_id, name, department, salary --이게 시험포인트
+FROM employee2;
+
+-- 3. 관리자용 뷰 (모든 정보 조회 가능)
+CREATE OR REPLACE VIEW vw_admin_view AS
+SELECT * FROM employee2;
+```
+#### **② 수정 제한 (Trigger)** : 수정시도를 트리거로 감지해 에러낸다.
+
+- **원리:** **트리거**에서 수정시도를 감지하고, `:OLD.login_id` (데이터 주인)와 `USER` (접속자)를 비교합니다.
+- 만약 주인이 아니라면(`IF`) `RAISE_APPLICATION_ERROR` (강제 에러 발생).
+
+```SQL
+CREATE OR REPLACE TRIGGER trg_emp_self_update
+    BEFORE UPDATE OR DELETE ON employee2 -- 수정/삭제 시도 전
+    FOR EACH ROW
+BEGIN
+    -- 접속자(USER)가 데이터 주인(:OLD.login_id)이 아니면 에러 발생
+    IF USER <> :OLD.login_id THEN
+        RAISE_APPLICATION_ERROR(-20001, '자신의 정보만 수정할 수 있습니다.');
+    END IF;
+END;
+/
+```
+
+#### 검증작업
+
+```SQL
+--각 계정별로 로그인
 CONNECT 유저이름/유저비번
+--각 계정별로 조회
 SELECT * FROM 원본테이블소유한유저이름.뷰이름
 ```
 
----
+```SQL 
+예시
+-- 1. 일반 직원 (EMP_1001) 접속 테스트
+CONNECT EMP_1001/1234;
+SELECT * FROM TEST.vw_my_profile; 
+-- 결과: 자신의 행(EMP_1001) 1건만 조회됨
 
+```
+---
+### 별도 테이블 만들어 트리거로 일일히 기록담아 FGA의 기능 대체
+- FGA란?: 유저가 특정 컬럼(급여처럼 민감)이나 조건에 대해 조회했을때 시스템뷰 `DBA_FGA_AUDIT_TRAIL`에 기록남기기
+- **핵심 패키지:** **`DBMS_FGA`** **로그 확인 뷰:** **`DBA_FGA_AUDIT_TRAIL
+#### ① 로그 테이블 (Audit Log)
+- 감사 기록이 저장될 테이블과 순번 자동 생성을 위한 시퀀스를 만듭니다.
+- **필수 컬럼:** 누가, 언제, 무슨 짓을, 누구를, 뭐로 바꿀려했는지
+```SQL
+-- 1. 시퀀스 생성 (로그 ID 자동 증가용)
+CREATE SEQUENCE audit_log_seq
+START WITH 1
+INCREMENT BY 1
+NOCACHE
+NOCYCLE;
+
+-- 2. 감사 로그 테이블 생성
+CREATE TABLE audit_log (
+    log_id        NUMBER PRIMARY KEY,
+    username      VARCHAR2(50),    -- 변경한 사용자
+    access_time   DATE,            -- 변경 일시
+    action_type   VARCHAR2(10),    -- 동작 유형 (INSERT/UPDATE/DELETE)
+    accessed_col  VARCHAR2(50),    -- 접근한 컬럼명 (SSN 등)
+    accessed_data VARCHAR2(200)    -- 변경된 데이터 내용 (이전값 -> 새값)
+); 
+
+-- 3. 로그 ID 자동 입력 트리거 (INSERT 시 시퀀스 값 자동 할당)
+CREATE OR REPLACE TRIGGER trg_audit_log_id
+BEFORE INSERT ON audit_log
+FOR EACH ROW
+BEGIN
+    :NEW.log_id := audit_log_seq.NEXTVAL;
+END;
+/ 
+```
+
+#### **② 조건부 감시 트리거 (Smart Trigger)**
+
+- 주민등록번호(ssn)가 변경되거나 삭제될 때 로그를 남깁니다.
+- **시험 포인트:** **`WHEN` 절** 사용법 (매우 중요). 트리거 내부 `IF`문이 아니라, 트리거 선언부의 `WHEN`을 써야 성능이 좋습니다.
+
+```SQL
+-- 1. SSN 수정(UPDATE) 감시 트리거
+CREATE OR REPLACE TRIGGER trg_audit_ssn_update
+AFTER UPDATE OF ssn ON employee2  -- (교재의 users 테이블 대신 앞서 만든 employee2 사용)
+FOR EACH ROW
+BEGIN
+    INSERT INTO audit_log (username, access_time, action_type, accessed_col, accessed_data)
+    VALUES (USER, SYSDATE, 'UPDATE', 'SSN', :OLD.ssn || ' -> ' || :NEW.ssn);
+END;
+/ 
+
+-- 2. 삭제(DELETE) 감시 트리거
+CREATE OR REPLACE TRIGGER trg_audit_ssn_delete
+BEFORE DELETE ON employee2
+FOR EACH ROW
+BEGIN
+    INSERT INTO audit_log (username, access_time, action_type, accessed_col, accessed_data)
+    VALUES (USER, SYSDATE, 'DELETE', 'SSN', :OLD.ssn);
+END;
+/
+```
+- 급여(salary)가 10,000을 초과하는 값으로 입력되거나 수정될 때만 로그를 남깁니다
+```SQL
+-- 1. 급여 수정(UPDATE) 감시 (새 값이 10000 초과일 때만)
+CREATE OR REPLACE TRIGGER trg_audit_salary_update
+AFTER UPDATE OF salary ON employee2
+FOR EACH ROW
+WHEN (NEW.salary > 10000)
+BEGIN
+    INSERT INTO audit_log (username, access_time, action_type, accessed_col, accessed_data)
+    VALUES (USER, SYSDATE, 'UPDATE', 'SALARY', :OLD.salary || ' -> ' || :NEW.salary);
+END;
+/ 
+
+-- 2. 급여 입력(INSERT) 감시 (10000 초과일 때만)
+CREATE OR REPLACE TRIGGER trg_audit_salary_insert
+AFTER INSERT ON employee2
+FOR EACH ROW
+WHEN (NEW.salary > 10000)
+BEGIN
+    INSERT INTO audit_log (username, access_time, action_type, accessed_col, accessed_data)
+    VALUES (USER, SYSDATE, 'INSERT', 'SALARY', :NEW.salary);
+END;
+/ 
+```
+
+> [!NOTE]- 검증(근데 시험에 dml이런거 안나온대서 보기만)
+>
+> ```SQL
+> -- 1. 고액 연봉자(12000) 추가 -> INSERT 트리거 작동
+> INSERT INTO employee2 VALUES (1006, '조세호', '총무팀', 12000, '950606-6789012', 'EMP_1006');
+> COMMIT; 
+> 
+> -- 2. 급여 인상 (9000 -> 16000) -> UPDATE 트리거 작동
+> -- (주의: emp_id=1001 등 기존 데이터에 맞게 수정 필요)
+> UPDATE employee2 SET salary = 16000 WHERE emp_id = 1001; 
+> COMMIT; 
+> -- 3. 주민번호 변경 시도 -> SSN UPDATE 트리거 작동
+> UPDATE employee2 SET ssn = '900101-9999999' WHERE emp_id = 1001;
+> COMMIT; 
+> -- 4. 직원 삭제 -> SSN DELETE 트리거 작동
+> DELETE FROM employee2 WHERE emp_id = 1003;
+> COMMIT; 
+> 
+> -- 5. 감사 로그 확인
+> SELECT * FROM audit_log ORDER BY log_id; 
+> ```
+---
 ## 3. 인덱스 (Index)
 
-### 핵심 개념:
-
-데이터 검색 속도를 높이기 위한 색인(찾아보기) 기능입니다. 하지만 보안 관점에서는 주의해서 사용해야 합니다.
-
+데이터 검색 속도를 높이기 위한 색인(찾아보기) 기능
+검색 기준 컬럼을 추출하여 **정렬된 상태로 별도의 파일**에 저장하고, 원본 데이터(튜플)를 찾아갈 수 있는 **링크**를 함께 저장함
 ### **민감 정보 인덱싱 금지:**
-- 인덱스는 별도의 파일로 저장되는데, 여기에 평문 데이터가 정렬되어 저장됩니다
-- 주민등록번호, 계좌번호 등 민감한 컬럼에 인덱스를 생성하면, 인덱스 파일 자체를 통해 데이터 유출 가능성이 있거나 검색 패턴으로 원본 데이터를 유추할 수 있습니다.
+- 인덱스는 별도의 파일로 저장되는데, 여기에 평문 데이터가 정렬되어 저장됩니다 민감한 컬럼이 인덱스 파일 자체나 정렬된 패턴을 역으로 분석하거나, 부분 문자열 검색, LIKE, 해시 공격 등에 노출
+- 인덱스 파일이 많으면 인덱스를 재정렬하는데 시간이 소모되어 DBMS의 성능을 저하시킬 수 있음
+- 인덱스 지정시 효과가 별로 없는 경우
+	- 테이블의 튜플의 수가 적은 경우
+```SQL
+-- [1] 일반 B-Tree 인덱스 (기본값)
+CREATE [UNIQUE] INDEX 인덱스명 ON 테이블명 (컬럼명 [DESC]);
+```
+
+- **`UNIQUE`:** 민증번호처럼 중복 값을 허용하지 않을때 사용. 생략 시 중복값이 저장되는걸 허용
+- (선택) **`DESC`:** 인덱스를 내림차순(큰->작은순)으로 생성, 기본값은 오름차순 ASC
 
 ### 보안을 고려한 인덱스 설계
 1. **함수 기반 인덱스 (Function-based Index):**
-    - 전체 데이터를 인덱싱하지 않고, 가공된 데이터만 인덱싱합니다.
+    - 원본 데이터를 인덱싱하지 않고, 가공후 인덱싱합니다.
     - 예: 주민번호 전체가 아닌, 생년월일(앞 6자리)로만 검색이 필요할 때.
-        
-    ```SQL
-    CREATE INDEX idx_user_birth 
-    ON userTBL( SUBSTR(ssn, 1, 6) ); 
-    ``` 
+	```SQL
+	-- 1. 주민번호 앞 6자리(생년월일)만 인덱싱 (전체 주민번호 노출 방지)
+	CREATE INDEX idx_cust_ssn_prefix
+	ON customer(SUBSTR(ssn, 1, 6)); 
+	
+	-- 2. 인덱스 활용 검색 테스트
+	-- (WHERE 절에 인덱스 생성 시 사용한 함수 그대로 사용)
+	SELECT * FROM customer
+	WHERE SUBSTR(ssn, 1, 6) = '900101'; 
+	```
     
 2. **부분 인덱스 (Partial Index):**
     - `WHERE` 조건을 주어 특정 데이터만 인덱싱하여 불필요한 데이터 노출을 최소화합니다.
+	```SQL
+	-- 전화번호가 존재하는 고객만 인덱싱
+	CREATE INDEX idx_cust_phone_valid
+	ON customer(phone)
+	WHERE phone IS NOT NULL; 
+	```
+3. 리버스 키 인덱스
+	- 키 값을 역순으로 저장하여 공격자가 다음 Id 예측하는걸 막음
+	-  리버스 인덱스: 1001(1001), 2001(1002), 3001(1003) 처럼 분산 저장됨 (패턴 숨김)
+```SQL
+-- 리버스 키 인덱스 생성
+-- (키 값이 1003 -> 3001로 저장, 연속된 값의 물리적 위치를 섞음)
+CREATE INDEX idx_cust_id_reverse
+ON customer(cust_id) REVERSE; 
+```
 
 ### **📝 핵심 요약:**
 
 - "보안을 위해 **민감한 컬럼(SSN 등)에는 직접 인덱스를 생성하지 않는다**."
 - "필요하다면 암호화된 컬럼이나 일부만 추출한 함수 기반 인덱스를 사용한다."
 -------
-## 💡 교수님 출제 예상 포인트 (Chapter 7)
-
-1. **트리거 구현:** "테이블 데이터가 삭제될 때, 삭제된 데이터를 백업 테이블에 저장하는 트리거를 작성하시오." (`:OLD` 변수 활용 능력 평가)
-2. **뷰의 목적:** "뷰(View)를 사용하는 보안상의 이점 2가지를 서술하시오." (데이터 마스킹, 접근 제어 단순화)
-3. **보안 코딩:** "주민등록번호 뒷자리를 마스킹('*') 처리하여 보여주는 뷰를 생성하시오." (`SUBSTR` 등의 함수 활용)
-4. **인덱스와 보안:** "민감한 데이터 컬럼에 인덱스를 생성할 때의 보안 위협과 해결 방안(함수 기반 인덱스)을 설명하시오."
-    
 # 📚 Chapter 8. DB 보안 관리 실무 심층 분석
 
 ## 1. 사용자 계정 관리 (User Account)
