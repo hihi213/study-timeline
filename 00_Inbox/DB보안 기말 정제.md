@@ -4,6 +4,73 @@ status: inbox
 source:
 creation_date: 2025-12-08
 ---
+> [!NOTE]- [시험범위]
+>
+> 7장 트리거/뷰/index : 개념 및 실습  
+> 8장 DB관리보안실무(권한계정역할): 개념 및 실습  
+> 9장 감사AUDIT/데이터암호화: 개념 및 실습  
+> 10장 보안 총 실습문제(7~9장 실습내용정리)  
+> - 사용자 계정 생성/권한부여및회수/ROLE 생성  
+> - 비밀번호 정책 적용, 계정 잠금 확인, 특정 컬럼만 보이게 제한
+> - 민감 데이터 마스킹, 감사(AUDIT)  
+> 11장 DB설계(데이터모델링:요구분석, 물리설계(정보공학적표기/테이블명세서)) 11장은 한문제: 물리설계
+> 
+> * 10문제 내외  
+> * 단답형, 서술형
+> 
+> ### 📚 시험 범위 및 내용
+>
+> **1. 7장: 고급 DB 오브젝트 (트리거, 뷰, 인덱스)**
+>
+> - **범위:** 중간고사 이후 부분인 **트리거(Trigger), 뷰(View), 인덱스(Index)**
+> - **내용:** 개념 및 실습 내용 전체
+>     
+> 
+> **2. 8장: DB 보안 관리 실무**
+>
+> - **내용:** 사용자 계정 생성, 권한 부여(**GRANT**), 권한 회수(**REVOKE**), 롤(**ROLE**) 생성 및 설정
+> - **형식:** 개념 및 실습
+>     
+> 
+> **3. 9장: 감사(Audit) 및 데이터 암호화**
+>
+> - **감사(Audit):** 실습 내용 포함
+> - **데이터 암호화:** 실습 환경 문제로 **개념 위주** 출제 (빈칸 채우기 등)
+>     
+> 
+> **4. 10장: 실습 총정리 (복습 챕터)**
+>
+> - 7~9장 실습 내용의 종합 (사용자 계정 설정, 비밀번호 정책, 계정 잠금/해제, 뷰/인덱스를 활용한 데이터 마스킹 등)
+>     
+> 
+> **5. 11장: 데이터 모델링 (DB 설계)**
+>
+> - **유형:** 요구사항(시나리오)을 주면 그에 맞는 **테이블 설계** 하기
+> - **핵심:**
+>     - 테이블 명, 필드(열) 이름, 데이터 타입(숫자/문자 등), **Primary Key(PK)** 표시
+>     - **물리적 설계(테이블 명세서)** 작성 능력 평가 (정보공학적 표기법, 네모난 박스로 표현하는 방식)
+>     - _정정 사항:_ 논리적 설계 과정은 생략하고 **물리적 설계(테이블 명세서)** 위주로 출제됨.
+>         
+> 
+> ### 🚫 시험 제외 대상
+>
+> - **12장 (DB 연동/Java):** 프로젝트 과제로 대체하므로 시험 범위 제외 (Insert, Update 등 자바 코딩 X)
+> - **DDL 작성:** `CREATE TABLE` 같은 SQL 문장 작성 문제는 출제되지 않음 (설계 그림/명세서 작성까지만).
+>     
+> 
+> ### 📝 시험 형식
+>
+> - **문항 수:** 약 10문제 내외 (각 문제별 서브 문제 있음)
+> - **유형:** 단답형, 서술형, 공란 채우기 (중간고사와 유사한 패턴)
+> - **특이사항:** 필요한 키워드는 일부 제공될 수 있음.
+>     
+> 
+> ### 💡 교수님 팁
+>
+> - 실습을 잘 수행했고 기본 개념을 알고 있다면 어렵지 않음.
+> - **DB 설계 문제(11장)**가 서브 문제로 확장되어 나올 가능성이 높음.
+
+
 # 📘 Chapter 7: 고급 DB 오브젝트 심층 탐구 — 실습 모음
 
 ## 7-1) 트리거(Trigger) 실습: UPDATE/DELETE 로그 기록(백업 테이블)
@@ -375,8 +442,8 @@ DROP PROFILE prof_resource CASCADE;
 ## 8-4) 권한(Privilege) 부여/회수 실습: 시스템 권한 + 오브젝트 권한
 [주의]
 - 문법은 “시스템 권한”과 “오브젝트 권한”이 다르게 사용됨
-  - 시스템 권한: GRANT 권한 TO 관리자명
-  - 오브젝트 권한: GRANT 권한 ON 객체 TO 사용자명
+  - GRANT 시스템권한 TO 유저명
+  - GRANT 오브젝트권한 ON 객체 TO 유저명
 ### (1) 시스템 권한: 접속 권한/테이블 생성 권한
 ```sql
 -- 관리자 접속
@@ -667,112 +734,6 @@ SELECT * FROM secure_table_v;     -- 자동 복호화된 ssn 확인
 # 📚 Chapter 10: DB 보안 종합 실습 분석 — “문제형 실습 SQL” 정리
 Oracle SQL의 보안, 권한 관리(DCL), 뷰(View) 및 감사(Audit)와 관련된 실습 문제와 정답입니다. 각 항목의 정답은 접혀있는 영역(Callout)을 클릭하여 확인할 수 있습니다.
 
----
-
-### 10-1. 사용자 계정 생성 및 접속 권한 부여
-
-> [!note]- 비밀번호가 `stud1234`인 사용자 `student01`을 생성하고, 데이터베이스에 접속할 수 있는 기본 권한을 부여하시오.
-> ```SQL
-> CREATE USER student01 IDENTIFIED BY stud1234;
-> GRANT CONNECT TO student01;
-> ```
-
-### 10-2. 객체 권한 부여 및 회수
-
-
-
-> [!note]- `student01` 사용자에게 `hr`의 `employees` 테이블을 조회할 수 있는 권한을 부여한 뒤, 즉시 해당 권한을 다시 회수하시오.
-> ```SQL
-> -- 권한 부여
-> GRANT SELECT ON hr.employees TO student01;
-> -- 권한 회수
-> REVOKE SELECT ON hr.employees FROM student01;
-> ```
-
-### 10-3. ROLE(롤) 생성 및 부여
-
-> [!note]- **테이블 생성** 권한과 **모든 테이블 조회** 권한을 담은 `data_user`라는 이름의 롤(Role)을 생성하고, `student01` 사용자에게 해당 롤을 부여하시오.
-> ```SQL
-> -- 롤 생성
-> CREATE ROLE data_user;
-> -- 롤에 권한 추가
-> GRANT CREATE TABLE, SELECT ANY TABLE TO data_user;
-> -- 사용자에게 롤 부여
-> GRANT data_user TO student01;
-> ```
-
-### 10-4. 패스워드 정책(Profile) 생성 및 적용
-
-
-
-> [!note]- 로그인 실패 허용 횟수를 3회로 제한하는 프로파일 `secure_prof`를 생성하고, 이를 `student01` 사용자에게 적용하시오.
-> ```SQL
-> -- 프로파일 생성
-> CREATE PROFILE secure_prof LIMIT
->     FAILED_LOGIN_ATTEMPTS 3;
-> 
-> -- 사용자에게 프로파일 적용
-> ALTER USER student01 PROFILE secure_prof;
-> ```
-
-### 10-5. 계정 잠금 해제
-
-
-
-> [!note]- 잠겨 있는 `student01` 계정의 상태를 잠금 해제로 변경하시오.
-> ```SQL
-> ALTER USER student01 ACCOUNT UNLOCK;
-> ```
-
-### 10-6. 특정 컬럼 제한 뷰(View) 생성 및 권한 부여
-
-> [!note]- `employees` 테이블에서 `ename`과 `job` 컬럼만 볼 수 있는 뷰 `emp_view`를 생성하고, `student01`에게 해당 뷰를 조회할 수 있는 권한을 부여하시오.
-> ```SQL
-> -- 뷰 생성
-> CREATE OR REPLACE VIEW emp_view AS
-> SELECT ename, job FROM employees;
-> 
-> -- 뷰 조회 권한 부여
-> GRANT SELECT ON emp_view TO student01;
-> ```
-
-### 10-7. 데이터 마스킹 뷰 생성
-
-
-
-> [!note]- 주민번호(ssn) 뒷자리를 마스킹 처리한 뷰(person_masked) 생성
-> ```SQL
-> CREATE VIEW person_masked AS
-> SELECT name,
->        SUBSTR(ssn, 1, 6) || '-*******' AS ssn_masked
-> FROM person;
-> ```
-
-### 10-8. 데이터베이스 감사(Audit) 설정 및 확인
-
-**문제:** `employees` 테이블에 대해 `SELECT` 작업이 발생할 때마다 접속 건별(`BY ACCESS`)로 감사를 수행하도록 설정하고, 감사 기록(Audit Trail)을 확인하는 쿼리를 작성하시오.
-
-> [!note]- `employees` 테이블에 대해 조회가 발생할 때마다 **접속 건별**로 감사를 수행하도록 설정하고, 감사 로그가 저장되는 뷰를 조회하시오.
-> ```SQL
-> -- 감사 설정
-> AUDIT SELECT ON employees BY ACCESS;
-> 
-> -- 감사 로그 확인
-> SELECT * FROM DBA_AUDIT_TRAIL;
-> ```
-
-### 10-9. 데이터 암호화 핵심 요소
-
-**문제:** Oracle 내에서 컬럼 단위 암호화를 수행할 때 주로 사용되는 **알고리즘**, **데이터 타입**, **패키지** 명을 서술하시오.
-
-> [!note]- 정답 확인
->
-> - **알고리즘:** AES256 (Advanced Encryption Standard 256bit)
->     
-> - **데이터 타입:** RAW (이진 데이터 저장을 위함)
->     
-> - **사용 패키지:** DBMS_CRYPTO
-
 
 ### 사용자 및 권한 관리
 
@@ -806,10 +767,10 @@ Oracle SQL의 보안, 권한 관리(DCL), 뷰(View) 및 감사(Audit)와 관련�
 > [!note]- 문제 4: 로그인 실패 3회 시 계정 잠금 프로파일(secure_prof) 생성 및 student01 적용
 > ```SQL
 > -- 프로파일 생성
-> CREATE PROFILE secure_prof LIMIT
+> CREATE PROFILE 프로파일명 LIMIT
 > 	FAILED_LOGIN_ATTEMPTS 3;
 > -- 사용자에게 프로파일 적용
-> ALTER USER student01 PROFILE secure_prof;
+> ALTER USER 유저명 PROFILE 프로파일명;
 > ```
 
 > [!note]- 문제 5: 잠겨있는 student01 계정을 관리자 권한으로 잠금 해제
