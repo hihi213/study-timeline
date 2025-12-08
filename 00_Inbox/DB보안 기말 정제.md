@@ -4,12 +4,6 @@ status: inbox
 source:
 creation_date: 2025-12-08
 ---
-
-# ✅ 전체 실습 정리 (Part 1/?) — Chapter 7 중심
-- 목표: 하단 텍스트에 포함된 “실습”을 빠짐없이, 실행 흐름(사전작업 → 생성/설정 → 검증) 기준으로 재정리
-- 주의: 실습 중 등장한 “시험 포인트(빈칸/키워드)”는 그대로 강조 표시
-
-
 # 📘 Chapter 7: 고급 DB 오브젝트 심층 탐구 — 실습 모음
 
 ## 7-1) 트리거(Trigger) 실습: UPDATE/DELETE 로그 기록(백업 테이블)
@@ -551,9 +545,9 @@ CREATE TABLE secure_table (
     name VARCHAR2(50),
     ssn_raw RAW(2000)          -- ★ 정답: RAW
 );
-
-
+```
 ### (2) 암호화 함수 encrypt_aes 생성
+```sql
 CREATE OR REPLACE FUNCTION encrypt_aes(p_plain IN VARCHAR2) RETURN RAW IS
     l_key RAW(32) := UTL_RAW.cast_to_raw('01234567890123456789012345678901');
 BEGIN
@@ -587,13 +581,12 @@ BEGIN
     );
 END;
 /
-
+```
 [시험 포인트(빈칸)]
 - 데이터 타입: RAW
 - 패키지: DBMS_CRYPTO
-
-
 ### (4) INSERT/UPDATE/조회 테스트
+```sql
 -- INSERT(암호화 저장)
 INSERT INTO secure_table (id, name, ssn_raw)
 VALUES (1, '홍길동', encrypt_aes('900101-1234567'));
@@ -614,8 +607,6 @@ SELECT id, name, ssn_raw FROM secure_table;
 -- 복호화 조회
 SELECT id, name, decrypt_aes(ssn_raw) AS ssn_decrypted
 FROM secure_table;
-
-
 ```
 ## 9-3) [응용/개념] 트리거+뷰로 “자동 암호화/자동 복호화” 구조 (실습 난항 파트)
 [핵심 구조]
@@ -623,17 +614,18 @@ FROM secure_table;
 - trg_encrypt_ssn: BEFORE INSERT/UPDATE 시 encrypt_aes 결과를 RAWTOHEX로 변환해 저장
 - decrypt_aes_hex: HEX → RAW(HEXTORAW) → decrypt_aes
 - secure_table_v: 조회 시 자동 복호화된 결과 제공
-```sql
+
 
 ### (1) 자동화용 테이블
+```sql
 CREATE TABLE secure_table2 (
     id NUMBER PRIMARY KEY,
     name VARCHAR2(50),
     ssn_raw VARCHAR2(2000)  -- RAW를 HEX 문자열로 저장하기 위해 VARCHAR2
 );
-
-
+```
 ### (2) 자동 암호화 트리거 trg_encrypt_ssn
+```sql
 CREATE OR REPLACE TRIGGER trg_encrypt_ssn
 BEFORE INSERT OR UPDATE ON secure_table2
 FOR EACH ROW
@@ -643,9 +635,9 @@ BEGIN
     END IF;
 END;
 /
-
-
+```
 ### (3) HEX 복호화 래퍼 함수 decrypt_aes_hex
+```sql
 CREATE OR REPLACE FUNCTION decrypt_aes_hex(p_hex IN VARCHAR2) RETURN VARCHAR2 IS
 BEGIN
     IF p_hex IS NULL THEN
@@ -655,15 +647,15 @@ BEGIN
     RETURN decrypt_aes(HEXTORAW(p_hex));   -- HEX → RAW → 복호화
 END;
 /
-
-
+```
 ### (4) 자동 복호화 뷰 secure_table_v
+```sql
 CREATE OR REPLACE VIEW secure_table_v AS
 SELECT id, name, decrypt_aes_hex(ssn_raw) AS ssn
 FROM secure_table2;
-
-
+```
 ### (5) 테스트
+```sql
 INSERT INTO secure_table2 (id, name, ssn_raw)
 VALUES (1, '홍길동', '900101-1234567');
 COMMIT;
@@ -673,61 +665,198 @@ SELECT * FROM secure_table_v;     -- 자동 복호화된 ssn 확인
 ```
 
 # 📚 Chapter 10: DB 보안 종합 실습 분석 — “문제형 실습 SQL” 정리
+Oracle SQL의 보안, 권한 관리(DCL), 뷰(View) 및 감사(Audit)와 관련된 실습 문제와 정답입니다. 각 항목의 정답은 접혀있는 영역(Callout)을 클릭하여 확인할 수 있습니다.
+
+---
+
+### 10-1. 사용자 계정 생성 및 접속 권한 부여
+
+> [!note]- 비밀번호가 `stud1234`인 사용자 `student01`을 생성하고, 데이터베이스에 접속할 수 있는 기본 권한을 부여하시오.
+> ```SQL
+> CREATE USER student01 IDENTIFIED BY stud1234;
+> GRANT CONNECT TO student01;
+> ```
+
+### 10-2. 객체 권한 부여 및 회수
 
 
-## 10-1) 문제 1: 사용자 계정 생성 + CONNECT만 부여
-```sql
-CREATE USER student01 IDENTIFIED BY stud1234;
-GRANT CONNECT TO student01;
-```
-## 10-2) 문제 2: 테이블 SELECT 권한 부여 후 회수
-```sql
-GRANT SELECT ON hr.employees TO student01;
-REVOKE SELECT ON hr.employees FROM student01;
-```
-## 10-3) 문제 3: ROLE 생성 → 권한 담기 → 사용자에게 부여
-```Java
-CREATE ROLE data_user;
-GRANT CREATE TABLE, SELECT ANY TABLE TO data_user;
-GRANT data_user TO student01;
-```
-## 10-4) 문제 4: 로그인 3회 실패 시 잠금 Profile 생성 + 적용
-```sql
-CREATE PROFILE secure_prof LIMIT
-    FAILED_LOGIN_ATTEMPTS 3;
 
-ALTER USER student01 PROFILE secure_prof;
-```
-## 10-5) 문제 5: 계정 잠금 해제
-```sql
-ALTER USER student01 ACCOUNT UNLOCK;
-```
-## 10-6) 문제 6: 특정 컬럼만 보이는 뷰 + 조회 권한 부여
-```sql
-CREATE OR REPLACE VIEW emp_view AS
-SELECT ename, job FROM employees;
+> [!note]- `student01` 사용자에게 `hr`의 `employees` 테이블을 조회할 수 있는 권한을 부여한 뒤, 즉시 해당 권한을 다시 회수하시오.
+> ```SQL
+> -- 권한 부여
+> GRANT SELECT ON hr.employees TO student01;
+> -- 권한 회수
+> REVOKE SELECT ON hr.employees FROM student01;
+> ```
 
-GRANT SELECT ON emp_view TO student01;
-```
-## 10-7) 문제 7: 주민번호 마스킹 뷰(SUBSTR + ||)
-```sql
-CREATE VIEW person_masked AS
-SELECT name,
-       SUBSTR(ssn, 1, 6) || '-*******' AS ssn_masked
-FROM person;
-```
-## 10-8) 문제 8: SELECT 발생 시마다 감사(AUDIT BY ACCESS) + 로그 확인
-```sql
-AUDIT SELECT ON employees BY ACCESS;
-SELECT * FROM DBA_AUDIT_TRAIL;
-```
+### 10-3. ROLE(롤) 생성 및 부여
+
+> [!note]- **테이블 생성** 권한과 **모든 테이블 조회** 권한을 담은 `data_user`라는 이름의 롤(Role)을 생성하고, `student01` 사용자에게 해당 롤을 부여하시오.
+> ```SQL
+> -- 롤 생성
+> CREATE ROLE data_user;
+> -- 롤에 권한 추가
+> GRANT CREATE TABLE, SELECT ANY TABLE TO data_user;
+> -- 사용자에게 롤 부여
+> GRANT data_user TO student01;
+> ```
+
+### 10-4. 패스워드 정책(Profile) 생성 및 적용
+
+
+
+> [!note]- 로그인 실패 허용 횟수를 3회로 제한하는 프로파일 `secure_prof`를 생성하고, 이를 `student01` 사용자에게 적용하시오.
+> ```SQL
+> -- 프로파일 생성
+> CREATE PROFILE secure_prof LIMIT
+>     FAILED_LOGIN_ATTEMPTS 3;
+> 
+> -- 사용자에게 프로파일 적용
+> ALTER USER student01 PROFILE secure_prof;
+> ```
+
+### 10-5. 계정 잠금 해제
+
+
+
+> [!note]- 잠겨 있는 `student01` 계정의 상태를 잠금 해제로 변경하시오.
+> ```SQL
+> ALTER USER student01 ACCOUNT UNLOCK;
+> ```
+
+### 10-6. 특정 컬럼 제한 뷰(View) 생성 및 권한 부여
+
+> [!note]- `employees` 테이블에서 `ename`과 `job` 컬럼만 볼 수 있는 뷰 `emp_view`를 생성하고, `student01`에게 해당 뷰를 조회할 수 있는 권한을 부여하시오.
+> ```SQL
+> -- 뷰 생성
+> CREATE OR REPLACE VIEW emp_view AS
+> SELECT ename, job FROM employees;
+> 
+> -- 뷰 조회 권한 부여
+> GRANT SELECT ON emp_view TO student01;
+> ```
+
+### 10-7. 데이터 마스킹 뷰 생성
+
+
+
+> [!note]- 주민번호(ssn) 뒷자리를 마스킹 처리한 뷰(person_masked) 생성
+> ```SQL
+> CREATE VIEW person_masked AS
+> SELECT name,
+>        SUBSTR(ssn, 1, 6) || '-*******' AS ssn_masked
+> FROM person;
+> ```
+
+### 10-8. 데이터베이스 감사(Audit) 설정 및 확인
+
+**문제:** `employees` 테이블에 대해 `SELECT` 작업이 발생할 때마다 접속 건별(`BY ACCESS`)로 감사를 수행하도록 설정하고, 감사 기록(Audit Trail)을 확인하는 쿼리를 작성하시오.
+
+> [!note]- `employees` 테이블에 대해 조회가 발생할 때마다 **접속 건별**로 감사를 수행하도록 설정하고, 감사 로그가 저장되는 뷰를 조회하시오.
+> ```SQL
+> -- 감사 설정
+> AUDIT SELECT ON employees BY ACCESS;
+> 
+> -- 감사 로그 확인
+> SELECT * FROM DBA_AUDIT_TRAIL;
+> ```
+
+### 10-9. 데이터 암호화 핵심 요소
+
+**문제:** Oracle 내에서 컬럼 단위 암호화를 수행할 때 주로 사용되는 **알고리즘**, **데이터 타입**, **패키지** 명을 서술하시오.
+
+> [!note]- 정답 확인
+>
+> - **알고리즘:** AES256 (Advanced Encryption Standard 256bit)
+>     
+> - **데이터 타입:** RAW (이진 데이터 저장을 위함)
+>     
+> - **사용 패키지:** DBMS_CRYPTO
+
+
+### 사용자 및 권한 관리
+
+> [!note]- 문제 1: 비밀번호가 stud1234인 사용자 student01 생성 및 기본 접속 권한 부여
+> ```SQL
+> -- 사용자 생성
+> CREATE USER student01 IDENTIFIED BY stud1234;
+> -- 접속 권한 부여
+> GRANT CONNECT TO student01;
+> ```
+
+> [!note]- 문제 2: student01 계정에 employees 테이블 조회 권한 부여 후 즉시 회수
+> ```SQL
+> -- 권한 부여
+> GRANT SELECT ON employees TO student01;
+> -- 권한 회수
+> REVOKE SELECT ON employees FROM student01;
+> ```
+
+> [!note]- 문제 3: 테이블 생성 및 조회 권한을 포함한 data_user 롤(Role) 생성 후 student01에게 부여
+> ```SQL
+> -- 롤 생성
+> CREATE ROLE data_user;
+> -- 롤에 권한 추가 (테이블 생성 및 모든 테이블 조회 예시)
+> GRANT CREATE TABLE, SELECT ANY TABLE TO data_user;
+> -- 사용자에게 롤 부여
+> GRANT data_user TO student01;
+> ```
+### 비밀번호 및 계정 정책
+
+> [!note]- 문제 4: 로그인 실패 3회 시 계정 잠금 프로파일(secure_prof) 생성 및 student01 적용
+> ```SQL
+> -- 프로파일 생성
+> CREATE PROFILE secure_prof LIMIT
+> 	FAILED_LOGIN_ATTEMPTS 3;
+> -- 사용자에게 프로파일 적용
+> ALTER USER student01 PROFILE secure_prof;
+> ```
+
+> [!note]- 문제 5: 잠겨있는 student01 계정을 관리자 권한으로 잠금 해제
+> ```SQL
+> -- (참고) 계정 잠금 확인 쿼리
+> SELECT username, account_status FROM dba_users WHERE username = 'STUDENT01';
+> -- 계정 잠금 해제
+> ALTER USER student01 ACCOUNT UNLOCK;
+> ```
+### 객체 보안 (Object Security)
+
+> [!note]- 문제 6: employees 테이블의 ename, job 컬럼만 조회하는 뷰(emp_view) 생성 및 권한 부여
+> ```SQL
+> -- 뷰 생성
+> CREATE OR REPLACE VIEW emp_view AS
+> SELECT ename, job FROM employees;
+> -- 뷰 조회 권한 부여
+> GRANT SELECT ON emp_view TO student01;
+> ```
+
+
+> [!note]- 문제 7: 주민번호(ssn) 뒷자리를 마스킹 처리한 뷰(person_masked) 생성
+> ```SQL
+> -- (선행) 실습용 테이블 생성이 필요한 경우
+> -- CREATE TABLE person (name VARCHAR2(20), ssn VARCHAR2(14));
+> -- 마스킹 뷰 생성
+> CREATE OR REPLACE VIEW person_masked AS
+> SELECT name, SUBSTR(ssn, 1, 6) || '-*******' AS ssn_masked
+> FROM person;
+> ```
+### 감사 (Auditing)
+
+> [!note]- 문제 8: employees 테이블 SELECT 실행 시 접속 건별 감사 설정 및 로그 조회
+> ```SQL
+> -- 감사 설정 (접속 건별)
+> AUDIT SELECT ON employees BY ACCESS;
+> -- 감사 로그 조회
+> SELECT * FROM DBA_AUDIT_TRAIL
+> WHERE obj_name = 'EMPLOYEES'
+> ORDER BY timestamp DESC;
+> ```
+---
+
 ## 10-9) 문제 9: 암호화(개념 키워드만)
 - 알고리즘: AES256
 - 데이터 타입: RAW
 - 패키지: DBMS_CRYPTO
-
-
-
 
 
 # ✅ 전체 실습 정리 (Part 3/?) — “실습”의 누락 방지용 최종 점검 + 출제형 빈칸/키워드 모음
