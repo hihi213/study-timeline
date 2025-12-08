@@ -1007,7 +1007,11 @@ ORDER BY timestamp DESC;
 -- 4. 감사 해제 (Cleanup)
 NOAUDIT SESSION;
 NOAUDIT SELECT ON HR.EMPLOYEES;
-``````
+```
+
+- 명령어: `AUDIT` (설정), `NOAUDIT` (해제).
+- 뷰: **`DBA_AUDIT_TRAIL`** (로그 확인 장소, 필수 암기).
+- 옵션: `WHENEVER NOT SUCCESSFUL` (실패 시에만 기록).
 ## 2. 데이터 암호화 (Data Encryption)
 
 핵심 개념:
@@ -1028,28 +1032,193 @@ NOAUDIT SELECT ON HR.EMPLOYEES;
     
     - 함수: `DBMS_CRYPTO.DECRYPT`
     - **중요:** 암호화할 때 쓴 **키(Key)**와 똑같은 키를 써야 풀립니다 (대칭키 특징) .
+---
+---
+### 1. [필수] 기본: AES256 함수 기반 암호화/복호화 (실습 성공 부분)
 
+**1) 테이블 생성**
+
+암호화된 데이터를 저장하기 위해 적절한 데이터 타입을 지정해야 합니다.
 
 ```SQL
--- 1. 테이블 생성 (암호화된 주민번호는 RAW 타입으로 저장)
-CREATE TABLE secure_member (
-    id NUMBER,
+-- system 계정 접속 후 실행
+CREATE TABLE secure_table (
+    id NUMBER PRIMARY KEY,
     name VARCHAR2(50),
-    ssn_encrypted RAW(2000)  -- 암호화 데이터 저장 공간
+    ssn_raw (    ①    )(2000) -- 암호화된 데이터를 이진(Binary) 형태로 저장
 );
-
--- 2. 암호화 트리거 (개념적 흐름)
-CREATE OR REPLACE TRIGGER trg_encrypt_ssn
-BEFORE INSERT ON secure_member
-FOR EACH ROW
-BEGIN
-    -- 사용자가 입력한 평문 SSN을 암호화 함수를 통해 변환하여 저장
-    :NEW.ssn_encrypted := my_encrypt_func(:NEW.ssn_encrypted); 
-END;
 ```
 
----
+> 정답 ① : RAW
+>
+> (암호화된 데이터는 문자열이 아닌 바이너리 형태이므로 RAW 타입을 사용합니다.)
 
+**2) 암호화 함수 생성 (`encrypt_aes`)**
+
+오라클 내장 패키지를 사용하여 평문을 암호화합니다. 이 패키지 이름은 시험에 나올 확률이 매우 높습니다.
+
+```SQL
+CREATE OR REPLACE FUNCTION encrypt_aes(p_plain IN VARCHAR2) RETURN (    ①    ) IS
+    -- 32바이트(256비트) 키 설정
+    l_key (    ①    )(32) := UTL_RAW.cast_to_raw('01234567890123456789012345678901');
+BEGIN
+    IF p_plain IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN (    ②    ).encrypt(
+        src => UTL_RAW.cast_to_raw(p_plain),
+        typ => (    ②    ).encrypt_aes256 + (    ②    ).chain_cbc + (    ②    ).pad_pkcs5,
+        key => l_key
+    );
+END;
+/
+```
+
+> 정답 ① : RAW
+>
+> 정답 ② : DBMS_CRYPTO
+>
+> (오라클에서 암호화/복호화를 수행하는 핵심 내장 패키지 이름입니다.)
+
+**3) 복호화 함수 생성 (`decrypt_aes`)**
+
+암호화된 데이터를 다시 평문으로 복원합니다.
+
+```SQL
+CREATE OR REPLACE FUNCTION decrypt_aes(p_raw IN (    ①    )) RETURN VARCHAR2 IS
+    -- 암호화와 동일한 키 사용
+    l_key (    ①    )(32) := UTL_RAW.cast_to_raw('01234567890123456789012345678901');
+BEGIN
+    IF p_raw IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN UTL_RAW.cast_to_varchar2(
+        (    ②    ).decrypt(
+            src => p_raw,
+            typ => (    ②    ).encrypt_aes256 + (    ②    ).chain_cbc + (    ②    ).pad_pkcs5,
+            key => l_key
+        )
+    );
+END;
+/
+```
+
+> 정답 ① : RAW
+>
+> 정답 ② : DBMS_CRYPTO
+
+**4) 데이터 삽입 및 조회 테스트**
+
+```SQL
+-- 1. 데이터 삽입 (암호화 함수 사용)
+INSERT INTO secure_table (id, name, ssn_raw)
+VALUES (1, '홍길동', encrypt_aes('900101-1234567'));
+
+INSERT INTO secure_table (id, name, ssn_raw)
+VALUES (2, '김철수', encrypt_aes('850505-7654321'));
+COMMIT;
+
+-- 2. 데이터 수정 (암호화 함수 사용)
+UPDATE secure_table
+SET ssn_raw = encrypt_aes('900101-9999999')
+WHERE id = 1;
+COMMIT;
+
+-- 3. 암호화된 상태 그대로 조회 (사람이 읽을 수 없음)
+SELECT id, name, ssn_raw FROM secure_table;
+
+-- 4. 복호화 함수를 사용하여 원본 조회
+SELECT id, name, decrypt_aes(ssn_raw) AS ssn_decrypted
+FROM secure_table;
+```
+
+### 2. [응용] 트리거와 뷰를 이용한 자동화 (개념 위주)
+
+실습이 원활하지 않았던 부분이지만, **자동화 구조(트리거, 뷰)**의 핵심 객체 이름은 시험에 출제될 수 있습니다.
+
+**1) 자동화용 테이블 생성**
+
+```SQL
+CREATE TABLE secure_table2 (
+    id NUMBER PRIMARY KEY,
+    name VARCHAR2(50),
+    ssn_raw VARCHAR2(2000) -- RAW 값을 HEX 문자열로 변환해 저장하기 위해 VARCHAR2 사용
+);
+```
+
+**2) 자동 암호화 트리거 생성 (`trg_encrypt_ssn`)**
+
+데이터가 들어오기 직전에 암호화를 수행합니다.
+
+```SQL
+CREATE OR REPLACE (    ③    ) trg_encrypt_ssn
+(    ④    ) INSERT OR UPDATE ON secure_table2
+FOR EACH ROW
+BEGIN
+    IF :NEW.ssn_raw IS NOT NULL THEN
+        -- 입력받은 평문을 암호화 후, HEX 문자열로 변환하여 저장
+        :NEW.ssn_raw := (    ⑤    )(encrypt_aes(:NEW.ssn_raw));
+    END IF;
+END;
+/
+```
+
+> 정답 ③ : TRIGGER
+>
+> (INSERT, UPDATE 시 자동으로 동작하는 객체)
+>
+> 정답 ④ : BEFORE
+>
+> (데이터가 테이블에 저장되기 전에 암호화를 해야 하므로 BEFORE 시점 사용)
+>
+> 정답 ⑤ : RAWTOHEX
+>
+> (RAW 타입의 암호화 데이터를 VARCHAR2 컬럼에 저장하기 위해 16진수 문자열로 변환하는 함수)
+
+**3) HEX 복호화 래퍼(Wrapper) 함수 생성 (`decrypt_aes_hex`)**
+
+```SQL
+CREATE OR REPLACE FUNCTION decrypt_aes_hex(p_hex IN VARCHAR2) RETURN VARCHAR2 IS
+BEGIN
+    IF p_hex IS NULL THEN
+        RETURN NULL;
+    END IF;
+    -- HEX 문자열 -> RAW 변환 -> 복호화 수행
+    RETURN decrypt_aes(HEXTORAW(p_hex));
+END;
+/
+```
+
+**4) 자동 복호화 뷰(View) 생성 (`secure_table_v`)**
+
+조회 시 자동으로 복호화 함수를 태우는 가상 테이블을 생성합니다.
+
+```SQL
+CREATE OR REPLACE (    ⑥    ) secure_table_v AS
+SELECT id, name, decrypt_aes_hex(ssn_raw) AS ssn
+FROM secure_table2;
+```
+
+> 정답 ⑥ : VIEW
+>
+> (트리거는 SELECT를 처리할 수 없으므로, 조회 시 자동 복호화를 위해 만드는 객체)
+
+**5) 자동화 테스트**
+
+```SQL
+-- 1. 평문으로 INSERT (트리거가 작동하여 자동 암호화됨)
+INSERT INTO secure_table2 (id, name, ssn_raw)
+VALUES (1, '홍길동', '900101-1234567');
+COMMIT;
+
+-- 2. 실제 테이블 조회 (암호화된 16진수 문자열 확인)
+SELECT * FROM secure_table2;
+
+-- 3. 뷰를 통해 조회 (자동 복호화된 결과 확인)
+SELECT * FROM secure_table_v;
+```
 ## 💡 교수님 출제 예상 포인트 (Chapter 9)
 
 1. **감사 명령어:** "특정 테이블에 대한 `UPDATE` 명령이 **실패했을 때만** 로그를 남기는 `AUDIT` 명령어를 작성하시오."
@@ -1068,21 +1237,9 @@ END;
     
     - 정답: `RAW` (또는 `BLOB`)
         
-## 📝 기말고사 대비 요약 (Chapter 9)
 
-1. **감사(Audit):**
-    
-    - 명령어: `AUDIT` (설정), `NOAUDIT` (해제).
-    - 뷰: **`DBA_AUDIT_TRAIL`** (로그 확인 장소, 필수 암기).
-    - 옵션: `WHENEVER NOT SUCCESSFUL` (실패 시에만 기록).
-        
-2. **암호화(Encryption):**
-    
-    - 알고리즘: **AES256** (대칭키).
-    - 저장 타입: **`RAW`** (암호문은 바이너리 데이터).
-    - 패키지: `DBMS_CRYPTO` (암/복호화 수행).
-    - 전략: `Trigger`(자동 암호화) + `View`(자동 복호화).
-        
+ 
+
 
 # 📚 Chapter 10. DB 보안 종합 실습 분석
 
