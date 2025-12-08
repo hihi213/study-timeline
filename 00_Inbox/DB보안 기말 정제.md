@@ -70,7 +70,7 @@ creation_date: 2025-12-08
 > - 실습을 잘 수행했고 기본 개념을 알고 있다면 어렵지 않음.
 > - **DB 설계 문제(11장)**가 서브 문제로 확장되어 나올 가능성이 높음.
 
-
+[문법만 콜아웃](문법만%20콜아웃.md)
 # 📘 Chapter 7: 고급 DB 오브젝트 심층 탐구 — 실습 모음
 
 ## 7-1) 트리거(Trigger) 실습: UPDATE/DELETE 로그 기록(백업 테이블)
@@ -109,7 +109,7 @@ BEGIN
     ELSIF DELETING THEN
         v_modeType := '삭제';
     END IF;
-
+	
     INSERT INTO backup_userTBL (userID, userName, modType, modDate, modUser)
     VALUES (:OLD.userID, :OLD.userName, v_modeType, SYSDATE, USER);
 END;
@@ -824,111 +824,6 @@ Oracle SQL의 보안, 권한 관리(DCL), 뷰(View) 및 감사(Audit)와 관련�
 - 이번 파트는 새 실습을 추가하기보다,
   (1) 앞 파트(Chapter 7~10) 실습이 “빠짐없이” 들어갔는지 체크리스트로 재열거
   (2) 실습에서 반복 출제되는 ‘빈칸/키워드/한 줄 답’만 따로 모아줌
-
-
-# 0) 실습 누락 방지 체크리스트 (Chapter 7~10)
-
-
-## [Chapter 7] 고급 DB 오브젝트
-[트리거]
-- (7-1) UPDATE/DELETE 로그 트리거: UPDATING/DELETING로 모드 구분 + :OLD 값 백업 테이블 INSERT + USER 기록
-- (7-2) “수정 제한 트리거”: BEFORE UPDATE OR DELETE + IF USER <> :OLD.login_id THEN RAISE_APPLICATION_ERROR
-
-[뷰]
-- (7-2) 권한별 뷰 3개 생성
-   - vw_my_profile: WHERE login_id = USER
-   - vw_hr_view: SSN 제외 SELECT
-   - vw_admin_view: SELECT *
-
-[인덱스]
-- (7-3) 함수 기반 인덱스: SUBSTR(ssn,6) 인덱스 + 동일 WHERE 함수로 테스트
-- (7-3) 부분 인덱스: WHERE phone IS NOT NULL
-- (7-3) 리버스 키 인덱스: ON cust_id REVERSE
-
-[FGA 대체(트리거 기반 감사 로그)]
-- (7-4) audit_log_seq 생성
-- (7-4) audit_log 테이블 생성
-- (7-4) trg_audit_log_id: BEFORE INSERT ON audit_log → :NEW.log_id := seq.NEXTVAL
-- (7-4) SSN UPDATE 트리거: AFTER UPDATE OF ssn ON employee2
-- (7-4) SSN DELETE 트리거: BEFORE DELETE ON employee2
-- (7-4) SALARY UPDATE 트리거: WHEN (NEW.salary > 10000)
-- (7-4) SALARY INSERT 트리거: WHEN (NEW.salary > 10000)
-- (7-4) (선택 검증) INSERT/UPDATE/DELETE 후 SELECT * FROM audit_log ORDER BY log_id
-
-
-
-## [Chapter 8] 계정/프로파일/권한/롤
-[계정 생성]
-- SYSDBA 접속(CONN / AS SYSDBA) 후 CREATE USER + DEFAULT TABLESPACE
-- dba_users 조회로 확인
-
-[프로파일]
-- 비밀번호 프로파일(prof_passwd) 생성: FAILED_LOGIN_ATTEMPTS / PASSWORD_LOCK_TIME / PASSWORD_LIFE_TIME / PASSWORD_REUSE_TIME
-- 자원 제한 활성화: ALTER SYSTEM SET RESOURCE_LIMIT = true
-- 자원 프로파일(prof_resource) 생성: CPU_PER_SESSION / CONNECT_TIME / IDLE_TIME
-- 사용자에 프로파일 적용: ALTER USER 유저명 PROFILE 프로파일명
-- 잠금 해제: ALTER USER 유저명 ACCOUNT UNLOCK
-- 조회: SELECT username, profile FROM dba_users …
-- 삭제: DROP PROFILE … CASCADE
-
-[권한]
-- 시스템 권한 부여: GRANT CONNECT, CREATE TABLE …
-- HR 잠금 해제/비번 변경: ALTER USER hr ACCOUNT UNLOCK IDENTIFIED BY 1234
-- 시스템 권한 옵션: WITH ADMIN OPTION (연쇄회수 X)
-- 오브젝트 권한 부여(HR 소유): GRANT SELECT, INSERT ON EMPLOYEES TO salesman_1 등
-- 타 계정 테이블 조회: SELECT * FROM hr.DEPARTMENTS
-- ORA-01031 실습: UPDATE hr.DEPARTMENTS … → 권한 불충분 확인
-- REVOKE: REVOKE SELECT ON EMPLOYEES FROM salesman_1
-- WITH GRANT OPTION(연쇄회수 O) 개념 연결
-
-[롤]
-- CREATE ROLE team1
-- (HR) GRANT … ON hr.EMPLOYEES TO team1
-- (관리자) GRANT team1 TO user1,user2,user3,user4
-- 특정 사용자만 추가 권한: GRANT INSERT, UPDATE ON hr.DEPARTMENTS TO user1
-- 권한/롤 상태 확인: DBA_TAB_PRIVS / DBA_ROLE_PRIVS
-- DROP ROLE team1
-
-
-
-## [Chapter 9] 감사(Audit) + 암호화
-[Audit 실습]
-- SHOW PARAMETER AUDIT_TRAIL
-- ALTER SYSTEM SET AUDIT_TRAIL=DB,EXTENDED SCOPE=SPFILE
-- SHUTDOWN IMMEDIATE; STARTUP;
-- AUDIT SESSION WHENEVER NOT SUCCESSFUL
-- AUDIT SELECT ON HR.EMPLOYEES BY HR
-- (HR) SELECT로 행위 유발
-- DBA_AUDIT_TRAIL에서 로그 확인(컬럼 포함)
-- NOAUDIT SESSION / NOAUDIT SELECT ON HR.EMPLOYEES
-
-[암호화 실습(성공 파트)]
-- secure_table 생성: ssn_raw RAW(2000)
-- encrypt_aes 함수 생성: DBMS_CRYPTO.encrypt + AES256/CBC/PKCS5
-- decrypt_aes 함수 생성: DBMS_CRYPTO.decrypt + 동일 key
-- INSERT/UPDATE 시 encrypt_aes 사용 + COMMIT
-- SELECT ssn_raw(암호문) 확인
-- SELECT decrypt_aes(ssn_raw)로 평문 확인
-
-[암호화 자동화 구조(개념 파트)]
-- secure_table2: ssn_raw VARCHAR2(2000)
-- trg_encrypt_ssn: BEFORE INSERT OR UPDATE + :NEW.ssn_raw := RAWTOHEX(encrypt_aes(…))
-- decrypt_aes_hex: decrypt_aes(HEXTORAW(p_hex))
-- secure_table_v VIEW: decrypt_aes_hex(ssn_raw) AS ssn
-- INSERT(평문) → secure_table2(HEX 암호문) / secure_table_v(평문)
-
-
-
-## [Chapter 10] 종합 실습(문제형)
-- Q1 student01 생성 + GRANT CONNECT
-- Q2 GRANT SELECT ON hr.employees + REVOKE
-- Q3 CREATE ROLE data_user + GRANT 권한 to role + GRANT role to user
-- Q4 CREATE PROFILE secure_prof FAILED_LOGIN_ATTEMPTS 3 + ALTER USER … PROFILE …
-- Q5 ALTER USER … ACCOUNT UNLOCK
-- Q6 emp_view(ename,job) + GRANT SELECT ON emp_view
-- Q7 person_masked: SUBSTR(ssn,6) || '-*******'
-- Q8 AUDIT SELECT ON employees BY ACCESS + SELECT * FROM DBA_AUDIT_TRAIL
-- Q9 암호화 키워드: AES256 / RAW / DBMS_CRYPTO
 
 
 # 1) 출제형 “빈칸/키워드” 초압축 모음 (실습 기반)
