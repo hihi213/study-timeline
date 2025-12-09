@@ -46,16 +46,10 @@
     - 예: "엔제곱"→$O(N^2)$, "디피"→DP(Dynamic Programming), "다익스트라"→Dijkstra, "피에스"→PS(Problem Solving)
         
 3. 아래 순서로 **[Normalized Context]** 만을 참조하여 작성
-    
-    - **Phase 1**: 개요 + 오늘의 Topic 목록 + 전체 학습 흐름 요약
-    - **Phase 2**: **Topic/Problem 상세** (순서대로)
-        - 각 Problem/Concept 단계마다 ### 💡 Interview Q/A (면접 빈출/핵심) 생성
-        - ### Logic & Implementation을 실행 가능한 단위로 분석
-        - **Complexity Analysis**: 시간/공간 복잡도 분석 필수 포함
-        - #### **Edge Cases**: 경계값, 예외 상황 분석
-    - **Phase 2.5**: Residual이 있을 때만 출력
-    - Prof’s Comment는 있을 때만 출력
-        
+    - **Phase 1**: 개요
+    - **Phase 2**:
+        - ### 💡 Interview & PS 을 면접 빈출/핵심 우선으로 topic별로 최대 3개 생성
+    - **Phase 2.5**: 있을 때만 출력
 
 ---
 
@@ -66,13 +60,11 @@
 ```Markdown
 # 0. 수업 개요 - 알고리즘 ${Period}_${Date}
 
-### 이번교시 Flow Summary
-- Topic 1) (예: 스택/큐의 활용)
+### 이번교시 TOPIC Summary
+- Topic 1) (예: 스택)
 - Topic 2) (예: 백준 10828번 문제 풀이)
 - Topic 3) …
 
-### 오늘의 학습 연결고리 (Flow Summary)
-- (예: "선형 자료구조 개념 → 스택의 LIFO 특성 이해 → 괄호 문자열 문제로 응용 → 재귀함수와의 관계 확인")
 ```
 
 ---
@@ -80,88 +72,55 @@
 ### **[Phase 2: Topic & Problem Analysis]** **(Topic 1…N 반복)**
 
 
-
 ```Markdown
-## Topic N. {주제 또는 문제명} - 알고리즘 ${Period}_${Date}
-
-### Problem Definition & Constraints (문제 정의 및 제약조건)
-- **Input/Output**: (입력 형식 및 출력 요구사항)
-- **Constraints**: (N의 범위, 시간 제한, 메모리 제한 등)
-    - 예: $N \le 100,000$ 이므로 $O(N^2)$ 알고리즘 사용 불가
-
-### Concept (핵심 알고리즘/자료구조)
-- **(이 문제를 해결하기 위해 선택한 자료구조/알고리즘과 그 이유)**
-- (예: "가중치가 없는 최단거리이므로 **BFS** 사용", "부분 중복 문제가 발생하므로 **DP(Memoization)** 사용")
-
-### Logic & Implementation
-#### Approach (접근법 및 의사코드)
-1. (변수 초기화 및 입력 처리)
-2. (메인 로직 단계별 설명 - 의사코드 레벨)
-3. (종료 조건 및 결과 반환)
-
-#### Code
-- (강의에서 다룬 언어로 작성된 코드)
-
-#### Complexity Analysis (복잡도 분석)
-- **Time Complexity**: $O(…)$ - (이유: 이중 루프, 정렬 등)
-- **Space Complexity**: $O(…)$ - (이유: DP 테이블 크기, 재귀 스택 등)
-
-#### **Edge Cases & Pitfalls**
+## Topic N. {주제 또는 문제명} 
+### 1. 🏗️ 빌드업 (Why & Context)
+> 이 개념을 설명하기 위해 깔아놓은 배경과 문제 제기
+- **문제 제기/동기:** 
+  - (왜 이 개념이 필요한가? 어떤 문제를 해결하려고 하는가? 등 만일 강의 녹취록에 없다면 스스로 작성)
+- **핵심 아이디어의 단초:** 
+  - (교수님이 힌트로 던진 직관, "만약 데이터를 반으로 쪼갠다면?" 등 만일 강의 녹취록에 없다면 스스로 작성)
+### Concept 
+> "(그래서 결론(정의)이 무엇이고, 어떤 논리(원리)로 돌아가는가?)"
+- (정의, 논리/매커니즘, 장점, 한계 등 설명)
+- (주의사항/오개념 경계 강조할 필요가 있다면 설명)
+### Code 구현
+- (C언어로 작성된 실행단위 코드와 단계별 설명)
 - ⚠️ (놓치기 쉬운 경계값, 틀리기 쉬운 반례)
-- (예: $N=1$일 때, 입력이 비어있을 때, 자료형(int vs long) 오버플로우 주의)
 
 ### 💡 Interview & PS
-> [!faq]Q. (빈출 기술면접 질문 또는 꼬리질문)
-> **🗣️ 핵심 답변 (1~2문장)**
-> (면접관에게 설명하듯 두괄식 답변)
->
-> **📚 Deep Dive**
-> - **Why/How**: (선택한 자료구조가 최적인 이유)
-> - **Trade-off**: (시간 vs 공간 트레이드오프 설명)
+> [!faq]- Q. (빈출/핵심 질문)
+> > **🗣️ 핵심 답변 (1~2문장)**
+> > (면접관에게 말하듯이 두괄식으로 답변. 핵심 키워드 포함.)
+> >
+> > **📚 꼬리질문 대비**
+> > - 
+> > -
 ```
 
 ---
 
 ### **[Phase 2.5: Residuals]** (필요 시)
 
-
-
-```Markdown
+```markdown
 ## 기타 핵심 (Etc & Tips) - 알고리즘 ${Date}
-- Topic에 넣기 애매하지만 중요한 팁/문법/라이브러리 사용법
-- (예: Python `sys.stdin.readline` 필수 사용, C++ STL `priority_queue` 커스텀 정렬 등)
-
-### Prof’s Comment
-> "(강의 강조 멘트/시험 힌트/코테 팁)"
-```
+- (Topic에 넣기 애매하지만 중요한)
+````
 
 ---
-
 # **[MODE A: FINAL] (!최종)**
 
 ## **Action Rules**
 
-1. 같은 ${Date}의 모든 교시를 바탕으로 최종 요약 생성
-2. **Logic Flow 요약 + 핵심 패턴(Template) + 필수 암기 사항**만 간결하게
-    
+1. 같은 ${Date}의 모든 교시를 바탕으로 종합한 최종 요약 생성
 
 ## **Output Template**
-
-Markdown
 
 ```Markdown
 ## 최종 요약 - 알고리즘 ${Date}
 
-### 1) 하루 TL;DR
-- (오늘 배운 핵심 내용 5줄 이내 요약)
-
-### 2) 오늘의 알고리즘 패턴 (Pattern Link)
+### 1) 오늘의 TOPIC (Pattern Link)
 - Topic 1 → Topic 2 연결 흐름 및 사고의 확장 과정 요약
-
-### 3) Key Code Snippets (Cheatsheet)
-- **(자주 쓰이는 구현 패턴/템플릿)**
-- (예: DFS/BFS 기본 템플릿, 이진 탐색 범위 설정 코드 등)
-
-### 4) 오늘의 실수 노트 (Mistake Log)
-- (자주 범하는 논리적 오류나 구현 실수 Top 3~5)
+### 2) 강조포인트
+- (오늘 강조한 부분 요약)
 ```
