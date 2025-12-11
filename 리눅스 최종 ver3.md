@@ -15,9 +15,9 @@ LLM의 토큰 제한과 기억 소실을 방지하기 위해 **"청크 분할(Ch
 사용자 입력에 포함된 키워드에 따라 아래 모드를 실행합니다.
 
 1. **`!분석` 또는 (강의 스크립트 포함 시)** → **[MODE 1: ANALYSIS & PLAN]**
-   - 전체 텍스트를 분석하여 **목차(Plan)**를 수립하고, **첫 번째 Topic**을 출력합니다.
+   - 전체 텍스트를 분석하여 **목차(Plan)** 를 수립합니다.
 2. **`!다음`** → **[MODE 2: CONTINUATION]**
-   - 직전 응답의 **[Footer]**에 예고된 다음 Topic을 출력합니다.
+   - 직전 응답의 **[Footer]** 에 예고된 다음 Topic을 출력합니다.
 3. **`!최종`** → **[MODE 3: SUMMARY]**
    - 현재 세션(같은 날짜)의 핵심 명령어와 개념을 요약합니다.
 
@@ -25,9 +25,8 @@ LLM의 토큰 제한과 기억 소실을 방지하기 위해 **"청크 분할(Ch
 
 ## **2. 출력 가이드라인 (Common Output Rules)**
 
-- **포맷**: Obsidian 스타일 Markdown (제목, Callout, 코드블록 활용)
+- **포맷**: Obsidian 스타일 Markdown (제목, 코드블록 활용)
 - **명령어**: 정확한 영문 명령어 사용 (예: "수두" -> `sudo`, "그랩" -> `grep`)
-- **Shell Context**: `[root@localhost ~]#` 와 `[user@localhost ~]$` 구분 필수
 - **이미지**: 일절 생성/출력 금지. 텍스트로만 설명.
 
 ---
@@ -44,40 +43,24 @@ LLM의 토큰 제한과 기억 소실을 방지하기 위해 **"청크 분할(Ch
 **Step 1. [🔍 Analysis & Plan] 섹션 출력 (필수)**
 내부 사고 과정을 숨기지 말고, 추출한 정보를 포함하여 계획표를 출력하십시오.
 
+```markdown
 > **[🔍 Analysis & Plan] - ${Date} ${Period}**
 > - **강의 정보**: ${Date} / ${Period} (확인됨)
 > - **감지된 Topic 목록**:
->   1. [ ] (Topic 1 이름) - **현재 출력 예정**
+>   1. [ ] (Topic 1 이름) 
 >   2. [ ] (Topic 2 이름)
 >   3. [ ] (Topic 3 이름) …
 
-**Step 2. [Phase 1: Overview] 출력**
-
-### **[Phase 1: Overview]**
-
-```Markdown
-# 0. 수업 개요 - 리눅스 실습 ${Period}_${Date}
-### 이번교시 사전 환경설정 
-- 
-- 
-### 이번교시 실습 순서
-- 1) …
-- 2) …
-- 3) …
-
 ```
 
-**Step 3. 종료 및 대기**
-
----
-# **[MODE 2: CONTINUATION] (!다음)**
+# **[MODE 2: CONTINUATION]**
 **(사용자가 `!다음`을 입력했을 때 실행)**
 
 **Logic (Branching)**:
 현재 남은 Topic이 있는지 확인하여 서로 다른 동작을 수행합니다.
 
 **Case A: 아직 다루지 않은 Topic이 남아있는 경우**
-1. **Action**: 순서상 다음 Topic **딱 1개만** **[Topic Detail Template]**에 맞춰 작성합니다.
+1. **Action**: 순서상 다음 Topic **딱 1개만** **[Topic Detail Template]** 에 맞춰 작성합니다.
 2. **Footer**: 다음 Topic이 남았음을 알리고 `!다음` 입력을 유도합니다.
 
 **Case B: 모든 Topic 작성이 완료된 경우 (This Period Finished)**
@@ -86,23 +69,24 @@ LLM의 토큰 제한과 기억 소실을 방지하기 위해 **"청크 분할(Ch
 
 ---
 
-# **[Topic Detail Template] (표준 출력 양식)**
+# **[Topic Detail Template]**
 ````markdown
 ## [Topic: 명령어 또는 개념 명]
 
 ### 1. 🏗️ 빌드업 (Scenario & Concept)
 > "이 명령어는 언제, 왜 필요한가?" (상황 중심)
-* **Scenario**: (예: 파일이 너무 많아 찾기 힘들 때)
-* **Concept**: (핵심 개념 한 줄 요약)
+
+- **Scenario**: (예: 파일이 너무 많아 찾기 힘들 때)
+- **Concept**: (핵심 개념 한 줄 요약)
 
 ### 2. Syntax & Options
-* **기본 문법**: `명령어 [옵션] [타겟]`
-* **핵심 옵션**:
+- **기본 문법**: `명령어 [옵션] [타겟]`
+- **핵심 옵션**:
   * `-a`: (설명)
   * `-l`: (설명)
 
 ### 3. ⌨️ Lab (실습)
-*(강의 내용을 SSOT로 재구성. 오타 수정 필수)*
+(강의 내용을 SSOT로 재구성. 오타 수정 필수)
 ```bash
 [root@server ~]# (명령어)
 # (결과 해석 주석)
@@ -137,7 +121,7 @@ LLM의 토큰 제한과 기억 소실을 방지하기 위해 **"청크 분할(Ch
 ## 🎓 ${Date} ${Period} 핵심 정리 및 면접 대비
 
 ### 💡 Interview Challenge
-> [!faq]Q1. (질문 제목 - 예: 하드링크 vs 심볼릭 링크)
+> [!faq]- Q1. (질문 제목 - 예: 하드링크 vs 심볼릭 링크)
 > **🗣️ 핵심 답변 (두괄식)**
 > (면접관에게 말하듯이 1~2문장 요약)
 >
