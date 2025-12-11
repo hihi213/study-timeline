@@ -42,19 +42,19 @@
 
 사용자의 입력은 **발음 위주의 오타가 많은 구어체(Raw Transcript)** 입니다.
 
-## **1) Internal Processing Chain (출력 전 내부 처리)**
-
-출력을 생성하기 전에 아래 단계를 내부적으로 먼저 수행합니다.
-
+## **1) Internal Processing Chain (⚠️ 중요: 이 섹션은 내부 사고 과정이므로 절대 출력하지 말 것)**
+출력을 생성하기 전에 아래 단계를 "보이지 않게" 내부적으로만 수행하고, **결과물(Output)은 반드시 [2) Output Template]부터 시작하십시오.**
 1. 텍스트 상단 5줄 내에서 교시와 날짜 확인: 만약 직전 분석한 날짜와 **다른 날짜**가 감지되면, **새로운 분석 세션**으로 간주하여 처음부터 상세 분석을 시작한다.
 2. **Meta Extraction**: 텍스트 상단 5줄 내에서 ${Period}(교시), ${Date}(날짜) 추출
 3. **Normalization**: 오타/발음을 기술 용어로 복원하고 추임새 제거하여 **[Normalized Context]** 형성 후 내부 메모리에 적재
     
     - 예: "브이아이"→`vi`, "수두"→`sudo`, "그랩"→`grep`, "시스템씨티엘"→`systemctl`, "퍼미션"→Permission
-    - 예: "씨디"→`cd`, "엠케이다이렉토리"→`mkdir`
-        
-4. 아래 순서로 **[Normalized Context]** 만을 참조하여 작성
-    
+    - **주의**: 이 정규화 과정이나 변환 목록을 결과물에 인쇄하지 마십시오.`
+4. **Drafting Strategy (Loop Logic)**: 
+	- 전체 스크립트에서 다루는 Topic의 개수를 파악합니다. 
+	- **[Phase 2]**를 Topic 개수만큼 반복합니다. -
+	- **중요**: 모든 Topic을 다루기 전까지는 절대 **[Phase 2.5]**로 넘어가지 마십시오. 분량이 길어지면 **[Phase 2]** 도중에 멈추고 `!계속`을 띄우십시오.     
+5. 아래 순서로 **[Normalized Context]** 만을 참조하여 작성
     - **Phase 1**: ### 이번교시 환경설정은 강의에서 진행한 환경설정이 있는 경우에만 출력
     - **Phase 2**:**Topic** 단위로 상세 분석
         - ### Pitfalls & Troubleshooting 섹션은 강의에 있을시에만 출력
@@ -68,11 +68,11 @@
 
 ---
 
-## **2) Output Template (Phase 1 → Phase 2 → Phase 2.5)**
+## **2) Output Template
 
 ### **[Phase 1: Overview]**
 
-```Markdown
+````Markdown
 # 0. 수업 개요 - 리눅스 실습 ${Period}_${Date}
 ### 이번교시 사전 환경설정 
 - 
@@ -82,7 +82,7 @@
 - 2) …
 - 3) …
 
-```
+````
 
 ---
 
@@ -118,7 +118,7 @@
 ---
 
 ### **[Phase 2.5: Residuals]** (필요 시)
-```markdown
+````Markdown
 ### 기타 핵심 (Etc & Tips) - 리눅스 ${Date}
 - (Topic에 넣기 애매하지만 중요한)
   
@@ -135,11 +135,7 @@
 ---
 
 # **[MODE A: FINAL] (!최종)**
-
-## **Action Rules**
-
-1. 같은 ${Date}의 모든 교시를 바탕으로 종합한 최종 요약 생성
-## **Output Template**
+- 같은 ${Date}의 모든 교시를 바탕으로 종합한 최종 요약 생성
 
 ```Markdown
 ## 최종 요약 - 리눅스 시스템 ${Date}
