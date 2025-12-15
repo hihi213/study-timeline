@@ -6,8 +6,6 @@ source_url: "{{SOURCE}}"
 author:
 creation_date: 2025-12-04
 ---
-# 무제
-
 ## 📖 소스 요약 (Summary)
 
 # 🚀 백엔드 신입 면접 대비: CS 완전 정복 로드맵
@@ -21,13 +19,11 @@ creation_date: 2025-12-04
 - **[데이터 표현]** 2진수/16진수 변환, 비트 연산 기초 (AND/OR/XOR)
 - **[논리/집합]** 명제 논리, **집합론(교/합/차집합) $\leftrightarrow$ SQL JOIN 원리 연결**
 - **[상태 관리]** **FSM (유한 상태 머신)** $\leftrightarrow$ 주문/결제 상태 전이(State Transition) 로직의 기초
-    
 
 ### 2. 하드웨어 환경 (Architecture)
 
 - **[메모리 계층]** **레지스터 > 캐시 > RAM > Disk** 속도 차이와 비용 구조
 - **[CPU 작동]** **CPU Bound(연산 집중) vs I/O Bound(DB/네트워크 대기)** 작업의 차이
-    
 
 ### 3. 시스템 실행 환경 (OS)
 
