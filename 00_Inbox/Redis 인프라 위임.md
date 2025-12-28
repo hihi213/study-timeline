@@ -34,7 +34,6 @@ public Set<String> getNoShowUsers(String eventId) {
 - **Key-Value 구조:**
     - **Key (이름표):** 데이터를 찾기 위한 고유 주소 (예: `event:101:registered`)
     - **Value (내용물):** 그 주소 안에 들어있는 실제 데이터 뭉치
-        
 
 ### **3. `eventId`의 역할과 데이터 구조**
 
