@@ -569,7 +569,7 @@ numbers.filter((num) => {
 	```
 	
 - 실행 결과
-	```
+	```sql
 	Infinity
 	오류가 발생했습니다: Cannot read properties of undefined (reading 'name')
 	이 코드는 항상 실행됩니다.
@@ -984,8 +984,8 @@ fetchPizza();
 
 `fetch` API는 **두 단계의 Promise**로 동작하는 비동기 통신 인터페이스입니다.
 
-1) 응답에 대한 정보를 담고있는 헤더를 먼저 받고
-2) 실제 데이터인, 응답 본문(body)을 읽는 과정이 분리되어 있습니다.
+1. 응답에 대한 정보를 담고있는 헤더를 먼저 받고
+2. 실제 데이터인, 응답 본문(body)을 읽는 과정이 분리되어 있습니다.
 ---
 #### 1단계 Promise: `fetch(url)` → `Response` 객체
 
@@ -1419,7 +1419,7 @@ function App() {// in App.js
 
 - **역할**:
     1. **JSX 변환**: `<div />`와 같은 JSX 코드를 브라우저가 이해할 수 있는 `React.createElement()` 함수 호출로 변환합니다
-	2. **버전 호환성**: 화살표 함수, `const/let` 등 최신 최신 JavaScript 문법을 구형 브라우저에서도 동작하는 코드(ES5)로 변환하여 호환성을 확보합니다.
+	1. **버전 호환성**: 화살표 함수, `const/let` 등 최신 최신 JavaScript 문법을 구형 브라우저에서도 동작하는 코드(ES5)로 변환하여 호환성을 확보합니다.
 - **동작 방식**: Create React App이나 Vite 같은 개발 환경에서는 코드를 저장하거나 실행할 때마다 바벨이 자동으로 동작합니다. 개발자는 별도의 설정 없이 편리하게 최신 문법을 사용할 수 있습니다.
 ### 3. JSX 작성 핵심 규칙 ✍️
 
@@ -1890,4 +1890,3 @@ useEffect(() => {
 # 백엔드 영역
 
 - ## 💭 생각의 인큐베이터 (My Thoughts & Connections) 
-
