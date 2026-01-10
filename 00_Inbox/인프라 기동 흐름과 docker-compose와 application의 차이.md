@@ -33,9 +33,7 @@ creation_date: 2026-01-09
 1. **JVM 실행:** 자바 가상 머신(JVM)이 구동되고, `Application.java`의 `main()` 메서드가 시작됩니다.
 2. **Spring 컨테이너 생성:** Spring Boot가 내부적으로 **IoC 컨테이너(Bean 관리자)**를 생성합니다.
 3. **설정 파일 로드:** `src/main/resources/application.yml` 파일을 읽어 메모리에 설정값을 적재합니다.
-    
     - 이때 `spring.datasource.url`, `username`, `password` 값을 확보합니다.
-        
 
 ---
 
@@ -47,7 +45,6 @@ creation_date: 2026-01-09
 2. **TCP 연결:** JDBC 드라이버가 `localhost:5432` (Docker가 열어둔 포트)로 TCP 패킷을 보냅니다.
 3. **인증 (Authentication):** DB 서버는 요청받은 ID/PW가 자신이 설정한 값(`docker-compose`의 환경변수)과 일치하는지 검사합니다.
 4. **커넥션 풀(Connection Pool) 형성:** 인증에 성공하면, 성능을 위해 미리 여러 개의 연결 선(Connection)을 만들어두고 유지합니다 (HikariCP).
-    
 
 ---
 
@@ -58,7 +55,6 @@ creation_date: 2026-01-09
 1. **엔티티 스캔:** 프로젝트 내의 `@Entity`가 붙은 클래스(`Bundle`, `Item` 등)를 모두 찾습니다.
 2. **스키마 비교:** 현재 DB에 있는 테이블 구조와 자바 Entity 구조를 비교합니다.
 3. **DDL 실행:** 차이점이 있다면 SQL(`CREATE TABLE`, `ALTER TABLE` 등)을 생성하여 DB에 전송하고 실행시킵니다. 이로 인해 DB에 테이블이 생성됩니다.
-    
 
 ---
 
@@ -77,7 +73,6 @@ creation_date: 2026-01-09
 3. **App:** `localhost:5432`로 접속 시도 ➡️ **DB:** 인증 성공.
 4. **App:** `@Entity` 스캔 후 테이블 생성 쿼리 전송 ➡️ **DB:** 테이블 생성.
 5. **App:** 8080 포트 열고 대기.
-    
 
 이 과정 중 하나라도 실패하면(포트 충돌, 비밀번호 불일치 등) 서버는 켜지지 않습니다.
 ### 1. `docker-compose.yml` : 인프라스트럭처 계층 (Infrastructure Layer)
