@@ -165,7 +165,135 @@ creation_date: 2025-11-19
 		- 6개 이하: 메모리 낭비 줄이자-> 연결리스트로 복귀
 		- 빈번한 변경을 막기위해 8과 6으로 차이를 둠
 
+## 큐와 스택
+### 스택 (Stack)
 
+**후입선출(LIFO: Last In First Out)** 원칙을 따르는 선형 자료구조입니다.
+
+- **동작 원리:** 가장 마지막에 삽입된 데이터가 삭제 시 가장 먼저 반환됩니다.
+- **주요 활용:** 함수 호출의 콜 스택(Call Stack), DFS(깊이 우선 탐색), 웹 브라우저 방문 기록, 실행 취소(Undo) 등 역순 추적이 필요한 로직에 사용됩니다.
+
+#### **① 자바(Java)에서의 구현**
+
+**[핵심 전략]** `Stack` 클래스 대신 **`ArrayDeque`** 사용 권장
+
+- **`java.util.Stack`:** Java 1.0부터 존재한 레거시(Legacy) 클래스입니다. 모든 메서드에 동기화(Synchronized) 처리가 되어 있어 단일 스레드 환경에서도 불필요한 성능 저하가 발생합니다.
+- **`java.util.ArrayDeque`:** 동기화 오버헤드가 없으며, 메모리 효율과 속도 면에서 더 우수합니다.
+
+```Java
+// [Java] Stack 클래스 대신 ArrayDeque 사용
+import java.util.ArrayDeque;
+import java.util.Deque;
+// Deque 인터페이스를 ArrayDeque로 구현
+Deque<Integer> stack = new ArrayDeque<>();
+
+// 1. 삽입 (Push)
+stack.push(10); 
+stack.push(20);
+
+// 2. 조회 (Peek) - 상단 데이터 확인 (삭제 X)
+int top = stack.peek(); 
+
+// 3. 삭제 (Pop) - 데이터 반환 및 제거
+// ★ EmptyStackException 방지를 위해 비어있는지 확인 권장
+if (!stack.isEmpty()) {
+    stack.pop();
+}
+```
+
+#### ② 파이썬(Python) 구현과 활용**
+
+**[핵심 전략]** 별도 모듈 없이 **기본 `list`** 사용
+
+- **동작 원리:** 파이썬의 리스트는 동적 배열(Dynamic Array)입니다. 리스트의 **맨 끝**에 데이터를 추가하거나 삭제하는 연산은 인덱스 재정렬이 필요 없으므로 **$O(1)$**의 시간 복잡도를 가집니다.
+- **주요 메서드:**
+    - `append(x)`: 삽입
+    - `pop()`: 삭제 (인자 생략 시 마지막 요소 제거)
+    - `stack[-1]`: 조회 (마지막 요소 접근)
+
+```Python
+# [Python] 스택 활용 
+# 별도 import 없음
+stack = []
+
+# 1. 삽입
+stack.append(10)
+stack.append(20)
+
+# 2. 조회 (Peek)
+# 리스트가 비어있지 않은지 확인 (Pythonic한 조건문)
+if stack:
+    print(stack[-1]) # 20 (가장 마지막 요소 확인)
+
+# 3. 삭제 (Pop)
+top = stack.pop()    # 20 (맨 뒤에서 꺼냄) - O(1)
+```
+
+---
+
+### 2. 큐 (Queue)
+
+**선입선출(FIFO: First In First Out)** 원칙을 따르는 선형 자료구조입니다.
+
+- **동작 원리:** 가장 먼저 삽입된 데이터가 삭제 시 가장 먼저 반환됩니다.
+- **주요 활용:** 프로세스 스케줄링, 입출력 버퍼, BFS(너비 우선 탐색), 캐시 구현 등에 사용됩니다.
+
+#### ① 자바(Java)에서의 구현**
+
+**[핵심 전략]** `Queue` 인터페이스와 **`LinkedList`** 구현체 사용
+
+- **구현체:** 자바에서는 큐는 인터페이스로 정의되어있어 객체 생성이 불가능하며, 일반적으로 `LinkedList`를 구현체로 사용합니다.
+- **메서드 비교 (예외 처리 vs 값 반환):**
+    - `add` / `remove`: 실패 시 **예외(Exception)**를 발생시켜 프로그램이 중단될 수 있습니다.
+    - `offer` / `poll`: 실패 시 **`false` 또는 `null`**을 반환하므로 알고리즘 로직 제어에 유리합니다.
+
+```Java
+// [Java] LinkedList로 Queue 구현
+import java.util.LinkedList;
+import java.util.Queue;
+
+// Queue 인터페이스를 LinkedList로 구현
+Queue<Integer> q = new LinkedList<>();
+
+// 1. 삽입 (Enqueue)
+q.offer(10); // 성공 시 true 반환
+
+// 2. 조회 (Peek) - ★ 맨 앞 데이터 확인
+Integer front = q.peek(); 
+
+// 3. 삭제 (Dequeue)
+// 큐가 비어있으면 null 반환 (예외 발생 안 함)
+q.poll();
+```
+
+#### **② 파이썬(Python) 구현과 활용**
+
+**[핵심 전략]** `list` 사용 금지, **`collections.deque`** 필수 사용
+
+- **`list` 사용 시 문제점 ($O(N)$):** `pop(0)`으로 맨 앞의 요소를 제거하면, 빈 공간을 채우기 위해 뒤에 있는 모든 데이터를 한 칸씩 앞으로 이동(Shifting)시켜야 합니다. 이는 데이터 크기(N)에 비례하는 시간이 소요됩니다.
+- **`deque`의 장점 ($O(1)$):** 양방향 연결 리스트(Doubly Linked List)로 구현되어 있어, 양쪽 끝에서의 데이터 추가/삭제가 모두 $O(1)$에 수행됩니다.
+    - _주의:_ `queue.Queue` 모듈은 멀티스레드 동기화 락(Lock)이 포함되어 있어 코딩 테스트용으로는 느립니다.- **구현:**
+    - **Enqueue (삽입):** `append(x)` (뒤에 줄 서기)
+    - **Dequeue (삭제):** **`popleft()`** (앞에서 나가기)
+
+```Python
+from collections import deque
+
+# 반드시 deque로 초기화
+q = deque()
+
+# 1. 삽입 (Enqueue)
+q.append(10)
+q.append(20)
+
+# 2. 조회 (Peek)
+if q:
+    print(q[0])    # 10 (맨 앞 요소 접근)
+
+# 3. 삭제 (Dequeue)
+first = q.popleft() # 10 (반환 및 삭제) - O(1)
+# 주의: q.pop()은 스택처럼 맨 뒤 요소를 제거하므로 사용 금지
+```
 
 ## 💭 생각의 인큐베이터 (My Thoughts & Connections)
 [[00_Inbox/파이썬 코딩용 문법정리.md|파이썬 코딩용 문법정리]]
