@@ -4,16 +4,6 @@ status: inbox
 source:
 creation_date: 2026-01-11
 ---
-- GET /fridge/slots — 칸 목록 조회(필터: floor, view, page, size)
-- GET /fridge/bundles — 포장 목록 조회(필터: slotId, owner, status, search, page, size)
-- POST /fridge/bundles — 포장 생성(허용량 초과 시 422 CAPACITY_EXCEEDED)
-- GET /fridge/bundles/{bundleId} — 포장 상세 조회
-- PATCH /fridge/bundles/{bundleId} — 포장 수정
-- DELETE /fridge/bundles/{bundleId} — 포장 삭제
-- POST /fridge/bundles/{bundleId}/items — 포장에 물품 추가
-- PATCH /fridge/items/{itemId} — 물품 수정
-- DELETE /fridge/items/{itemId} — 물품 삭제
-
 
 ```mermaid
 erDiagram
@@ -34,7 +24,6 @@ erDiagram
     }
 ```
 
-
 Mermaid의 **`erDiagram`**은 데이터베이스의 구조와 관계를 시각화하는 데 매우 강력한 도구입니다. 앞서 겪으셨던 오류를 방지하면서, 정확하고 풍부한 다이어그램을 그리기 위한 핵심 문법을 정리해 드립니다.
 
 ---
@@ -53,43 +42,6 @@ erDiagram
 ---
 
 ## 2. 관계 표현 (Cardinality)
-
-가장 중요한 부분은 엔티티 사이의 선 모양입니다. 선의 양 끝 기호에 따라 관계의 종류가 결정됩니다.
-
-|**기호**|**의미**|**설명**|
-|---|---|---|
-|`||`|
-|`|{`|**1 or more**|
-|`|o`|**0 or 1**|
-|`o{`|**0 or more**|없거나 여러 개 (선택)|
-
-**[예시]**
-
-- `A ||--o{ B` : A 하나당 B는 0개 이상 존재할 수 있음 (1:N)
-- `A ||--|| B` : A 하나당 B는 반드시 하나 존재해야 함 (1:1)
-
----
-
-## 3. 엔티티와 속성 정의
-
-엔티티 내부의 데이터 필드(속성)는 중괄호 `{}` 안에 정의합니다.
-
-코드 스니펫
-
-```mermaid
-erDiagram
-    USER {
-        string username PK "사용자 아이디"
-        string password
-        int age
-    }
-```
-
-- **형식:** `타입 이름 제약조건 "설명"`
-- **제약조건:** `PK`(Primary Key), `FK`(Foreign Key)를 명시할 수 있습니다.
-- **설명:** 따옴표 `""`를 사용하여 한글이나 상세 설명을 넣을 수 있습니다.
-    
-표 없이 줄글과 불렛포인트만으로 더욱 직관적으로 설명해 드릴게요.
 
 관계를 표현하는 기호는 **선의 양 끝에 붙는 두 개의 기호**만 이해하면 끝납니다. 이 기호들은 **"상대방 엔티티에 데이터가 몇 개나 있을 수 있는가?"**를 나타냅니다.
 
@@ -151,3 +103,21 @@ erDiagram
 ```
 
 ---
+
+## 3. 엔티티와 속성 정의
+
+엔티티 내부의 데이터 필드(속성)는 중괄호 `{}` 안에 정의합니다.
+
+
+```mermaid
+erDiagram
+    USER {
+        string username PK "사용자 아이디"
+        string password
+        int age
+    }
+```
+
+- **형식:** `타입 이름 제약조건 "설명"`
+- **제약조건:** `PK`(Primary Key), `FK`(Foreign Key)를 명시할 수 있습니다.
+- **설명:** 따옴표 `""`를 사용하여 한글이나 상세 설명을 넣을 수 있습니다.
