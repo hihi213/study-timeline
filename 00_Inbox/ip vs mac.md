@@ -36,7 +36,7 @@ creation_date: 2025-09-27
 
 ## **지금 내 상태 빠르게 확인(우분투)**
 
-```
+```sql
 ip -br a     # 내 IP/프리픽스
 ip route     # 라우팅(게이트웨이 등)
 ip neigh     # ARP/NDP: IP ↔ MAC 매핑
