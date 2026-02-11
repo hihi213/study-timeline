@@ -197,4 +197,3 @@ spring:
 - [JPA 연관관계 매핑 전략](JPA%20연관관계%20매핑%20전략.md)
 - [[JPA_업데이트·동기화_흐름(persist_remove_flush_commit)|JPA_업데이트·동기화_흐름(persist_remove_flush_commit)]]
 - [JPA cascade ,orphanRemoval](JPA%20cascade%20,orphanRemoval.md)
-

@@ -94,19 +94,19 @@ topics: []
 
 ### **A) 신규 저장**
 
-```
+```sql
 new → persist → (IDENTITY면 즉시 INSERT) → flush(INSERT 전송) → commit(확정)
 ```
 
 ### **B) 값 변경**
 
-```
+```sql
 find(영속) → 필드 변경(Dirty) → flush(UPDATE 전송) → commit(확정)
 ```
 
 ### **C) 삭제**
 
-```
+```sql
 find(영속) → remove(삭제 예약) → flush(DELETE 전송) → commit(확정)
 ```
 
