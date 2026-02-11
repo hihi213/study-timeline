@@ -7,7 +7,7 @@ creation_date: 2025-07-30
 
 
 ## 📜 원본 맥락
-![](../05_Sources/{S}%20인프런%20그린코딩%2052시간%20풀스택+%20Gemini.md#^minmtx)
+![](../05_Sources/notes/{S}%20인프런%20그린코딩%2052시간%20풀스택+%20Gemini.md#^minmtx)
 
 ---
 ## 정리

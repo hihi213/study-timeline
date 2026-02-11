@@ -56,9 +56,6 @@
 		- SDL(storage definition language): internal schema를 정의하기위해 사용되는 언어
 		- VDL: external schemas
 	- DML(data manipulation language) : database 실제로 있는 데이터를 활용하기 위한 언어
-		- 데이터 추가,  삭제, 수정, 검색
+		- 데이터 추가, 삭제, 수정, 검색
 	- relational database language: SQL
 		- DML+VDL+DDL이 통합된 언어
-
-
-

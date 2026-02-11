@@ -7,7 +7,7 @@ creation_date: 2025-12-20
 
 
 ## 📜 원본 맥락
-![[../05_Sources/{S} 인프런_코딩테스트allinone#^c7jbdc]]
+![[../05_Sources/notes/{S} 인프런_코딩테스트allinone#^c7jbdc]]
 
 ---
 ## 정리

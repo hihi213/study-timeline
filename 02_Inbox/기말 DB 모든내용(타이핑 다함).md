@@ -1,6 +1,0 @@
----
-type: 생각조각
-status: inbox
-source:
-creation_date: 2025-11-25
----

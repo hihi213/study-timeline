@@ -7,7 +7,7 @@ creation_date: 2025-09-28
 
 ## 📜 원본 맥락
 
-![[../05_Sources/{S} 김영한 응용1#^odocx2]]
+![[../05_Sources/notes/{S} 김영한 응용1#^odocx2]]
 
 ---
 ## 정리
