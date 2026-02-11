@@ -25,7 +25,7 @@ creation_date: 2025-11-07
 ### 1. `null` 자체가 원시 타입인 '자바스크립트'
 
 자바스크립트는 타입 구분이 유연한 동적 타입 언어이며,
-`null`은 '원시 값(Primitive Value)' 중 하나로 의도적인 빈 값을 표현합니다.[[자바스크립트의 NULL NAN undefined|자바스크립트의 NULL NAN undefined]] ^lrh7bc
+`null`은 '원시 값(Primitive Value)' 중 하나로 의도적인 빈 값을 표현합니다.[[자바스크립트의 NULL NAN undefined 1|자바스크립트의 NULL NAN undefined]] ^lrh7bc
 
 - **JavaScript의 7가지 원시 값:**
     - `String`
