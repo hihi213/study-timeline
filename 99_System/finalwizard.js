@@ -3,9 +3,9 @@ module.exports = async (params) => {
 
     // --- 설정 (이곳에서 경로 및 템플릿을 수정하세요) ---
     const CONFIG = {
-        sourceDir: "01_Sources/",
-        notesDir: "02_Notes/",
-        inboxDir: "00_Inbox/",
+        sourceDir: "05_Sources/",
+        notesDir: "03_Notes/",
+        inboxDir: "02_Inbox/",
         templateDir: "99_System/Templates/",
 
         // 템플릿 파일명
