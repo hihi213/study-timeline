@@ -48,7 +48,7 @@ creation_date: 2026-03-27
 이 과정을 생략하면 업로드와 다운로드에 수 시간이 걸리고 새 노트북 용량이 꽉 찹니다.
 
 - **빌드 찌꺼기 제거:** `node_modules`, `build`, `target`, `.gradle` 폴더를 삭제합니다. (새 노트북에서 다시 생성 가능)
-   
+ㅇ   
     
     ```Bash
     find ~/Desktop/Just_In_Case_Backup -type d \( -name "node_modules" -o -name "build" -o -name "target" -o -name ".gradle" \) -prune -exec rm -rf {} +
