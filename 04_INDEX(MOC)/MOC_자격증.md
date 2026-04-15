@@ -18,6 +18,7 @@ topics: []
 - 정리본
 	- [정처기 기출+핵심요약 정리본](../02_Inbox/정처기%20기출+핵심요약%20정리본.md) ->챕터로 분리해 옮길것
 	- [정처기_ch6_프로그래밍 언어 활용](../05_Sources/정처기_ch6_프로그래밍%20언어%20활용.md)
+	- [정보처리기사 실기 벼락치기 특강](../02_Inbox/정보처리기사%20실기%20벼락치기%20특강.md)
 
 https://www.kinfa.or.kr/financialProduct/hessalLoanYoos.do
 
