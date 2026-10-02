@@ -56,6 +56,27 @@ private Integer quantity; // 수량 데이터가 아직 확정되지 않았거�
 - 자바의 기본형(long, int)과 객체형 래퍼 클래스(Long, Integer)에는 아주 결정적인 차이가 하나 있습니다.  
   - 기본형(long, int): 기본값이 항상 0입니다. 즉, null을 담을 수 없습니다.  
   - 래퍼 클래스(Long, Integer): 참조 타입이므로 null을 담을 수 있습니다.
+
+
+
+
+이제 클래스 안에 생성자 두 개를 추가하자.  
+  
+```java  
+protected Item() {  
+}  
+  
+public Item(String name, Integer quantity) {  
+    this.name = name;    this.quantity = quantity;}  
+```  
+  
+- **기본 생성자**는 JPA가 DB 조회 결과로 `Item` 객체를 만들 때 필요해. JPA는 `public` 또는 `protected` 기본 생성자를 요구해.  
+- **이름·수량 생성자**는 우리가 새 물품을 만들 때 사용해. `id`는 DB가 생성하므로 받지 않아.  
+  
+자바 컴파일러는 클래스에 생성자가 하나도 없을 때만 기본 생성자를 자동으로 만들어 줍니다. 그래서 매걔변수 생성자만 추가하면 기본생성자 자동 생성이 사라지므로, 기본 생성자도 명시해야 해.
+
+
+
 ## AI 논리
 **1. Controller 계층 (요청 수신 및 1차 검증)**
 - **역할:** 외부 요청 데이터(JSON)를 DTO 객체로 변환(파싱)하여 Service로 전달
