@@ -44,7 +44,7 @@ creation_date: 2026-10-02
 ```
 
 
-## 구현논리
+## 구현논리_엔티티
 
 **물품 하나를 DB에 저장할 형태인 `Item` Entity**를 작성하자. Entity는 DB 테이블의 한 행과 연결되는 Java 클래스야.
 ```java  
@@ -74,7 +74,6 @@ public Item(String name, Integer quantity) {
   
 자바 컴파일러는 클래스에 생성자가 하나도 없을 때만 기본 생성자를 자동으로 만들어 줍니다. 그래서 매걔변수 생성자만 추가하면 기본생성자 자동 생성이 사라지므로, 기본 생성자도 명시해야 해.
 
-
 ### JPA 엔티티 클래스에는 기본생성자가 필수인 이유:
 - DB에서 데이터를 조회해 올 때, JPA/Hibernate는 객체를 리플렉션을 사용해 인스턴스화하고 값을 채워넣는다
 - 리플렉션 기술은 클래스의 이름과 메타정보만 보고 "일단 매개변수가 없는 기본 생성자로 껍데기 객체를 먼저 만든 뒤, private 필드에 직접 값을 꽂아 넣는 방식"으로 동작합니다.
@@ -98,7 +97,7 @@ public Long getId(){
 - **저장 직후:** DB가 방금 발급한 새 ID를 파악하기 위해 `getId()` 호출
 - **재방문 시:** 클라이언트가 "내 목록 줘(`GET /items`)"라고 요청하면 서버가 DB에서 꺼내 **ID가 이미 포함된 전체 목록 데이터**를 통째로 내려주므로, 클라이언트 입장에서 `getId`를 따로 호출할 이유가 없다.
 
-#### getName
+### getName, getQuantity
 
 ```java
 public String getName(){//객체안이므로 name을 알아내는데 id가 필요하지 않다. id는 db식별용이다  
@@ -108,6 +107,43 @@ public String getName(){//객체안이므로 name을 알아내는데 id가 필�
 
 - **`id`의 역할:** DB에서 수많은 행(row) 중 특정 데이터를 식별(검색)하기 위한 번호표
 - **Getter의 역할:** 이미 특정 인스턴스(객체) 내부이므로, 자기 `name`이나 `quantity`를 꺼낼 때는 `id` 없이 바로 읽기만 하면 됨
+
+## 구현논리_repository구현
+이제 **DB 저장·조회 창구인 `ItemRepository`**를 만들자.  
+  
+`Item.java`와 같은 패키지에 `ItemRepository.java`를 만들고, `public interface`로 선언해. 인터페이스 이름 뒤에는 다음을 붙이면 돼.  
+  
+```java  
+extends JpaRepository<Item, Long>  
+```  
+  
+필요한 import는 다음이야.  
+  
+```java  
+import org.springframework.data.jpa.repository.JpaRepository;  
+```  
+  
+`<Item, Long>`은 **저장할 Entity가 `Item`이고, ID 타입이 `Long`**이라는 뜻이야. Spring Data JPA가 구현 객체를 만들어 주므로, 내부는 비워 두면 돼.  
+  
+이 Repository에서 사용할 핵심 기능은 두 개야.  
+  
+- `save(item)`: 물품 저장  
+- `findById(id)`: ID로 물품 조회  
+  
+### 용어정리
+
+- **JPA(Java Persistence API)**: Java 객체와 DB 테이블을 매핑하고 저장·조회하기 위한 **표준 명세와 API**를 제공한다.
+	1. **명세 문서**: 객체와 테이블을 매핑하는 방식, 저장·조회 시 동작 규칙 등을 정의한다
+	2. **표준 API 코드**: 매핑 정보를 표현하는 애너테이션과 구현체가 제공해야 할 기능의 인터페이스를 정의한다.
+		- `@Entity`, `@Id`, `@Table`, `@Column`: 객체와 테이블의 매핑 정보를 지정한다.
+		- `EntityManager`: 개발자가 DB 작업을 (기본 CRUD용 SQL과 JDBC 연결 코드등)을 직접 작성하지 않고 처리할 수 있도록 `persist()`, `find()`, `remove()` 등 객체의 저장·조회·삭제와 생명주기를 관리하는 메서드가 선언된 인터페이스
+- **Hibernate**: JPA의 비어있는 메서드 본문을 구현한 **구현체**. 매핑 정보를 해석하고 SQL을 생성해 JDBC로 실행하는 실제 구현 코드를 개발자가 구현한 구현체
+- **Spring Data**: 여러 종류의 데이터 저장소에 접근하는 코드를 줄여 주는 Spring 프로젝트
+	- **Spring Data JPA**: Spring Data 중 JPA를 사용하는 부분. 우리가 작성한 Repository 인터페이스를 바탕으로 구현 객체를 만들어 준다.
+		- **`JpaRepository<Entity 타입, ID 타입>`**: Spring Data JPA가 제공하는 인터페이스. 기본 CRUD에서는 SQL과 JDBC 연결 코드를 직접 작성하지 않고 `save()`, `findById()` 같은 메서드를 사용할 수 있다.
+.
+
+
 
 
 ## AI 논리
