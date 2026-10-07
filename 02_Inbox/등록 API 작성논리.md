@@ -111,19 +111,21 @@ public String getName(){//객체안이므로 name을 알아내는데 id가 필�
 ## 구현논리_repository구현
 이제 **DB 저장·조회 창구인 `ItemRepository`**를 만들자.  
   
-`Item.java`와 같은 패키지에 `ItemRepository.java`를 만들고, `public interface`로 선언해. 인터페이스 이름 뒤에는 다음을 붙이면 돼.  
-  
-```java  
-extends JpaRepository<Item, Long>  
-```  
-  
+`Item.java`와 같은 패키지에 `ItemRepository.java`를 만들고, `public interface`로 선언해. `extends JpaRepository<Item, Long> ` 로 JpaRepository를 상속하게 해
+
+```java
+public interface ItemRepository extends JpaRepository<Item, Long>(){
+	//인터페이스 내부는 비워둔다. Spring Data JPA가 구현 객체를 제공하므로 우리가 `save()`와 `findById()`의 본문을 작성하지 않아도 돼 
+}
+```
+
+`<Item, Long>`은 **저장할 Entity가 `Item`이고, ID 타입이 `Long`**이라는 뜻이야.
+
 필요한 import는 다음이야.  
   
 ```java  
 import org.springframework.data.jpa.repository.JpaRepository;  
 ```  
-  
-`<Item, Long>`은 **저장할 Entity가 `Item`이고, ID 타입이 `Long`**이라는 뜻이야. Spring Data JPA가 구현 객체를 만들어 주므로, 내부는 비워 두면 돼.  
   
 이 Repository에서 사용할 핵심 기능은 두 개야.  
   
@@ -132,17 +134,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
   
 ### 용어정리
 
-- **JPA(Java Persistence API)**: Java 객체와 DB 테이블을 매핑하고 저장·조회하기 위한 **표준 명세와 API**를 제공한다.
-	1. **명세 문서**: 객체와 테이블을 매핑하는 방식, 저장·조회 시 동작 규칙 등을 정의한다
-	2. **표준 API 코드**: 매핑 정보를 표현하는 애너테이션과 구현체가 제공해야 할 기능의 인터페이스를 정의한다.
-		- `@Entity`, `@Id`, `@Table`, `@Column`: 객체와 테이블의 매핑 정보를 지정한다.
-		- `EntityManager`: 개발자가 DB 작업을 (기본 CRUD용 SQL과 JDBC 연결 코드등)을 직접 작성하지 않고 처리할 수 있도록 `persist()`, `find()`, `remove()` 등 객체의 저장·조회·삭제와 생명주기를 관리하는 메서드가 선언된 인터페이스
-- **Hibernate**: JPA의 비어있는 메서드 본문을 구현한 **구현체**. 매핑 정보를 해석하고 SQL을 생성해 JDBC로 실행하는 실제 구현 코드를 개발자가 구현한 구현체
-- **Spring Data**: 여러 종류의 데이터 저장소에 접근하는 코드를 줄여 주는 Spring 프로젝트
-	- **Spring Data JPA**: Spring Data 중 JPA를 사용하는 부분. 우리가 작성한 Repository 인터페이스를 바탕으로 구현 객체를 만들어 준다.
-		- **`JpaRepository<Entity 타입, ID 타입>`**: Spring Data JPA가 제공하는 인터페이스. 기본 CRUD에서는 SQL과 JDBC 연결 코드를 직접 작성하지 않고 `save()`, `findById()` 같은 메서드를 사용할 수 있다.
-.
-
+- **JPA(Java Persistence API, 현재 Jakarta Persistence)**: Java 객체와 DB 테이블을 매핑하고 저장·조회하기 위한 **표준 명세와 API**를 제공한다.
+	- **명세 문서**: 객체와 테이블의 매핑 방식, 저장·조회 시 동작 규칙 등을 정의한다.
+	- **표준 API 코드**: 매핑 정보를 표현하는 애너테이션과 사용할 기능을 선언한 인터페이스 등을 제공한다.
+	    - `@Entity`, `@Id`, `@Table`, `@Column`: 객체와 테이블의 매핑 정보를 지정한다.
+	    - `EntityManager`: `persist()`, `find()`, `remove()` 등 객체의 저장·조회·삭제와 생명주기를 관리하는 메서드가 선언된 인터페이스. 기본 작업에서는 개발자가 SQL과 JDBC 연결 코드를 직접 작성하지 않고 이 메서드들을 호출할 수 있다.
+- **Hibernate**: **JPA 표준을 구현한 라이브러리**. JPA 인터페이스에 선언된 기능을 실제로 수행하며, 매핑 정보를 해석하고 SQL을 생성해 JDBC를 통해 DB에 실행한다. 이 구현 코드는 Hibernate 개발자들이 제공하므로 우리가 직접 작성할 필요가 없다.
+- **Spring Data**: 여러 종류의 데이터 저장소에 접근하는 코드를 줄여 주는 Spring 프로젝트.
+	- **Spring Data JPA**: Spring Data 중 JPA를 활용하는 부분. 우리가 작성한 Repository 인터페이스를 바탕으로 구현 객체를 제공한다.
+		- **`JpaRepository<Entity 타입, ID 타입>`**: > Spring Data JPA가 제공하는 인터페이스. `save()`, `findById()` 같은 기본 저장·조회 메서드가 선언되어 있다. Spring Data JPA가 내부적으로 `EntityManager`를 사용하는 구현 객체를 제공하므로, 개발자는 Repository 구현 코드를 직접 작성하지 않고 메서드를 호출할 수 있다.
 
 
 
