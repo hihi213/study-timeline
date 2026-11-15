@@ -1,3 +1,4 @@
+
 # DormMate Rebuild — AI 협업 규칙 (개정안)
 
 Codex와 Antigravity의 공통 규칙이다. 도구별 실행·출력 규칙은 해당 도구의 지침을 따른다.
